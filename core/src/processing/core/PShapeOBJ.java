@@ -75,6 +75,8 @@ public class PShapeOBJ extends PShape {
     }
 
     vertexCount = face.vertIdx.size();
+    
+    // TODO: Problem HERE  -> Each vertex 
     vertices = new float[vertexCount][12];
     for (int j = 0; j < face.vertIdx.size(); j++){
       int vertIdx, normIdx;
@@ -127,14 +129,14 @@ public class PShapeOBJ extends PShape {
       }
     }
   }
-
-
+  
+ 
   protected void addChildren(ArrayList<OBJFace> faces,
                              ArrayList<OBJMaterial> materials,
                              ArrayList<PVector> coords,
                              ArrayList<PVector> normals,
                              ArrayList<PVector> texcoords) {
-    int mtlIdxCur = -1;
+      int mtlIdxCur = -1;
     OBJMaterial mtl = null;
     for (int i = 0; i < faces.size(); i++) {
       OBJFace face = faces.get(i);
@@ -165,6 +167,8 @@ public class PShapeOBJ extends PShape {
     boolean readv, readvn, readvt;
     try {
 
+        System.out.println("OBJ parse begin");
+        
       readv = readvn = readvt = false;
       String line;
       String gname = "object";
@@ -306,12 +310,15 @@ public class PShapeOBJ extends PShape {
           }
         }
       }
+      
+        System.out.println("OBJ parse ended");
 
       if (materials.size() == 0) {
         // No materials definition so far. Adding one default material.
         OBJMaterial defMtl = new OBJMaterial();
         materials.add(defMtl);
       }
+      
 
     } catch (Exception e) {
       e.printStackTrace();

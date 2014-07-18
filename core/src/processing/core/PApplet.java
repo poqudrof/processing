@@ -1672,7 +1672,7 @@ public class PApplet extends Applet
    * <br />
    * Do not use variables as the parameters to <b>size()</b> function,
    * because it will cause problems when exporting your sketch. When
-   * variables are used, the dimensions of your sketch cannot be determined
+   * variables are used, the dimensions of your sketch cannot eb determined
    * during export. Instead, employ numeric values in the <b>size()</b>
    * statement, and then use the built-in <b>width</b> and <b>height</b>
    * variables inside your program when the dimensions of the display window
