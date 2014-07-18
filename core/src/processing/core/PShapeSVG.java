@@ -35,6 +35,8 @@ import java.awt.geom.Rectangle2D;
 import java.awt.image.ColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 
 
@@ -293,6 +295,8 @@ public class PShapeSVG extends PShape {
     if (parseKids) {
       parseColors(properties);
       parseChildren(properties);
+//      // Reverse the children order, to be the same as inkscape
+//      Collections.reverse(Arrays.asList(children));
     }
   }
 
@@ -357,6 +361,11 @@ public class PShapeSVG extends PShape {
       //return new BaseObject(this, elem, RECT);
       shape = new PShapeSVG(this, elem, true);
       shape.parseRect();
+    // Images are like Rects ->  
+    } else if (name.equals("image")) {
+      //return new BaseObject(this, elem, RECT);
+      shape = new PShapeSVG(this, elem, true);
+      shape.parseImage();
 
     } else if (name.equals("polygon")) {
       //return new BaseObject(this, elem, POLYGON);
@@ -468,6 +477,19 @@ public class PShapeSVG extends PShape {
       getFloatWithUnit(element, "width"),
       getFloatWithUnit(element, "height")
     };
+  }
+  
+  protected void parseImage() {
+    kind = IMAGE_SHAPE;  // Hack -> See PConstants
+    family = PRIMITIVE;
+    params = new float[] {
+      getFloatWithUnit(element, "x"),
+      getFloatWithUnit(element, "y"),
+      getFloatWithUnit(element, "width"),
+      getFloatWithUnit(element, "height")
+    };
+    
+    this.imagePath = getText(element, "xlink:href");
   }
 
 
@@ -1166,13 +1188,14 @@ public class PShapeSVG extends PShape {
       color = opacityMask | parseRGB(colorText);
     } else if (colorText.startsWith("url(#")) {
       name = colorText.substring(5, colorText.length() - 1);
-//      PApplet.println("looking for " + name);
+      PApplet.println("looking for " + name);
       Object object = findChild(name);
-      //PApplet.println("found " + fillObject);
+      PApplet.println("found " + object);
       if (object instanceof Gradient) {
         gradient = (Gradient) object;
         paint = calcGradientPaint(gradient); //, opacity);
-        //PApplet.println("got filla " + fillObject);
+        PApplet.println("Gradient found");
+//PApplet.println("got filla " + fillObject);
       } else {
 //        visible = false;
         System.err.println("url " + name + " refers to unexpected data: " + object);
@@ -1225,7 +1248,18 @@ public class PShapeSVG extends PShape {
     String val = element.getString(attribute);
     return (val == null) ? 0 : parseUnitSize(val);
   }
-
+  
+  /**
+   * Used in place of element.getTextAttribute(a) because we can
+   * have a unit suffix (length or coordinate).
+   * @param element what to parse
+   * @param attribute name of the attribute to get
+   * @return unit-parsed version of the data
+   */
+  static protected String getText(XML element, String attribute) {
+    String val = element.getString(attribute);
+    return val;
+  }
 
   /**
    * Parse a size that may have a suffix for its units.

@@ -78,6 +78,7 @@ import processing.core.PApplet;
  */
 public class PShape implements PConstants {
   protected String name;
+  protected String imagePath = null;
   protected HashMap<String,PShape> nameTable;
 
 //  /** Generic, only draws its child objects. */
@@ -140,6 +141,11 @@ public class PShape implements PConstants {
 
   public float depth;
 
+    // Depth HACK
+  static float fakeDepth = 0;
+  static public float depthIncrement = 0.1f;
+  static public HashMap<String, PImage> loadedImages = new HashMap();
+  
   // set to false if the object is hidden in the layers palette
   protected boolean visible = true;
 
@@ -272,6 +278,8 @@ public class PShape implements PConstants {
  */
   public PShape(int family) {
     this.family = family;
+    depth = fakeDepth;
+    fakeDepth +=depthIncrement;
   }
 
 
@@ -1485,11 +1493,14 @@ public class PShape implements PConstants {
 
 
   protected void drawGroup(PGraphics g) {
-    for (int i = 0; i < childCount; i++) {
-      children[i].draw(g);
+    g.pushMatrix();
+      for (int i = 0; i < childCount; i++) {
+//          g.translate(0, 0, depth);
+          children[i].draw(g);
     }
+    g.popMatrix();
   }
-
+  
 
   protected void drawPrimitive(PGraphics g) {
     if (kind == POINT) {
@@ -1523,7 +1534,41 @@ public class PShape implements PConstants {
         g.rectMode(CORNER);
         g.rect(params[0], params[1], params[2], params[3]);
       }
-
+      
+    } else if (kind == IMAGE_SHAPE) {
+        // The image have to be loaded...
+        if(image == null) {
+     
+            g.rectMode(CORNER);
+            g.rect(params[0], params[1], params[2], params[3]);
+     
+            if(imagePath != null){
+                    String path;
+                 if(imagePath.startsWith("file://"))
+                path = imagePath;
+            else
+                path = g.parent.sketchPath(imagePath);
+            PImage img;
+            if(loadedImages.containsKey(path)){
+                img = loadedImages.get(path);
+                System.out.println("Image already loaded " + path);
+            }else {
+                img = g.parent.loadImage(path);
+                if (img == null){
+             //    System.err.println("ERROR: could not load image: " + path);
+              }else {
+                loadedImages.put(path, img);
+                System.out.println("Loaded image : " + path + "  "  + img );
+              }
+            }
+            this.setTexture(img);
+            }
+        }else {
+        g.imageMode(CORNER);
+        g.image(image, params[0], params[1], params[2], params[3]);
+   
+        }
+   
     } else if (kind == ELLIPSE) {
       g.ellipseMode(CORNER);
       g.ellipse(params[0], params[1], params[2], params[3]);

@@ -297,6 +297,7 @@ public interface PConstants {
   static final int RECT            = 30;  // primitive
   static final int ELLIPSE         = 31;  // primitive
   static final int ARC             = 32;  // primitive
+  static final int IMAGE_SHAPE     = 33;  // primitive
 
   static final int SPHERE          = 40;  // primitive
   static final int BOX             = 41;  // primitive
