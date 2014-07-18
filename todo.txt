@@ -1,28 +1,54 @@
-0227 pde
-X use mouseReleased() instead of mousePressed() in color selector
-X   otherwise it registers the release as a click in the color window
-X   https://github.com/processing/processing/issues/2514
-X missing 'version' in contrib causes NPE
-X   https://github.com/processing/processing/issues/2517
-X bring back setIcon(Frame) for PDE X and others
-X   https://github.com/processing/processing-experimental/issues/64
-X how was PDE X able to crash 2.2? 
-X   add additional code to rework how this is handled
-X Auto Format patch mess
-X   https://github.com/processing/processing/pull/2271
-X why is the JDK path showing up as a ._ feller in OS X?
-X   https://github.com/processing/processing/issues/2520
-X "Archive Sketch" Tool doesn't force a .zip file extension
-X   https://github.com/processing/processing/issues/2526
+0228 pde
+X increase heap size to 256m (-Xmx256) per Manindra request
+X use a ButtonGroup so that the current Mode cannot be de-selected
+X   https://github.com/processing/processing/issues/2545
 
-python
-J modifications for captureEvent and Python
-J   https://github.com/processing/processing/pull/2527
-J Permit implementing movieEvent without having to link to Movie at build time
-J   https://github.com/processing/processing/pull/2528
-J implement serial events without having to link to Serial at build time
-J   https://github.com/processing/processing/pull/2529
 
+pulls
+X Implementation of a list of open sketches in the Sketch menu
+X   https://github.com/processing/processing/pull/2551
+_ color selector for the pref (not reading it properly)
+_   https://github.com/processing/processing/pull/2568
+
+_ look at the sound library https://github.com/wirsing/ProcessingSound
+
+_ moving p5 examples to the web repo
+all examples are out of "processing/java" and are now in "processing-docs/content/". The Book examples have been removed entirely from our repositories.
+_ remove reference.zip from main repo
+_ processing-web/java_generate/ReferenceGenerator
+
+_ try new syntax package
+_ possibility of libraries folder inside a particular sketch?
+_ incorporate new preproc
+_   https://github.com/fjenett/processing-preprocessor-antlr4
+_ glw? lwjgl? 
+_ move sketchbook into its own window
+_ move recent into the sketchbook menu
+_   needs to recognize the p5 app folder
+_   also should recognize the user's home dir
+_ move examples into web repo 
+_ make reference and examples build process part of dist
+_   separate ant targets, but only require them for dist
+_   as separate targets, folks can build explicitly if they'd like
+
+_ shouldn't write sketch.properties unless it's a non-default mode
+_   https://github.com/processing/processing/issues/2531
+_ huge i18n patch
+_   https://github.com/processing/processing/pull/2084
+_ make ant fail when trying to delete JRE files that don't exist
+_   some aren't being removed properly
+
+earlier
+X for() loop with nothing inside parens crashes Auto Format
+X   https://github.com/processing/processing/issues/2141
+
+gsoc
+_ `return` keyword not treated as such when followed by a bracket
+_   https://github.com/processing/processing/issues/2099
+_ IllegalArgumentException when clicking between editor windows
+_   https://github.com/processing/processing/issues/2530
+_ "String index out of range" error
+_   https://github.com/processing/processing/issues/1940
 
 medium
 _ possible to open a sketch multiple times 
@@ -65,8 +91,6 @@ _   the Find window (also the save windows) also have the same problem
 _ move old Google Code SVN back to processing.org
 _   then cull out the old branches/tags from the Github repo
 _   and/or start bundling separate source downloads
-_ "String index out of range" error
-_   https://github.com/processing/processing/issues/1940
 _ look through all isPopupTrigger() code 
 _   make sure both press/release are implemented
 _ emacs style errors in commander aren't quite right
@@ -566,6 +590,8 @@ _   https://github.com/processing/processing/issues/943
 
 PDE / Manager
 
+_ contrib properties files ignored in favor of contributions.txt from p5.org
+_   https://github.com/processing/processing/issues/2572
 _ ability to cancel a download/install
 _ we shouldn't use .properties extension for modes, et al
 _   because a .properties file is iso8859-1
@@ -715,8 +741,6 @@ _   update will update classes from shared in the current folder
 
 TOOLS / Auto Format
 
-_ for() loop with nothing inside parens crashes Auto Format
-_   https://github.com/processing/processing/issues/2141
 _ extra indent found
 _   https://github.com/processing/processing/issues/1041
 _ Switch block cases not indented
@@ -884,6 +908,8 @@ find YOUR_APP/Contents/ -type f \
 
 DIST / Linux
 
+_ Processing is named processing-app-Base in Gnome 3
+_   https://github.com/processing/processing/issues/2534
 _ how to run "headless" from user Batuff
 _   sudo apt-get install xvfb
 _   Xvfb :2 -screen 0 1024x768x24 &

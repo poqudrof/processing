@@ -1,11 +1,30 @@
-0227 core
-X Permit mouse PRESS to set mouseX/mouseY
-X   https://github.com/processing/processing/pull/2509
-A Fix for video, loop() broken in 2.2
-A   https://github.com/processing/processing/issues/2524
+0228 core
+X add copy() method to PVector
+X modify PVector to include better methods for chaining operations
+X   http://code.google.com/p/processing/issues/detail?id=218
+X   https://github.com/processing/processing/issues/257
+X   PVector discussion with Dan
+o   Jer and Dan will look at their code, plus toxiclibs
+
+table
+X major performance improvements to 'newlines' parsing
+X debugging table parsing with header rows
+X bug fix for setting data type
+
+
+applet removal
+_ remove Applet as base class
+_ performance issues on OS X (might be threading due to Applet)
+_   https://github.com/processing/processing/issues/2423
+
+_ bring back chaining in JSON (and add to XML)
 
 
 high
+_ Closing opengl sketch from the PDE doesn't stop java process on windows
+_   https://github.com/processing/processing/issues/2335
+_ StingList.insert() error (should be an easy fix)
+_   https://github.com/processing/processing/issues/2548
 _ pull for image resize and alpha issues
 _   https://github.com/processing/processing/pull/2324
 _ dataPath() not working when app is not run from app dir on Linux
@@ -60,6 +79,8 @@ _   hint(ENABLE_RETINA_PIXELS) or hint(ENABLE_HIDPI_PIXELS)
 _   hint(ENABLE_2X_PIXELS)?
 _   hidpi is Apple's name as well
 _ no high-res display support for OpenGL
+_   https://github.com/processing/processing/issues/2573
+_   https://jogamp.org/bugzilla/show_bug.cgi?id=741
 _ no high-dpi support for core on Windows
 _   https://github.com/processing/processing/issues/2411
 _ retina sketches slow to start
@@ -434,13 +455,8 @@ _   https://github.com/processing/processing/issues/1596
 
 CORE / PVector
 
-_ PVector discussion with Dan
-_   Jer and Dan will look at their code, plus toxiclibs
-_ modify PVector to include better methods for chaining operations
-_   http://code.google.com/p/processing/issues/detail?id=218
 _ add screen(PVector), model(PVector) and world(PVector)?
 _   maybe screenVec()? or screenXYZ()?
-_ PVector chaining -> Dan looking into this
 
 
 CORE / OpenGL (Andres)
