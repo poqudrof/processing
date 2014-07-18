@@ -46,9 +46,9 @@ import processing.mode.java.JavaMode;
 public class Base {
   // Added accessors for 0218 because the UpdateCheck class was not properly
   // updating the values, due to javac inlining the static final values.
-  static private final int REVISION = 225;
+  static private final int REVISION = 227;
   /** This might be replaced by main() if there's a lib/version.txt file. */
-  static private String VERSION_NAME = "0225"; //$NON-NLS-1$
+  static private String VERSION_NAME = "0227"; //$NON-NLS-1$
   /** Set true if this a proper release rather than a numbered revision. */
 //  static private boolean RELEASE = false;
 
@@ -127,7 +127,11 @@ public class Base {
   private JMenu sketchbookMenu;
 
   private Recent recent;
-//  private JMenu recentMenu;
+
+  // Used by handleOpen(), this saves the chooser to remember the directory.
+  // Doesn't appear to be necessary with the AWT native file dialog.
+  // https://github.com/processing/processing/pull/2366
+  private JFileChooser openChooser;
 
   static protected File sketchbookFolder;
 //  protected File toolsFolder;
@@ -203,13 +207,11 @@ public class Base {
         // Prevent more than one copy of the PDE from running.
         SingleInstance.startServer(base);
 
-      } catch (Exception e) {
+      } catch (Throwable t) {
         // Catch-all to hopefully pick up some of the weirdness we've been
         // running into lately.
-        StringWriter sw = new StringWriter();
-        e.printStackTrace(new PrintWriter(sw));
-        Base.showError("We're off on the wrong foot",
-                       "An error occurred during startup.\n" + sw, e);
+        showBadnessTrace("We're off on the wrong foot",
+                         "An error occurred during startup.", t, true);
       }
       log("done creating base..."); //$NON-NLS-1$
     }
@@ -607,13 +609,30 @@ public class Base {
         Base.showWarning("Save",
                          "Please save the sketch before changing the mode.",
                          null);
+        return;
+      }
+      nextMode = mode;
+
+      // If the current editor contains file extensions that the new mode can handle, then
+      // write a sketch.properties file with the new mode specified, and reopen.
+      boolean newModeCanHandleCurrentSource = true;
+      for (final SketchCode code: sketch.getCode()) {
+        if (!mode.validExtension(code.getExtension())) {
+          newModeCanHandleCurrentSource = false;
+          break;
+        }
+      }
+      if (newModeCanHandleCurrentSource) {
+        final File props = new File(sketch.getCodeFolder(), "sketch.properties");
+        saveModeSettings(props, nextMode);
+        handleClose(activeEditor, true);
+        handleOpen(sketch.getMainFilePath());
       } else {
         // If you're changing modes, and there's nothing in the current sketch, you probably
         // don't intend to keep the old, wrong-mode editor around.
         if (sketch.isUntitled()) {
           handleClose(activeEditor, true);
         }
-        nextMode = mode;
         handleNew();
       }
     }
@@ -729,15 +748,7 @@ public class Base {
       }
 
       // Create sketch properties.
-      final File sketchProps = new File(newbieDir, "sketch.properties");
-      try {
-        final Settings settings = new Settings(sketchProps);
-        settings.set("mode", nextMode.getTitle());
-        settings.set("mode.id", nextMode.getIdentifier());
-        settings.save();
-      } catch (IOException e) {
-        System.err.println("While creating " + sketchProps + ": " + e.getMessage());
-      }
+      saveModeSettings(new File(newbieDir, "sketch.properties"), nextMode);
 
       String path = newbieFile.getAbsolutePath();
       /*Editor editor =*/ handleOpen(path, true);
@@ -746,6 +757,18 @@ public class Base {
       Base.showWarning("That's new to me",
                        "A strange and unexplainable error occurred\n" +
                        "while trying to create a new sketch.", e);
+    }
+  }
+
+  // Create or modify a sketch.proprties file to specify the given Mode.
+  private void saveModeSettings(final File sketchProps, final Mode mode) {
+    try {
+      final Settings settings = new Settings(sketchProps);
+      settings.set("mode", mode.getTitle());
+      settings.set("mode.id", mode.getIdentifier());
+      settings.save();
+    } catch (IOException e) {
+      System.err.println("While creating " + sketchProps + ": " + e.getMessage());
     }
   }
 
@@ -812,12 +835,15 @@ public class Base {
     }
 
     final String prompt = "Open a Processing sketch...";
-    if (Preferences.getBoolean("chooser.files.native")) {  // don't use native dialogs on Linux //$NON-NLS-1$
-      // get the front-most window frame for placing file dialog
-      FileDialog fd = new FileDialog(activeEditor, prompt, FileDialog.LOAD);
+
+    // don't use native dialogs on Linux (or anyone else w/ override)
+    if (Preferences.getBoolean("chooser.files.native")) {  //$NON-NLS-1$
+      // use the front-most window frame for placing file dialog
+      FileDialog openDialog =
+        new FileDialog(activeEditor, prompt, FileDialog.LOAD);
 
       // Only show .pde files as eligible bachelors
-      fd.setFilenameFilter(new FilenameFilter() {
+      openDialog.setFilenameFilter(new FilenameFilter() {
         public boolean accept(File dir, String name) {
           // confirmed to be working properly [fry 110128]
           for (String ext : extensions) {
@@ -829,20 +855,22 @@ public class Base {
         }
       });
 
-      fd.setVisible(true);
+      openDialog.setVisible(true);
 
-      String directory = fd.getDirectory();
-      String filename = fd.getFile();
+      String directory = openDialog.getDirectory();
+      String filename = openDialog.getFile();
       if (filename != null) {
         File inputFile = new File(directory, filename);
         handleOpen(inputFile.getAbsolutePath());
       }
 
     } else {
-      JFileChooser fc = new JFileChooser();
-      fc.setDialogTitle(prompt);
+      if (openChooser == null) {
+        openChooser = new JFileChooser();
+      }
+      openChooser.setDialogTitle(prompt);
 
-      fc.setFileFilter(new javax.swing.filechooser.FileFilter() {
+      openChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
         public boolean accept(File file) {
           // JFileChooser requires you to explicitly say yes to directories
           // as well (unlike the AWT chooser). Useful, but... different.
@@ -862,8 +890,8 @@ public class Base {
           return "Processing Sketch";
         }
       });
-      if (fc.showOpenDialog(activeEditor) == JFileChooser.APPROVE_OPTION) {
-        handleOpen(fc.getSelectedFile().getAbsolutePath());
+      if (openChooser.showOpenDialog(activeEditor) == JFileChooser.APPROVE_OPTION) {
+        handleOpen(openChooser.getSelectedFile().getAbsolutePath());
       }
     }
   }
@@ -891,79 +919,88 @@ public class Base {
 //  protected Editor handleOpen(String path, int[] location) {
 //  protected Editor handleOpen(String path, Rectangle bounds, int divider) {
   protected Editor handleOpen(String path, boolean untitled, EditorState state) {
-    // System.err.println("entering handleOpen " + path);
+    try {
+      // System.err.println("entering handleOpen " + path);
 
-    final File file = new File(path);
-    if (!file.exists()) {
-      return null;
-    }
-
-    //  System.err.println("  editors: " + editors);
-    // Cycle through open windows to make sure that it's not already open.
-    for (Editor editor : editors) {
-      if (editor.getSketch().getMainFile().equals(file)) {
-        editor.toFront();
-        // move back to the top of the recent list
-        handleRecent(editor);
-        return editor;
-      }
-    }
-
-    if (!Sketch.isSanitaryName(file.getName())) {
-      Base.showWarning("You're tricky, but not tricky enough",
-                       file.getName() + " is not a valid name for a sketch.\n" +
-                       "Better to stick to ASCII, no spaces, and make sure\n" +
-                       "it doesn't start with a number.", null);
-      return null;
-    }
-
-    if (!nextMode.canEdit(file)) {
-      final Mode mode = selectMode(file);
-      if (mode == null) {
+      final File file = new File(path);
+      if (!file.exists()) {
         return null;
       }
-      nextMode = mode;
-    }
+
+      //  System.err.println("  editors: " + editors);
+      // Cycle through open windows to make sure that it's not already open.
+      for (Editor editor : editors) {
+        if (editor.getSketch().getMainFile().equals(file)) {
+          editor.toFront();
+          // move back to the top of the recent list
+          handleRecent(editor);
+          return editor;
+        }
+      }
+
+      if (!Sketch.isSanitaryName(file.getName())) {
+        Base.showWarning("You're tricky, but not tricky enough",
+                         file.getName() + " is not a valid name for a sketch.\n" +
+                         "Better to stick to ASCII, no spaces, and make sure\n" +
+                         "it doesn't start with a number.", null);
+        return null;
+      }
+
+      if (!nextMode.canEdit(file)) {
+        final Mode mode = selectMode(file);
+        if (mode == null) {
+          return null;
+        }
+        nextMode = mode;
+      }
 
 //    Editor.State state = new Editor.State(editors);
-    Editor editor = nextMode.createEditor(this, path, state);
-    if (editor == null) {
-      // if it's the last editor window
+      Editor editor = nextMode.createEditor(this, path, state);
+      if (editor == null) {
+        // if it's the last editor window
 //      if (editors.size() == 0 && defaultFileMenu == null) {
-      // if it's not mode[0] already, then don't go into an infinite loop
-      // trying to recreate a window with the default mode.
-      if (nextMode == coreModes[0]) {
-        Base.showError("Editor Problems",
-                       "An error occurred while trying to change modes.\n" +
-                       "We'll have to quit for now because it's an\n" +
-                       "unfortunate bit of indigestion.",
-                       null);
-      } else {
-        editor = coreModes[0].createEditor(this, path, state);
+        // if it's not mode[0] already, then don't go into an infinite loop
+        // trying to recreate a window with the default mode.
+        if (nextMode == coreModes[0]) {
+          Base.showError("Editor Problems",
+                         "An error occurred while trying to change modes.\n" +
+                           "We'll have to quit for now because it's an\n" +
+                           "unfortunate bit of indigestion.",
+                           null);
+        } else {
+          editor = coreModes[0].createEditor(this, path, state);
+        }
       }
-    }
 
-    // Make sure that the sketch actually loaded
-    if (editor.getSketch() == null) {
+      // Make sure that the sketch actually loaded
+      if (editor.getSketch() == null) {
 //      System.err.println("sketch was null, getting out of handleOpen");
-      return null;  // Just walk away quietly
-    }
+        return null;  // Just walk away quietly
+      }
 
 //    editor.untitled = untitled;
-    editor.getSketch().setUntitled(untitled);
-    editors.add(editor);
-    handleRecent(editor);
+      editor.getSketch().setUntitled(untitled);
+      editors.add(editor);
+      handleRecent(editor);
 
-    // now that we're ready, show the window
-    // (don't do earlier, cuz we might move it based on a window being closed)
-    editor.setVisible(true);
+      // now that we're ready, show the window
+      // (don't do earlier, cuz we might move it based on a window being closed)
+      editor.setVisible(true);
 
-    return editor;
+      return editor;
+
+    } catch (Throwable t) {
+      showBadnessTrace("Terrible News", 
+                       "A serious error occurred while " +
+                       "trying to create a new editor window.", t, false);
+      nextMode = coreModes[0];
+      return null;
+    }
   }
 
+  
   private static class ModeInfo {
     public final String title;
-
     public final String id;
 
     public ModeInfo(String id, String title) {
@@ -972,6 +1009,7 @@ public class Base {
     }
   }
 
+  
   private static ModeInfo modeInfoFor(final File sketch) {
     final File sketchFolder = sketch.getParentFile();
     final File sketchProps = new File(sketchFolder, "sketch.properties");
@@ -993,6 +1031,7 @@ public class Base {
     return null;
   }
 
+  
   private Mode promptForMode(final File sketch, final ModeInfo preferredMode) {
     final String extension =
       sketch.getName().substring(sketch.getName().lastIndexOf('.') + 1);
@@ -1030,11 +1069,12 @@ public class Base {
        "but you don't have " + preferredMode.title + " installed.\n" +
        "Would you like to try a different mode for opening a " +
        "." + extension + " sketch?");
-    return (Mode) JOptionPane.showInputDialog(null, message, "Modal Dialog",
+    return (Mode) JOptionPane.showInputDialog(null, message, "Choose Wisely",
                                               JOptionPane.QUESTION_MESSAGE,
                                               null, modes, modes[0]);
   }
 
+  
   private Mode selectMode(final File sketch) {
     final ModeInfo modeInfo = modeInfoFor(sketch);
     final Mode specifiedMode = modeInfo == null ? null : findMode(modeInfo.id);
@@ -1044,6 +1084,7 @@ public class Base {
     return promptForMode(sketch, modeInfo);
   }
 
+  
   protected Mode findMode(String id) {
     for (Mode mode : getModeList()) {
       if (mode.getIdentifier().equals(id)) {
@@ -1053,10 +1094,12 @@ public class Base {
     return null;
   }
 
-
+  
   /**
    * Close a sketch as specified by its editor window.
    * @param editor Editor object of the sketch to be closed.
+   * @param modeSwitch Whether this close is being done in the context of a
+   *      mode switch.
    * @return true if succeeded in closing, false if canceled.
    */
   public boolean handleClose(Editor editor, boolean modeSwitch) {
@@ -2143,8 +2186,8 @@ public class Base {
     }
     if (e != null) e.printStackTrace();
   }
-
-
+  
+  
   /**
    * Non-fatal error message with optional stack trace side dish.
    */
@@ -2221,6 +2264,35 @@ public class Base {
     }
     if (e != null) e.printStackTrace();
     System.exit(1);
+  }
+  
+  
+  /**
+   * Testing a new warning window that includes the stack trace.
+   */
+  static private void showBadnessTrace(String title, String message, 
+                                       Throwable t, boolean fatal) {
+    if (title == null) title = fatal ? "Error" : "Warning";
+
+    if (commandLine) {
+      System.err.println(title + ": " + message);
+      if (t != null) {
+        t.printStackTrace();
+      }
+      
+    } else {
+      StringWriter sw = new StringWriter();
+      t.printStackTrace(new PrintWriter(sw));
+      // Necessary to replace \n with <br/> (even if pre) otherwise Java
+      // treats it as a closed tag and reverts to plain formatting. 
+      message = "<html>" + message + "<br/><font size=2><br/>" + 
+        sw.toString().replaceAll("\n", "<br/>");
+
+      JOptionPane.showMessageDialog(new Frame(), message, title,
+                                    fatal ? 
+                                    JOptionPane.ERROR_MESSAGE :
+                                    JOptionPane.WARNING_MESSAGE);
+    }
   }
 
 
@@ -2455,7 +2527,8 @@ public class Base {
       //return "Contents/PlugIns/jdk1.7.0_40.jdk/Contents/Home/jre/bin/java";
       File[] plugins = getContentFile("../PlugIns").listFiles(new FilenameFilter() {
         public boolean accept(File dir, String name) {
-          return name.endsWith(".jdk") && dir.isDirectory();
+          return dir.isDirectory() && 
+            name.endsWith(".jdk") && !name.startsWith(".");
         }
       });
       return new File(plugins[0], "Contents/Home/jre");

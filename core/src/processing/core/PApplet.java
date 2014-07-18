@@ -950,12 +950,13 @@ public class PApplet extends Applet
       online = false;
     }
 
-    // overridden in runSketch(), removing for 2.1.2
-//    try {
-//      if (sketchPath == null) {
-//        sketchPath = System.getProperty("user.dir");
-//      }
-//    } catch (Exception e) { }  // may be a security problem
+    // Removed in 2.1.2, brought back for 2.1.3. Usually sketchPath is set
+    // inside runSketch(), but if this sketch takes care of calls  to init()
+    // and setup() itself (i.e. it's in a larger Java application), it'll
+    // still need to be set here so that fonts, etc can be retrieved.
+    if (sketchPath == null) {
+      sketchPath = calcSketchPath();
+    }
 
     // Figure out the available display width and height.
     // No major problem if this fails, we have to try again anyway in
@@ -1634,6 +1635,7 @@ public class PApplet extends Applet
  * @see PApplet#noLoop()
  * @see PApplet#redraw()
  * @see PApplet#frameRate(float)
+ * @see PGraphics#background(float, float, float, float)
  */
   public void draw() {
     // if no draw method, then shut things down
@@ -2771,10 +2773,14 @@ public class PApplet extends Applet
     // also prevents mouseExited() on the mac from hosing the mouse
     // position, because x/y are bizarre values on the exit event.
     // see also the id check below.. both of these go together.
-    // Not necessary to set mouseX/Y on PRESS or RELEASE events because the
-    // actual position will have been set by a MOVE or DRAG event.
-    if (event.getAction() == MouseEvent.DRAG ||
-        event.getAction() == MouseEvent.MOVE) {
+    // Not necessary to set mouseX/Y on RELEASE events because the
+    // actual position will have been set by a PRESS or DRAG event.
+    // However, PRESS events might come without a preceeding move,
+    // if the sketch window gains focus on that PRESS.
+    final int action = event.getAction();
+    if (action == MouseEvent.DRAG ||
+        action == MouseEvent.MOVE ||
+        action == MouseEvent.PRESS) {
       pmouseX = emouseX;
       pmouseY = emouseY;
       mouseX = event.getX();
@@ -2808,7 +2814,7 @@ public class PApplet extends Applet
     // Do this up here in case a registered method relies on the
     // boolean for mousePressed.
 
-    switch (event.getAction()) {
+    switch (action) {
     case MouseEvent.PRESS:
       mousePressed = true;
       break;
@@ -2819,7 +2825,7 @@ public class PApplet extends Applet
 
     handleMethods("mouseEvent", new Object[] { event });
 
-    switch (event.getAction()) {
+    switch (action) {
     case MouseEvent.PRESS:
 //      mousePressed = true;
       mousePressed(event);
@@ -2848,8 +2854,8 @@ public class PApplet extends Applet
       break;
     }
 
-    if ((event.getAction() == MouseEvent.DRAG) ||
-        (event.getAction() == MouseEvent.MOVE)) {
+    if ((action == MouseEvent.DRAG) ||
+        (action == MouseEvent.MOVE)) {
       emouseX = mouseX;
       emouseY = mouseY;
     }
@@ -4269,6 +4275,7 @@ public class PApplet extends Applet
    * @webref output:image
    * @see PApplet#save(String)
    * @see PApplet#createGraphics(int, int, String, String)
+   * @see PApplet#frameCount
    * @param filename any sequence of letters or numbers that ends with either ".tif", ".tga", ".jpg", or ".png"
    */
   public void saveFrame(String filename) {
@@ -4321,6 +4328,11 @@ public class PApplet extends Applet
    * @param kind either ARROW, CROSS, HAND, MOVE, TEXT, or WAIT
    */
   public void cursor(int kind) {
+    // Swap the HAND cursor because MOVE doesn't seem to be available on OS X
+    // https://github.com/processing/processing/issues/2358
+    if (platform == MACOSX && kind == MOVE) {
+      kind = HAND;
+    }
     setCursor(Cursor.getPredefinedCursor(kind));
     cursorVisible = true;
     this.cursorType = kind;
@@ -8606,19 +8618,20 @@ public class PApplet extends Applet
   }
 
   static final public Object splice(Object list, Object value, int index) {
-    Object[] outgoing = null;
+    Class<?> type = list.getClass().getComponentType();
+    Object outgoing = null;
     int length = Array.getLength(list);
 
     // check whether item being spliced in is an array
     if (value.getClass().getName().charAt(0) == '[') {
       int vlength = Array.getLength(value);
-      outgoing = new Object[length + vlength];
+      outgoing = Array.newInstance(type, length + vlength);
       System.arraycopy(list, 0, outgoing, 0, index);
       System.arraycopy(value, 0, outgoing, index, vlength);
       System.arraycopy(list, index, outgoing, index + vlength, length - index);
 
     } else {
-      outgoing = new Object[length + 1];
+      outgoing = Array.newInstance(type, length + 1);
       System.arraycopy(list, 0, outgoing, 0, index);
       Array.set(outgoing, index, value);
       System.arraycopy(list, index, outgoing, index + 1, length - index);
@@ -10589,36 +10602,7 @@ public class PApplet extends Applet
     boolean hideStop = false;
 
     String param = null, value = null;
-
-    // try to get the user folder. if running under java web start,
-    // this may cause a security exception if the code is not signed.
-    // http://processing.org/discourse/yabb_beta/YaBB.cgi?board=Integrate;action=display;num=1159386274
-    String folder = null;
-    try {
-      folder = System.getProperty("user.dir");
-//      println("user dir is " + folder);
-
-      // Workaround for bug in Java for OS X from Oracle (7u51)
-      // https://github.com/processing/processing/issues/2181
-      if (platform == MACOSX) {
-        String jarPath =
-          PApplet.class.getProtectionDomain().getCodeSource().getLocation().getPath();
-//        println("jar path: " + jarPath);
-        // The jarPath from above will be URL encoded (%20 for spaces)
-        jarPath = urlDecode(jarPath);
-//        println("decoded jar path: " + jarPath);
-        if (jarPath.contains("Contents/Java/")) {
-          String appPath = jarPath.substring(0, jarPath.indexOf(".app") + 4);
-          File containingFolder = new File(appPath).getParentFile();
-          folder = containingFolder.getAbsolutePath();
-//          println("folder is " + folder);
-        }
-//      } else {
-//        println("platform is " + platform);
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    String folder = calcSketchPath();
 
     int argIndex = 0;
     while (argIndex < args.length) {
@@ -11060,6 +11044,34 @@ public class PApplet extends Applet
 
   protected void runSketch() {
     runSketch(new String[0]);
+  }
+
+
+  static protected String calcSketchPath() {
+    // try to get the user folder. if running under java web start,
+    // this may cause a security exception if the code is not signed.
+    // http://processing.org/discourse/yabb_beta/YaBB.cgi?board=Integrate;action=display;num=1159386274
+    String folder = null;
+    try {
+      folder = System.getProperty("user.dir");
+
+      // Workaround for bug in Java for OS X from Oracle (7u51)
+      // https://github.com/processing/processing/issues/2181
+      if (platform == MACOSX) {
+        String jarPath =
+          PApplet.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        // The jarPath from above will be URL encoded (%20 for spaces)
+        jarPath = urlDecode(jarPath);
+        if (jarPath.contains("Contents/Java/")) {
+          String appPath = jarPath.substring(0, jarPath.indexOf(".app") + 4);
+          File containingFolder = new File(appPath).getParentFile();
+          folder = containingFolder.getAbsolutePath();
+        }
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return folder;
   }
 
 

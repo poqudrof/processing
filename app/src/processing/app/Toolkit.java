@@ -30,6 +30,7 @@ import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
+import java.awt.Window;
 import java.awt.datatransfer.Clipboard;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -151,17 +152,22 @@ public class Toolkit {
 
   static ArrayList<Image> iconImages;
 
+  
+  // Deprecated version of the function, but can't get rid of it without 
+  // breaking tools and modes (they'd only require a recompile, but they would 
+  // no longer be backwards compatible. 
+  static public void setIcon(Frame frame) {
+    setIcon((Window) frame);
+  }
+
+  
   /**
    * Give this Frame the Processing icon set. Ignored on OS X, because they
    * thought different and made this function set the minified image of the
    * window, not the window icon for the dock or cmd-tab.
    */
-  static public void setIcon(Frame frame) {
+  static public void setIcon(Window window) {
     if (!Base.isMacOS()) {
-//    // too low-res, prepping for nicer icons in 2.0 timeframe
-//    Image image = awtToolkit.createImage(PApplet.ICON_IMAGE);
-//    frame.setIconImage(image);
-
       if (iconImages == null) {
         iconImages = new ArrayList<Image>();
         final int[] sizes = { 16, 32, 48, 64, 128, 256, 512 };
@@ -169,7 +175,7 @@ public class Toolkit {
           iconImages.add(Toolkit.getLibImage("icons/pde-" + sz + ".png"));
         }
       }
-      frame.setIconImages(iconImages);
+      window.setIconImages(iconImages);
     }
   }
 

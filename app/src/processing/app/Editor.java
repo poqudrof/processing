@@ -1021,11 +1021,21 @@ public abstract class Editor extends JFrame implements RunnerListener {
       } catch (NoSuchMethodError nsme) {
         System.err.println("\"" + tool.getMenuTitle() + "\" is not " +
                            "compatible with this version of Processing");
-        System.err.println("This method no longer exists: " + nsme.getMessage());
+        System.err.println("The " + nsme.getMessage() + " method no longer exists.");
         Base.log("Incompatible Tool found during tool.init()", nsme);
 
-      } catch (Exception ex) {
+      } catch (NoClassDefFoundError ncdfe) {
+        System.err.println("\"" + tool.getMenuTitle() + "\" is not " +
+                           "compatible with this version of Processing");
+        System.err.println("The " + ncdfe.getMessage() + " class is no longer available.");
+        Base.log("Incompatible Tool found during tool.init()", ncdfe);
+
+      } catch (Error err) {
         System.err.println("An error occurred inside \"" + tool.getMenuTitle() + "\"");
+        err.printStackTrace();
+
+      } catch (Exception ex) {
+        System.err.println("An exception occurred inside \"" + tool.getMenuTitle() + "\"");
         ex.printStackTrace();
       }
     }
@@ -1492,7 +1502,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
 
   public int getScrollPosition() {
-    return textarea.getScrollPosition();
+    return textarea.getVerticalScrollPosition();
   }
 
 
@@ -1761,7 +1771,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
       } else {
         // replace with new bootiful text
         // selectionEnd hopefully at least in the neighborhood
-        int scrollPos = textarea.getScrollPosition();
+        int scrollPos = textarea.getVerticalScrollPosition();
         setText(formattedText);
         setSelection(selectionEnd, selectionEnd);
         
@@ -1769,14 +1779,14 @@ public abstract class Editor extends JFrame implements RunnerListener {
         // Since we're not doing a good job of maintaining position anyway, 
         // a more complicated workaround here is fairly pointless.
         // http://code.google.com/p/processing/issues/detail?id=1533
-        if (scrollPos != textarea.getScrollPosition()) {
+        if (scrollPos != textarea.getVerticalScrollPosition()) {
 //          boolean wouldBeVisible = 
 //            scrollPos >= textarea.getFirstLine() && 
 //            scrollPos < textarea.getLastLine();
 //
 //          // if it was visible, and now it's not, then allow the scroll
 //          if (!(wasVisible && !wouldBeVisible)) {   
-          textarea.setScrollPosition(scrollPos);
+          textarea.setVerticalScrollPosition(scrollPos);
 //          }
         }
         getSketch().setModified(true);
