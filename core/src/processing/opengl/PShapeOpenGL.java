@@ -4598,6 +4598,43 @@ public class PShapeOpenGL extends PShape {
       super.draw(g);
     }
   }
+  
+  
+  public void drawWithTexture(PGraphics g, PImage texture) {
+    if (g instanceof PGraphicsOpenGL) {
+      PGraphicsOpenGL gl = (PGraphicsOpenGL)g;
+      if (visible) {
+        pre(gl);
+
+        updateTessellation();
+        updateGeometry();
+
+        if (family == GROUP) {
+          if (fragmentedGroup(gl)) {
+            for (int i = 0; i < childCount; i++) {
+              ((PShapeOpenGL) children[i]).drawWithTexture(gl, texture);
+            }
+          } else {
+//            if (textures != null && textures.size() == 1) {
+//              tex = texture;
+//            }
+            render(gl, texture);
+          }
+
+        } else {
+          render(gl, texture);
+        }
+
+        post(gl);
+      }
+    } else {
+      // The renderer is not PGraphicsOpenGL, which probably
+      // means that the draw() method is being called by the
+      // recorder. We just use the default drawing from the
+      // parent class.
+      super.draw(g);
+    }
+  }
 
 
   // Returns true if some child shapes below this one either

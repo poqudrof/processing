@@ -104,6 +104,13 @@ public class PShape implements PConstants {
   /** Texture or image data associated with this shape. */
   protected PImage image;
 
+  public PImage getImage() {
+        return image;
+    }
+    public void setImage(PImage image) {
+        this.image = image;
+    }
+
   public static final String OUTSIDE_BEGIN_END_ERROR =
     "%1$s can only be called between beginShape() and endShape()";
 
@@ -1548,6 +1555,7 @@ public class PShape implements PConstants {
       pre(g);
       drawImpl(g);
       post(g);
+      System.out.println("Draw PSHAPE");
     }
   }
 

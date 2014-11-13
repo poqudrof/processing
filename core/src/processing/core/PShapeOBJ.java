@@ -120,7 +120,7 @@ public class PShapeOBJ extends PShape {
             tex = texcoords.get(texIdx);
           }
         }
-
+        
         image = mtl.kdMap;
         if (tex != null) {
           vertices[j][PGraphics.U] = tex.x;
@@ -129,8 +129,8 @@ public class PShapeOBJ extends PShape {
       }
     }
   }
-  
- 
+
+
   protected void addChildren(ArrayList<OBJFace> faces,
                              ArrayList<OBJMaterial> materials,
                              ArrayList<PVector> coords,
