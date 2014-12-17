@@ -31,6 +31,8 @@ import processing.opengl.*;
 
 import java.applet.*;
 import java.awt.*;
+import java.awt.color.ColorSpace;
+import java.awt.event.WindowStateListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.FocusEvent;
@@ -279,7 +281,7 @@ public class PApplet extends Applet
 //  public int displayY;
 
   /**
-   * ( begin auto-generated from screenWidth.xml )
+   * ( begin auto-generated from displayWidth.xml )
    *
    * System variable which stores the width of the computer screen. For
    * example, if the current screen resolution is 1024x768,
@@ -297,11 +299,11 @@ public class PApplet extends Applet
   public int displayWidth;
 
   /**
-   * ( begin auto-generated from screenHeight.xml )
+   * ( begin auto-generated from displayHeight.xml )
    *
    * System variable that stores the height of the computer screen. For
    * example, if the current screen resolution is 1024x768,
-   * <b>screenWidth</b> is 1024 and <b>screenHeight</b> is 768. These
+   * <b>displayWidth</b> is 1024 and <b>displayHeight</b> is 768. These
    * dimensions are useful when exporting full-screen applications.
    * <br /><br />
    * To ensure that the sketch takes over the entire screen, use "Present"
@@ -769,6 +771,7 @@ public class PApplet extends Applet
    * ( end auto-generated )
    * @webref environment
    * @see PApplet#frameRate(float)
+   * @see PApplet#frameCount
    */
   public float frameRate = 10;
   /** Last time in nanoseconds that frameRate was checked */
@@ -793,6 +796,7 @@ public class PApplet extends Applet
    * ( end auto-generated )
    * @webref environment
    * @see PApplet#frameRate(float)
+   * @see PApplet#frameRate
    */
   public int frameCount;
 
@@ -2634,7 +2638,7 @@ public class PApplet extends Applet
 //  protected int eventCount;
 
 
-  class InternalEventQueue {
+  static class InternalEventQueue {
     protected Event queue[] = new Event[10];
     protected int offset;
     protected int count;
@@ -4189,6 +4193,14 @@ public class PApplet extends Applet
    * Note that the function being called must be public. Inside the PDE,
    * 'public' is automatically added, but when used without the preprocessor,
    * (like from Eclipse) you'll have to do it yourself.
+   *
+   * @webref structure
+   * @usage Application
+   * @param name name of the function to be executed in a separate thread
+   * @see PApplet#setup()
+   * @see PApplet#draw()
+   * @see PApplet#loop()
+   * @see PApplet#noLoop()
    */
   public void thread(final String name) {
     Thread later = new Thread() {
@@ -5870,6 +5882,28 @@ public class PApplet extends Applet
         } else {
           Image awtImage = Toolkit.getDefaultToolkit().createImage(bytes);
           PImage image = loadImageMT(awtImage);
+
+          if (awtImage instanceof BufferedImage) {
+            BufferedImage buffImage = (BufferedImage) awtImage;
+            int space = buffImage.getColorModel().getColorSpace().getType();
+            if (space == ColorSpace.TYPE_CMYK) {
+              System.err.println(filename + " is a CMYK image, " +
+                                 "only RGB images are supported.");
+              return null;
+              /*
+              // wishful thinking, appears to not be supported
+              // https://community.oracle.com/thread/1272045?start=0&tstart=0
+              BufferedImage destImage =
+                new BufferedImage(buffImage.getWidth(),
+                                  buffImage.getHeight(),
+                                  BufferedImage.TYPE_3BYTE_BGR);
+              ColorConvertOp op = new ColorConvertOp(null);
+              op.filter(buffImage, destImage);
+              image = new PImage(destImage);
+              */
+            }
+          }
+
           if (image.width == -1) {
             System.err.println("The file " + filename +
                                " contains bad image data, or may not be an image.");
@@ -8946,12 +8980,12 @@ public class PApplet extends Applet
 
 
   static public String join(String[] list, String separator) {
-    StringBuffer buffer = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     for (int i = 0; i < list.length; i++) {
-      if (i != 0) buffer.append(separator);
-      buffer.append(list[i]);
+      if (i != 0) sb.append(separator);
+      sb.append(list[i]);
     }
-    return buffer.toString();
+    return sb.toString();
   }
 
 
@@ -9046,7 +9080,7 @@ public class PApplet extends Applet
     //}
     if (splitCount == 0) {
       String splits[] = new String[1];
-      splits[0] = new String(value);
+      splits[0] = value;
       return splits;
     }
     //int pieceCount = splitCount + 1;
@@ -9257,7 +9291,7 @@ public class PApplet extends Applet
    * @return true if 'what' is "true" or "TRUE", false otherwise
    */
   static final public boolean parseBoolean(String what) {
-    return new Boolean(what).booleanValue();
+    return Boolean.parseBoolean(what);
   }
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -9317,7 +9351,7 @@ public class PApplet extends Applet
   static final public boolean[] parseBoolean(String what[]) {
     boolean outgoing[] = new boolean[what.length];
     for (int i = 0; i < what.length; i++) {
-      outgoing[i] = new Boolean(what[i]).booleanValue();
+      outgoing[i] = Boolean.parseBoolean(what[i]);
     }
     return outgoing;
   }
@@ -9632,7 +9666,7 @@ public class PApplet extends Applet
   }
   */
 
-  static final public float[] parseByte(byte what[]) {
+  static final public float[] parseFloat(byte what[]) {
     float floaties[] = new float[what.length];
     for (int i = 0; i < what.length; i++) {
       floaties[i] = what[i];
@@ -9792,7 +9826,7 @@ public class PApplet extends Applet
  * @param num the number(s) to format
  * @see PApplet#nf(float, int, int)
  * @see PApplet#nfp(float, int, int)
- * @see PApplet#nfc(float, int)
+ * @see PApplet#nfs(float, int, int)
  */
   static public String[] nfc(int num[]) {
     String formatted[] = new String[num.length];
@@ -10358,6 +10392,25 @@ public class PApplet extends Applet
    * in cases where frame.setResizable(true) is called.
    */
   public void setupFrameResizeListener() {
+    frame.addWindowStateListener(new WindowStateListener() {
+      @Override
+      // Detecting when the frame is resized in order to handle the frame
+      // maximization bug in OSX:
+      // http://bugs.java.com/bugdatabase/view_bug.do?bug_id=8036935
+      public void windowStateChanged(WindowEvent e) {
+        if (Frame.MAXIMIZED_BOTH == e.getNewState()) {
+          // Supposedly, sending the frame to back and then front is a
+          // workaround for this bug:
+          // http://stackoverflow.com/a/23897602
+          // but is not working for me...
+          //frame.toBack();
+          //frame.toFront();
+          // but either packing the frame does!
+          frame.pack();
+        }
+      }
+    });
+
     frame.addComponentListener(new ComponentAdapter() {
 
         @Override
@@ -10410,25 +10463,6 @@ public class PApplet extends Applet
   }
 
 
-//  /**
-//   * GIF image of the Processing logo.
-//   */
-//  static public final byte[] ICON_IMAGE = {
-//    71, 73, 70, 56, 57, 97, 16, 0, 16, 0, -77, 0, 0, 0, 0, 0, -1, -1, -1, 12,
-//    12, 13, -15, -15, -14, 45, 57, 74, 54, 80, 111, 47, 71, 97, 62, 88, 117,
-//    1, 14, 27, 7, 41, 73, 15, 52, 85, 2, 31, 55, 4, 54, 94, 18, 69, 109, 37,
-//    87, 126, -1, -1, -1, 33, -7, 4, 1, 0, 0, 15, 0, 44, 0, 0, 0, 0, 16, 0, 16,
-//    0, 0, 4, 122, -16, -107, 114, -86, -67, 83, 30, -42, 26, -17, -100, -45,
-//    56, -57, -108, 48, 40, 122, -90, 104, 67, -91, -51, 32, -53, 77, -78, -100,
-//    47, -86, 12, 76, -110, -20, -74, -101, 97, -93, 27, 40, 20, -65, 65, 48,
-//    -111, 99, -20, -112, -117, -123, -47, -105, 24, 114, -112, 74, 69, 84, 25,
-//    93, 88, -75, 9, 46, 2, 49, 88, -116, -67, 7, -19, -83, 60, 38, 3, -34, 2,
-//    66, -95, 27, -98, 13, 4, -17, 55, 33, 109, 11, 11, -2, -128, 121, 123, 62,
-//    91, 120, -128, 127, 122, 115, 102, 2, 119, 0, -116, -113, -119, 6, 102,
-//    121, -108, -126, 5, 18, 6, 4, -102, -101, -100, 114, 15, 17, 0, 59
-//  };
-
-
   static ArrayList<Image> iconImages;
 
   protected void setIconImage(Frame frame) {
@@ -10457,18 +10491,46 @@ public class PApplet extends Applet
   }
 
 
-  // Not gonna do this dynamically, only on startup. Too much headache.
-//  public void fullscreen() {
-//    if (frame != null) {
-//      if (PApplet.platform == MACOSX) {
-//        japplemenubar.JAppleMenuBar.hide();
-//      }
-//      GraphicsConfiguration gc = frame.getGraphicsConfiguration();
-//      Rectangle rect = gc.getBounds();
-////      GraphicsDevice device = gc.getDevice();
-//      frame.setBounds(rect.x, rect.y, rect.width, rect.height);
-//    }
-//  }
+  /**
+   * Use reflection to call
+   * <code>com.apple.eawt.FullScreenUtilities.setWindowCanFullScreen(window, true);</code>
+   */
+  static private void macosxFullScreenEnable(Window window) {
+    try {
+      Class<?> util = Class.forName("com.apple.eawt.FullScreenUtilities");
+      Class params[] = new Class[] { Window.class, Boolean.TYPE };
+      Method method = util.getMethod("setWindowCanFullScreen", params);
+      method.invoke(util, window, true);
+
+    } catch (ClassNotFoundException cnfe) {
+      // ignored
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+
+  /**
+   * Use reflection to call
+   * <code>com.apple.eawt.Application.getApplication().requestToggleFullScreen(window);</code>
+   */
+  static private void macosxFullScreenToggle(Window window) {
+    try {
+      Class<?> appClass = Class.forName("com.apple.eawt.Application");
+
+      Method getAppMethod = appClass.getMethod("getApplication");
+      Object app = getAppMethod.invoke(null, new Object[0]);
+
+      Method requestMethod =
+        appClass.getMethod("requestToggleFullScreen", Window.class);
+      requestMethod.invoke(app, window);
+
+    } catch (ClassNotFoundException cnfe) {
+      // ignored
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
 
 
   /**
@@ -10868,11 +10930,21 @@ public class PApplet extends Applet
 //    // or cmd/ctrl-shift-R in the PDE.
 
     if (present) {
-      if (platform == MACOSX) {
-        // Call some native code to remove the menu bar on OS X. Not necessary
-        // on Linux and Windows, who are happy to make full screen windows.
-        japplemenubar.JAppleMenuBar.hide();
-      }
+//      if (platform == MACOSX) {
+//        println("before");
+//        println(screenRect);
+//        println(frame.getBounds());
+//
+//        // Call some native code to remove the menu bar on OS X. Not necessary
+//        // on Linux and Windows, who are happy to make full screen windows.
+////        japplemenubar.JAppleMenuBar.hide();
+//        toggleFullScreen(frame);
+//        println("after");
+//        println(screenRect);
+//        println(frame.getBounds());
+//
+//        println(applet.width + " " + applet.height);
+//      }
 
       // After the pack(), the screen bounds are gonna be 0s
       frame.setBounds(screenRect);
@@ -10880,13 +10952,24 @@ public class PApplet extends Applet
                        (screenRect.height - applet.height) / 2,
                        applet.width, applet.height);
 
+      if (platform == MACOSX) {
+        macosxFullScreenEnable(frame);
+        macosxFullScreenToggle(frame);
+
+//        toggleFullScreen(frame);
+//        println("after");
+//        println(screenRect);
+//        println(frame.getBounds());
+//        println(applet.width + " " + applet.height);
+      }
+
       if (!hideStop) {
         Label label = new Label("stop");
         label.setForeground(stopColor);
         label.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
-              System.exit(0);
+              applet.exit();
             }
           });
         frame.add(label);
@@ -11652,6 +11735,9 @@ public class PApplet extends Applet
   }
 
 
+  /**
+   * @nowebref
+   */
   public PShape loadShape(String filename, String options) {
     return g.loadShape(filename, options);
   }
@@ -12924,6 +13010,9 @@ public class PApplet extends Applet
    * @see PApplet#loadFont(String)
    * @see PFont
    * @see PGraphics#text(String, float, float)
+   * @see PGraphics#textSize(float)
+   * @see PGraphics#textAscent()
+   * @see PGraphics#textDescent()
    */
   public void textAlign(int alignX, int alignY) {
     if (recorder != null) recorder.textAlign(alignX, alignY);
@@ -12994,6 +13083,7 @@ public class PApplet extends Applet
    * @see PApplet#loadFont(String)
    * @see PFont
    * @see PGraphics#text(String, float, float)
+   * @see PGraphics#textSize(float)
    */
   public void textFont(PFont which) {
     if (recorder != null) recorder.textFont(which);
@@ -13024,6 +13114,7 @@ public class PApplet extends Applet
    * @see PFont#PFont
    * @see PGraphics#text(String, float, float)
    * @see PGraphics#textFont(PFont)
+   * @see PGraphics#textSize(float)
    */
   public void textLeading(float leading) {
     if (recorder != null) recorder.textLeading(leading);
@@ -13111,6 +13202,7 @@ public class PApplet extends Applet
    * @see PFont#PFont
    * @see PGraphics#text(String, float, float)
    * @see PGraphics#textFont(PFont)
+   * @see PGraphics#textSize(float)
    */
   public float textWidth(String str) {
     return g.textWidth(str);
@@ -13152,6 +13244,10 @@ public class PApplet extends Applet
    * @see PGraphics#textFont(PFont)
    * @see PGraphics#textMode(int)
    * @see PGraphics#textSize(float)
+   * @see PGraphics#textLeading(float)
+   * @see PGraphics#textWidth(String)
+   * @see PGraphics#textAscent()
+   * @see PGraphics#textDescent()
    * @see PGraphics#rectMode(int)
    * @see PGraphics#fill(int, float)
    * @see_external String

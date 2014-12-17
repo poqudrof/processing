@@ -43,30 +43,37 @@ public class ColorSelector implements Tool {
    * Only create one instance, otherwise we'll have dozens of animation
    * threads going if you open/close a lot of editor windows.
    */
-  static ColorChooser selector;
+  private static volatile ColorChooser selector;
+
+  private Editor editor;
 
   
   public String getMenuTitle() {
-    return "Color Selector";
+    return Language.text("menu.tools.color_selector");
   }
 
 
   public void init(Editor editor) {
-    if (selector == null) {
-      selector = new ColorChooser(editor, false, Color.WHITE, 
-                                  "Copy", new ActionListener() {
-        
-        @Override
-        public void actionPerformed(ActionEvent e) {
-          Clipboard clipboard = Toolkit.getSystemClipboard();
-          clipboard.setContents(new StringSelection(selector.getHexColor()), null);
-        }
-      });
-    }
+    this.editor = editor;
   }
 
 
   public void run() {
+    if (selector == null) {
+      synchronized(ColorSelector.class) {
+        if (selector == null) {
+          selector = new ColorChooser(editor, false, Color.WHITE,
+              "Copy", new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+              Clipboard clipboard = Toolkit.getSystemClipboard();
+              clipboard.setContents(new StringSelection(selector.getHexColor()), null);
+            }
+          });
+        }
+      }
+    }
     selector.show();
   }
 }

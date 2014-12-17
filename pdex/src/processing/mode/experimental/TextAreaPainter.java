@@ -87,7 +87,7 @@ public class TextAreaPainter extends processing.app.syntax.TextAreaPainter
     ta = textArea;
     addMouseListener(new MouseAdapter() {
       public void mouseClicked(MouseEvent evt) {
-//        		log( " Meta,Ctrl "+ (evt.getModifiers() & ctrlMask));
+        if(ta.editor.hasJavaTabs) return; // Ctrl + Click disabled for java tabs
         if (evt.getButton() == MouseEvent.BUTTON1) {
           if (evt.isControlDown() || evt.isMetaDown())
             handleCtrlClick(evt);
@@ -358,7 +358,7 @@ public class TextAreaPainter extends processing.app.syntax.TextAreaPainter
     // horizontalAdjustment);
     int y = ta.lineToY(line);
     y += fm.getLeading() + fm.getMaxDescent();
-    int height = fm.getHeight();
+//    int height = fm.getHeight();
     int start = ta.getLineStartOffset(line) + problem.getPDELineStartOffset();
     int pLength = problem.getPDELineStopOffset() + 1
         - problem.getPDELineStartOffset();
@@ -457,28 +457,43 @@ public class TextAreaPainter extends processing.app.syntax.TextAreaPainter
   }
 
   public String getToolTipText(java.awt.event.MouseEvent evt) {
+    if (ta.editor.hasJavaTabs) { // disabled for java tabs
+      setToolTipText(null);
+      return super.getToolTipText(evt);
+    }
     int off = ta.xyToOffset(evt.getX(), evt.getY());
-    if (off < 0)
-      return null;
+    if (off < 0) {
+      setToolTipText(null);
+      return super.getToolTipText(evt);
+    }
     int line = ta.getLineOfOffset(off);
-    if (line < 0)
-      return null;
+    if (line < 0) {
+      setToolTipText(null);
+      return super.getToolTipText(evt);
+    }
     String s = ta.getLineText(line);
-    if (s == null)
+    if (s == "")
       return evt.toString();
-    else if (s.length() == 0)
-      return null;
-    else {
+    else if (s.length() == 0) {
+      setToolTipText(null);
+      return super.getToolTipText(evt);
+    } else {
       int x = ta.xToOffset(line, evt.getX()), x2 = x + 1, x1 = x - 1;
       int xLS = off - ta.getLineStartNonWhiteSpaceOffset(line);
-      if (x < 0 || x >= s.length())
-        return null;
+      if (x < 0 || x >= s.length()) {
+        setToolTipText(null);
+        return super.getToolTipText(evt);
+      }
       String word = s.charAt(x) + "";
-      if (s.charAt(x) == ' ')
-        return null;
+      if (s.charAt(x) == ' ') {
+        setToolTipText(null);
+        return super.getToolTipText(evt);
+      }
       if (!(Character.isLetterOrDigit(s.charAt(x)) || s.charAt(x) == '_' || s
-          .charAt(x) == '$'))
-        return null;
+          .charAt(x) == '$')) {
+        setToolTipText(null);
+        return super.getToolTipText(evt);
+      }
       int i = 0;
       while (true) {
         i++;
@@ -508,8 +523,10 @@ public class TextAreaPainter extends processing.app.syntax.TextAreaPainter
           break;
         }
       }
-      if (Character.isDigit(word.charAt(0)))
-        return null;
+      if (Character.isDigit(word.charAt(0))) {
+        setToolTipText(null);
+        return super.getToolTipText(evt);
+      }
       String tooltipText = errorCheckerService.getASTGenerator()
           .getLabelForASTNode(line, word, xLS);
 
@@ -517,9 +534,9 @@ public class TextAreaPainter extends processing.app.syntax.TextAreaPainter
 //      + "|" + line + "| offset " + xLS + word + " <= offf: "+off+ "\n");
       if (tooltipText != null)
         return tooltipText;
-      return word;
     }
-
+    setToolTipText(null);
+    return super.getToolTipText(evt);
   }
 
   // TweakMode code
@@ -623,7 +640,7 @@ public class TextAreaPainter extends processing.app.syntax.TextAreaPainter
 
 		for (int tab=0; tab<code.length; tab++)
 		{
-			String tabCode = ((DebugEditor)ta.editor).baseCode[tab];
+			String tabCode = ta.editor.baseCode[tab];
 			ta.setText(tabCode);
 			for (Handle n : handles[tab])
 			{
@@ -657,7 +674,7 @@ public class TextAreaPainter extends processing.app.syntax.TextAreaPainter
 		int charInc = 0;
 		int currentTab = ta.editor.getSketch().getCurrentCodeIndex();
 		SketchCode sc = ta.editor.getSketch().getCode(currentTab);
-		String code = ((DebugEditor)ta.editor).baseCode[currentTab];
+		String code = ta.editor.baseCode[currentTab];
 
 		for (Handle n : handles[currentTab])
 		{

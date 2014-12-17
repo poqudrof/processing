@@ -48,7 +48,8 @@ public class JavaEditor extends Editor {
 
 
   public JMenu buildFileMenu() {
-    String appTitle = JavaToolbar.getTitle(JavaToolbar.EXPORT, false);
+    //String appTitle = JavaToolbar.getTitle(JavaToolbar.EXPORT, false);
+    String appTitle = Language.text("toolbar.export_application");
     JMenuItem exportApplication = Toolkit.newJMenuItem(appTitle, 'E');
     exportApplication.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
@@ -94,14 +95,12 @@ public class JavaEditor extends Editor {
 
 
   public JMenu buildHelpMenu() {
-    // To deal with a Mac OS X 10.5 bug, add an extra space after the name
-    // so that the OS doesn't try to insert its slow help menu.
-    JMenu menu = new JMenu("Help ");
+    JMenu menu = new JMenu(Language.text("menu.help"));
     JMenuItem item;
 
     // macosx already has its own about menu
     if (!Base.isMacOS()) {
-      item = new JMenuItem("About Processing");
+      item = new JMenuItem(Language.text("menu.help.about"));
       item.addActionListener(new ActionListener() {
         public void actionPerformed(ActionEvent e) {
           new About(JavaEditor.this);
@@ -110,7 +109,7 @@ public class JavaEditor extends Editor {
       menu.add(item);
     }
 
-    item = new JMenuItem("Environment");
+    item = new JMenuItem(Language.text("menu.help.environment"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         showReference("environment" + File.separator + "index.html");
@@ -118,7 +117,7 @@ public class JavaEditor extends Editor {
     });
     menu.add(item);
 
-    item = new JMenuItem("Reference");
+    item = new JMenuItem(Language.text("menu.help.reference"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         showReference("index.html");
@@ -126,7 +125,7 @@ public class JavaEditor extends Editor {
     });
     menu.add(item);
 
-    item = Toolkit.newJMenuItemShift("Find in Reference", 'F');
+    item = Toolkit.newJMenuItemShift(Language.text("menu.help.find_in_reference"), 'F');
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         if (textarea.isSelectionActive()) {
@@ -137,46 +136,46 @@ public class JavaEditor extends Editor {
     menu.add(item);
 
     menu.addSeparator();
-    item = new JMenuItem("Online");
+    item = new JMenuItem(Language.text("menu.help.online"));
     item.setEnabled(false);
     menu.add(item);
 
-    item = new JMenuItem("Getting Started");
+    item = new JMenuItem(Language.text("menu.help.getting_started"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        Base.openURL("http://processing.org/learning/gettingstarted/");
+        Base.openURL(Language.text("menu.help.getting_started.url"));
       }
     });
     menu.add(item);
 
-    item = new JMenuItem("Troubleshooting");
+    item = new JMenuItem(Language.text("menu.help.troubleshooting"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        Base.openURL("http://wiki.processing.org/w/Troubleshooting");
+        Base.openURL(Language.text("menu.help.troubleshooting.url"));
       }
     });
     menu.add(item);
 
-    item = new JMenuItem("Frequently Asked Questions");
+    item = new JMenuItem(Language.text("menu.help.faq"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        Base.openURL("http://wiki.processing.org/w/FAQ");
+        Base.openURL(Language.text("menu.help.faq.url"));
       }
     });
     menu.add(item);
     
-    item = new JMenuItem("The Processing Foundation");
+    item = new JMenuItem(Language.text("menu.help.foundation"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        Base.openURL("http://processing.org/foundation/");
+        Base.openURL(Language.text("menu.help.foundation.url"));
       }
     });
     menu.add(item);
 
-    item = new JMenuItem("Visit Processing.org");
+    item = new JMenuItem(Language.text("menu.help.visit"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        Base.openURL("http://processing.org/");
+        Base.openURL(Language.text("menu.help.visit.url"));
       }
     });
     menu.add(item);
@@ -231,24 +230,24 @@ public class JavaEditor extends Editor {
    * Handler for Sketch &rarr; Export Application
    */
   public void handleExportApplication() {
-    toolbar.activate(JavaToolbar.EXPORT);
+//    toolbar.activate(JavaToolbar.EXPORT);
 
     if (handleExportCheckModified()) {
-      statusNotice("Exporting application...");
+      statusNotice(Language.text("export.notice.exporting"));
       try {
         if (exportApplicationPrompt()) {
           Base.openFolder(sketch.getFolder());
-          statusNotice("Done exporting.");
+          statusNotice(Language.text("export.notice.exporting.done"));
         } else {
           // error message will already be visible
           // or there was no error, in which case it was canceled.
         }
       } catch (Exception e) {
-        statusNotice("Error during export.");
+        statusNotice(Language.text("export.notice.exporting.error"));
         e.printStackTrace();
       }
     }
-    toolbar.deactivate(JavaToolbar.EXPORT);
+//    toolbar.deactivate(JavaToolbar.EXPORT);
   }
 
   
@@ -260,8 +259,14 @@ public class JavaEditor extends Editor {
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
     panel.add(Box.createVerticalStrut(6));
 
-    String line1 = "Export to Application creates double-clickable,";
-    String line2 = "standalone applications for the selected plaforms.";
+//    Box panel = Box.createVerticalBox();
+//    Box labelBox = Box.createHorizontalBox();
+//    String msg = "<html>Click Export to Application to create a standalone, " +
+//      "double-clickable application for the selected plaforms.";
+//    String msg = "Export to Application creates a standalone, \n" +
+//      "double-clickable application for the selected plaforms.";
+    String line1 = Language.text("export.description.line1");
+    String line2 = Language.text("export.description.line2");
     //String line2 = "standalone application for the current plaform.";
     JLabel label1 = new JLabel(line1, SwingConstants.CENTER);
     JLabel label2 = new JLabel(line2, SwingConstants.CENTER);
@@ -283,6 +288,11 @@ public class JavaEditor extends Editor {
       }
     });
 
+    // Only possible to export OS X applications on OS X
+    if (!Base.isMacOS()) {
+      // Make sure they don't have a previous 'true' setting for this
+      Preferences.setBoolean("export.application.platform.macosx", false);
+    }
     final JCheckBox macosxButton = new JCheckBox("Mac OS X");
     macosxButton.setSelected(Preferences.getBoolean("export.application.platform.macosx"));
     macosxButton.addItemListener(new ItemListener() {
@@ -290,6 +300,10 @@ public class JavaEditor extends Editor {
         Preferences.setBoolean("export.application.platform.macosx", macosxButton.isSelected());
       }
     });
+    if (!Base.isMacOS()) {
+      macosxButton.setEnabled(false);
+      macosxButton.setToolTipText(Language.text("export.tooltip.macosx"));
+    }
 
     final JCheckBox linuxButton = new JCheckBox("Linux");
     //linuxButton.setMnemonic(KeyEvent.VK_L);
@@ -307,20 +321,18 @@ public class JavaEditor extends Editor {
     platformPanel.add(macosxButton);
     platformPanel.add(Box.createHorizontalStrut(6));
     platformPanel.add(linuxButton);
-    platformPanel.setBorder(new TitledBorder("Platforms"));
+    platformPanel.setBorder(new TitledBorder(Language.text("export.platforms")));
     //Dimension goodIdea = new Dimension(wide, platformPanel.getPreferredSize().height);
     //platformPanel.setMaximumSize(goodIdea);
 //    wide = Math.max(wide, platformPanel.getPreferredSize().width);
     platformPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
     panel.add(platformPanel);
     int divWidth = platformPanel.getPreferredSize().width;
-
-    // 
     
     //int indent = new JCheckBox().getPreferredSize().width;
     int indent = 0;
     
-    final JCheckBox showStopButton = new JCheckBox("Show a Stop button");
+    final JCheckBox showStopButton = new JCheckBox(Language.text("export.options.show_stop_button"));
     showStopButton.setSelected(Preferences.getBoolean("export.application.stop"));
     showStopButton.addItemListener(new ItemListener() {
       public void itemStateChanged(ItemEvent e) {
@@ -330,7 +342,8 @@ public class JavaEditor extends Editor {
     showStopButton.setEnabled(Preferences.getBoolean("export.application.fullscreen"));
     showStopButton.setBorder(new EmptyBorder(3, 13 + indent, 6, 13));
 
-    final JCheckBox fullScreenButton = new JCheckBox("Full Screen (Present mode)");
+    final JCheckBox fullScreenButton = new JCheckBox(Language.text("export.options.fullscreen"));
+    //fullscreenButton.setMnemonic(KeyEvent.VK_F);
     fullScreenButton.setSelected(Preferences.getBoolean("export.application.fullscreen"));
     fullScreenButton.addItemListener(new ItemListener() {
       public void itemStateChanged(ItemEvent e) {
@@ -386,7 +399,7 @@ public class JavaEditor extends Editor {
     //presentPanel.add(showStopButton);
 //    presentPanel.add(Box.createHorizontalStrut(10));
 //    presentPanel.add(Box.createHorizontalGlue());
-    presentPanel.setBorder(new TitledBorder("Full Screen"));
+    presentPanel.setBorder(new TitledBorder(Language.text("export.full_screen")));
 //    wide = Math.max(wide, platformPanel.getPreferredSize().width);
     presentPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
     panel.add(presentPanel);
@@ -435,7 +448,7 @@ public class JavaEditor extends Editor {
     warningLabel.setBorder(new EmptyBorder(3, 13 + indent, 3, 13));
 
     final JCheckBox embedJavaButton = 
-      new JCheckBox("Embed Java for " + platformName);
+      new JCheckBox(Language.text("export.embed_java.for") + " " + platformName);
     embedJavaButton.setSelected(embed);
     embedJavaButton.addItemListener(new ItemListener() {
       public void itemStateChanged(ItemEvent e) {
@@ -452,7 +465,7 @@ public class JavaEditor extends Editor {
     
     embedPanel.add(embedJavaButton);
     embedPanel.add(warningLabel);
-    embedPanel.setBorder(new TitledBorder("Embed Java"));
+    embedPanel.setBorder(new TitledBorder(Language.text("export.embed_java")));
     panel.add(embedPanel);
     
     //
@@ -460,7 +473,7 @@ public class JavaEditor extends Editor {
     if (Base.isMacOS()) {
       JPanel signPanel = new JPanel();
       signPanel.setLayout(new BoxLayout(signPanel, BoxLayout.Y_AXIS));
-      signPanel.setBorder(new TitledBorder("Code Signing"));
+      signPanel.setBorder(new TitledBorder(Language.text("export.code_signing")));
       
       // gatekeeper: http://support.apple.com/kb/ht5290
       // for developers: https://developer.apple.com/developer-id/
@@ -521,7 +534,8 @@ public class JavaEditor extends Editor {
     
     //
 
-    String[] options = { "Export", "Cancel" };
+    String[] options = { Language.text("prompt.export"), Language.text("prompt.cancel") };
+
     final JOptionPane optionPane = new JOptionPane(panel,
                                                    JOptionPane.PLAIN_MESSAGE,
                                                    JOptionPane.YES_NO_OPTION,
@@ -529,7 +543,8 @@ public class JavaEditor extends Editor {
                                                    options,
                                                    options[0]);
 
-    final JDialog dialog = new JDialog(this, "Export Application", true);
+
+    final JDialog dialog = new JDialog(this, Language.text("export"), true);
     dialog.setContentPane(optionPane);
 //    System.out.println(optionPane.getLayout());
     
@@ -562,9 +577,9 @@ public class JavaEditor extends Editor {
     Object value = optionPane.getValue();
     if (value.equals(options[0])) {
       return jmode.handleExportApplication(sketch);
-    } else if (value.equals(options[1]) || value.equals(new Integer(-1))) {
+    } else if (value.equals(options[1]) || value.equals(Integer.valueOf(-1))) {
       // closed window by hitting Cancel or ESC
-      statusNotice("Export to Application canceled.");
+      statusNotice(Language.text("export.notice.exporting.cancel"));
     }
     return false;
   }
@@ -618,7 +633,7 @@ public class JavaEditor extends Editor {
       addMouseListener(new MouseAdapter() {
         public void mouseReleased(MouseEvent e) {
           Color color = Preferences.getColor(prefName);
-          chooser = new ColorChooser(JavaEditor.this, true, color, "Select", ColorPreference.this);
+          chooser = new ColorChooser(JavaEditor.this, true, color, Language.text("color_chooser.select"), ColorPreference.this);
           chooser.show();
         }
       });
@@ -662,10 +677,10 @@ public class JavaEditor extends Editor {
    */
   protected boolean handleExportCheckModified() {
     if (sketch.isModified()) {
-      Object[] options = { "OK", "Cancel" };
+      Object[] options = { Language.text("prompt.ok"), Language.text("prompt.cancel") };
       int result = JOptionPane.showOptionDialog(this,
-                                                "Save changes before export?",
-                                                "Save",
+                                                Language.text("export.unsaved_changes"),
+                                                Language.text("menu.file.save"),
                                                 JOptionPane.OK_CANCEL_OPTION,
                                                 JOptionPane.QUESTION_MESSAGE,
                                                 null,
@@ -679,7 +694,7 @@ public class JavaEditor extends Editor {
         // why it's not CANCEL_OPTION is beyond me (at least on the mac)
         // but f-- it.. let's get this shite done..
         //} else if (result == JOptionPane.CANCEL_OPTION) {
-        statusNotice("Export canceled, changes must first be saved.");
+        statusNotice(Language.text("export.notice.cancel.unsaved_changes"));
         //toolbar.clear();
         return false;
       }
@@ -743,18 +758,16 @@ public class JavaEditor extends Editor {
 
 
   public void handleSave() {
-    toolbar.activate(JavaToolbar.SAVE);
-    //handleStop();
+//    toolbar.activate(JavaToolbar.SAVE);
     super.handleSave(true);
-    toolbar.deactivate(JavaToolbar.SAVE);
+//    toolbar.deactivate(JavaToolbar.SAVE);
   }
 
 
   public boolean handleSaveAs() {
-    toolbar.activate(JavaToolbar.SAVE);
-    //handleStop();
+//    toolbar.activate(JavaToolbar.SAVE);
     boolean result = super.handleSaveAs();
-    toolbar.deactivate(JavaToolbar.SAVE);
+//    toolbar.deactivate(JavaToolbar.SAVE);
     return result;
   }
 
@@ -778,15 +791,15 @@ public class JavaEditor extends Editor {
     // statement is already in there, but if the user has the import
     // commented out, then this will be a problem.
     String[] list = Base.packageListFromClassPath(jarPath);
-    StringBuffer buffer = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     for (int i = 0; i < list.length; i++) {
-      buffer.append("import ");
-      buffer.append(list[i]);
-      buffer.append(".*;\n");
+      sb.append("import ");
+      sb.append(list[i]);
+      sb.append(".*;\n");
     }
-    buffer.append('\n');
-    buffer.append(getText());
-    setText(buffer.toString());
+    sb.append('\n');
+    sb.append(getText());
+    setText(sb.toString());
     setSelection(0, 0);  // scroll to start
     sketch.setModified(true);
   }
@@ -810,9 +823,9 @@ public class JavaEditor extends Editor {
   }
 
 
-  public void deactivateExport() {
-    toolbar.deactivate(JavaToolbar.EXPORT);
-  }
+//  public void deactivateExport() {
+//    toolbar.deactivate(JavaToolbar.EXPORT);
+//  }
 
 
   public void internalCloseRunner() {
