@@ -7,7 +7,7 @@ import java.util.TreeMap;
 
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblem;
-
+import static processing.mode.experimental.ExperimentalMode.log;
 
 public class ErrorMessageSimplifier {
   /**
@@ -78,14 +78,12 @@ public class ErrorMessageSimplifier {
     switch (iprob.getID()) {
     case IProblem.ParsingError:
       if (args.length > 0) {
-        if (problem.getMessage().endsWith("expected")) {
-          result = "Probably a \"" + args[args.length - 1]
-              + "\" should go here";
-        }
-        else {
-        result = "Problem with code syntax: Consider removing \"" + args[0]
-            + "\"";
-        }        
+        result = "Error on \"" + args[0] + "\"";
+      }
+      break;
+    case IProblem.ParsingErrorDeleteToken:
+      if (args.length > 0) {
+        result = "Error on \"" + args[0] + "\"";
       }
       break;
     case IProblem.ParsingErrorInsertToComplete:
@@ -110,9 +108,11 @@ public class ErrorMessageSimplifier {
             result = "\"color\" and \"int\" are reserved words & can't be used as variable names";
           }
           else {
-            result = "\"" + args[0]
-                + "\" is a reserved word, it can't be used as a variable name";
+            result = "Error on \"" + args[0] + "\"";
           }
+        }
+        else {
+          result = "Error on \"" + args[0] + "\""; 
         }
       }
       break;

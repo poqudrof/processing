@@ -60,8 +60,8 @@ public class PreferencesFrame {
   JCheckBox memoryOverrideBox;
   JTextField memoryField;
   JCheckBox checkUpdatesBox;
-  JComboBox fontSizeField;
-  JComboBox consoleSizeField;
+  JComboBox<Integer> fontSizeField;
+  JComboBox<Integer> consoleSizeField;
   JCheckBox inputMethodBox;
   JCheckBox autoAssociateBox;
 
@@ -71,15 +71,15 @@ public class PreferencesFrame {
   JCheckBox warningsCheckerBox;
   JCheckBox codeCompletionBox;
   JCheckBox importSuggestionsBox;
-  JCheckBox codeCompletionTriggerBox;
+  //JCheckBox codeCompletionTriggerBox;
 
-  JComboBox displaySelectionBox;
-  JComboBox languageSelectionBox;
+  JComboBox<String> displaySelectionBox;
+  JComboBox<String> languageSelectionBox;
 
   int displayCount;
 
   String[] monoFontFamilies;
-  JComboBox fontSelectionBox;
+  JComboBox<String> fontSelectionBox;
 
   /** Base object so that updates can be applied to the list of editors. */
   Base base;
@@ -152,7 +152,7 @@ public class PreferencesFrame {
     Container languageBox = Box.createHorizontalBox();
     JLabel languageLabel = new JLabel(Language.text("preferences.language")+": ");
     languageBox.add(languageLabel);
-    languageSelectionBox = new JComboBox();
+    languageSelectionBox = new JComboBox<String>();
 
     Map<String, String> languages = Language.getLanguages();
     String[] languageSelection = new String[languages.size()];
@@ -163,7 +163,7 @@ public class PreferencesFrame {
         languageSelection[i++] = lang.getValue();
       }
     }
-    languageSelectionBox.setModel(new DefaultComboBoxModel(languageSelection));
+    languageSelectionBox.setModel(new DefaultComboBoxModel<String>(languageSelection));
     languageBox.add(languageSelectionBox);
     label = new JLabel(" ("+Language.text("preferences.requires_restart")+")");
     languageBox.add(label);
@@ -189,7 +189,7 @@ public class PreferencesFrame {
     fontLabel.setToolTipText(fontTip);
     fontBox.add(fontLabel);
     // get a wide name in there before getPreferredSize() is called
-    fontSelectionBox = new JComboBox(new Object[] { Toolkit.getMonoFontName() });
+    fontSelectionBox = new JComboBox<String>(new String[] { Toolkit.getMonoFontName() });
     fontSelectionBox.setToolTipText(fontTip);
 //    fontSelectionBox.addItem(Toolkit.getMonoFont(size, style));
     //updateDisplayList();
@@ -316,9 +316,7 @@ public class PreferencesFrame {
           }
         });
 
-    presentColor.addMouseListener(new MouseListener() {
-      @Override public void mouseReleased(MouseEvent e) {}
-      @Override public void mousePressed(MouseEvent e) {}
+    presentColor.addMouseListener(new MouseAdapter() {
 
       @Override
       public void mouseExited(MouseEvent e) {
@@ -400,29 +398,29 @@ public class PreferencesFrame {
     // [ ] Enable Code Completion - PDE X
 
     codeCompletionBox =
-      new JCheckBox(Language.text("preferences.code_completion"));
+      new JCheckBox(Language.text("preferences.code_completion") + " Ctrl-" + Language.text("preferences.cmd_space"));
     pain.add(codeCompletionBox);
     d = codeCompletionBox.getPreferredSize();
     codeCompletionBox.setBounds(left, top, d.width + 10, d.height);
-    codeCompletionBox.addActionListener(new ActionListener() {
+//    codeCompletionBox.addActionListener(new ActionListener() {
+//
+//      @Override
+//      public void actionPerformed(ActionEvent e) {
+//        // Disble code completion trigger option if completion is disabled
+//        codeCompletionTriggerBox.setEnabled(codeCompletionBox.isSelected());
+//      }
+//    });
 
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        // Disble code completion trigger option if completion is disabled
-        codeCompletionTriggerBox.setEnabled(codeCompletionBox.isSelected());
-      }
-    });
+//    int toggleLeft = left + d.width;
 
-    int toggleLeft = left + d.width;
+    // [ ] Toggle Code Completion Trigger - PDE X. No longer needed (Manindra)
 
-    // [ ] Toggle Code Completion Trigger - PDE X
-
-    codeCompletionTriggerBox =
-      new JCheckBox(Language.text("preferences.trigger_with")+" Ctrl-"+Language.text("preferences.cmd_space"));
-    pain.add(codeCompletionTriggerBox);
-    d = codeCompletionTriggerBox.getPreferredSize();
-    codeCompletionTriggerBox.setBounds(toggleLeft, top, d.width + 10, d.height);
-    right = Math.max(right, toggleLeft + d.width);
+//    codeCompletionTriggerBox =
+//      new JCheckBox(Language.text("preferences.trigger_with")+" Ctrl-"+Language.text("preferences.cmd_space"));
+//    pain.add(codeCompletionTriggerBox);
+//    d = codeCompletionTriggerBox.getPreferredSize();
+//    codeCompletionTriggerBox.setBounds(toggleLeft, top, d.width + 10, d.height);
+//    right = Math.max(right, toggleLeft + d.width);
     top += d.height + GUI_BETWEEN;
 
     // [ ] Show import suggestions - PDE X
@@ -494,7 +492,7 @@ public class PreferencesFrame {
     final String tip = "<html>" + Language.text("preferences.run_sketches_on_display.tip");
     displayLabel.setToolTipText(tip);
     displayBox.add(displayLabel);
-    displaySelectionBox = new JComboBox();
+    displaySelectionBox = new JComboBox<String>();
     updateDisplayList();  // needs to happen here for getPreferredSize()
     displayBox.add(displaySelectionBox);
     pain.add(displayBox);
@@ -766,7 +764,7 @@ public class PreferencesFrame {
     Preferences.setBoolean("pdex.errorCheckEnabled", errorCheckerBox.isSelected());
     Preferences.setBoolean("pdex.warningsEnabled", warningsCheckerBox.isSelected());
     Preferences.setBoolean("pdex.completion", codeCompletionBox.isSelected());
-    Preferences.setBoolean("pdex.completion.trigger", codeCompletionTriggerBox.isSelected());
+    //Preferences.setBoolean("pdex.completion.trigger", codeCompletionTriggerBox.isSelected());
     Preferences.setBoolean("pdex.importSuggestEnabled", importSuggestionsBox.isSelected());
 
     for (Editor editor : base.getEditors()) {
@@ -781,8 +779,8 @@ public class PreferencesFrame {
     errorCheckerBox.setSelected(Preferences.getBoolean("pdex.errorCheckEnabled"));
     warningsCheckerBox.setSelected(Preferences.getBoolean("pdex.warningsEnabled"));
     codeCompletionBox.setSelected(Preferences.getBoolean("pdex.completion"));
-    codeCompletionTriggerBox.setSelected(Preferences.getBoolean("pdex.completion.trigger"));
-    codeCompletionTriggerBox.setEnabled(codeCompletionBox.isSelected());
+    //codeCompletionTriggerBox.setSelected(Preferences.getBoolean("pdex.completion.trigger"));
+    //codeCompletionTriggerBox.setEnabled(codeCompletionBox.isSelected());
     importSuggestionsBox.setSelected(Preferences.getBoolean("pdex.importSuggestEnabled"));
     deletePreviousBox.
       setSelected(Preferences.getBoolean("export.delete_target_folder")); //$NON-NLS-1$
@@ -847,7 +845,7 @@ public class PreferencesFrame {
   void initFontList() {
     if (monoFontFamilies == null) {
       monoFontFamilies = Toolkit.getMonoFontFamilies();
-      fontSelectionBox.setModel(new DefaultComboBoxModel(monoFontFamilies));
+      fontSelectionBox.setModel(new DefaultComboBoxModel<String>(monoFontFamilies));
       String family = Preferences.get("editor.font.family");
 
       // Set a reasonable default, in case selecting the family fails
@@ -868,7 +866,7 @@ public class PreferencesFrame {
 //      displaySelectionBox.add(String.valueOf(i + 1));
     }
 //    PApplet.println(items);
-    displaySelectionBox.setModel(new DefaultComboBoxModel(items));
+    displaySelectionBox.setModel(new DefaultComboBoxModel<String>(items));
 //    displaySelectionBox = new JComboBox(items);
   }
 }

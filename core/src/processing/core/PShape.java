@@ -120,6 +120,9 @@ public class PShape implements PConstants {
   public static final String NO_SUCH_VERTEX_ERROR =
     "%1$s vertex index does not exist";
 
+  static public final String NO_VERTICES_ERROR =
+    "getVertexCount() only works with PATH or GEOMETRY shapes";
+
   // boundary box of this shape
   //protected float x;
   //protected float y;
@@ -554,7 +557,7 @@ public class PShape implements PConstants {
   }
 
 
-  public void is3D(boolean val) {
+  public void set3D(boolean val) {
     is3D = val;
   }
 
@@ -633,7 +636,9 @@ public class PShape implements PConstants {
 
 
   protected void beginContourImpl() {
-    if (vertexCodes.length == vertexCodeCount) {
+    if (vertexCodes == null) {
+      vertexCodes = new int[10];
+    } else if (vertexCodes.length == vertexCodeCount) {
       vertexCodes = PApplet.expand(vertexCodes);
     }
     vertexCodes[vertexCodeCount++] = BREAK;
@@ -2102,6 +2107,9 @@ public class PShape implements PConstants {
    * @see PShape#setVertex(int, float, float)
    */
   public int getVertexCount() {
+    if (family == GROUP || family == PRIMITIVE) {
+      PGraphics.showWarning(NO_VERTICES_ERROR);
+    }
     return vertexCount;
   }
 
@@ -2151,6 +2159,7 @@ public class PShape implements PConstants {
     return vertices[index][Z];
   }
 
+
   /**
    * @webref pshape:method
    * @brief Sets the vertex at the index position
@@ -2170,6 +2179,7 @@ public class PShape implements PConstants {
     vertices[index][Y] = y;
   }
 
+
   /**
    * @param z the z value for the vertex
    */
@@ -2183,6 +2193,7 @@ public class PShape implements PConstants {
     vertices[index][Y] = y;
     vertices[index][Z] = z;
   }
+
 
   /**
    * @param vec the PVector to define the x, y, z coordinates

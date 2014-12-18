@@ -146,7 +146,7 @@ public class ExperimentalMode extends JavaMode {
   /**
    * After how many typed characters, code completion is triggered
    */
-  volatile public static int codeCompletionTriggerLength = 2;
+  volatile public static int codeCompletionTriggerLength = 1;
 
   static public final String prefErrorCheck = "pdex.errorCheckEnabled";
   static public final String prefWarnings = "pdex.warningsEnabled";
@@ -335,6 +335,8 @@ public class ExperimentalMode extends JavaMode {
         @Override
         public Runner handleRun(Sketch sketch, RunnerListener listener) throws SketchException
         {
+          final DebugEditor editor = (DebugEditor)listener;
+          editor.errorCheckerService.quickErrorCheck();
                 if (enableTweak) {
                   enableTweak = false;
                         return handleTweakPresentOrRun(sketch, listener, false);
@@ -359,6 +361,8 @@ public class ExperimentalMode extends JavaMode {
         @Override
         public Runner handlePresent(Sketch sketch, RunnerListener listener) throws SketchException
         {
+                final DebugEditor editor = (DebugEditor)listener;
+                editor.errorCheckerService.quickErrorCheck();
                 if (enableTweak) {
                   enableTweak = false;
                         return handleTweakPresentOrRun(sketch, listener, true);
