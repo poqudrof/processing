@@ -308,6 +308,12 @@ public class ErrorCheckerService implements Runnable{
    * last runManualErrorCheck() call.
    */
   private final static long errorCheckInterval = 500;
+  
+  /**
+   * Bypass sleep time
+   */
+  
+  private volatile boolean noSleep = false;
 
   /**
    * The way the error checking happens is: DocumentListeners are added
@@ -334,7 +340,13 @@ public class ErrorCheckerService implements Runnable{
     while (!stopThread.get()) {
       try {
         // Take a nap.
-        Thread.sleep(sleepTime);
+        if(!noSleep) {
+          Thread.sleep(sleepTime);
+        }
+        else {
+          noSleep = false;
+          log("Didn't sleep!");
+        }
       } catch (Exception e) {
         log("Oops! [ErrorCheckerThreaded]: " + e);
         // e.printStackTrace();
@@ -392,7 +404,7 @@ public class ErrorCheckerService implements Runnable{
         if (args.length > 0) {
           String missingClass = args[0];
           log("Will suggest for type:" + missingClass);
-          astGenerator.suggestImports(missingClass);
+          //astGenerator.suggestImports(missingClass);
         }
       }
     }
@@ -424,6 +436,12 @@ public class ErrorCheckerService implements Runnable{
     // log("Error Check.");
     textModified.incrementAndGet();
     lastErrorCheckCall = System.currentTimeMillis();
+  }
+  
+  public void quickErrorCheck() {
+    //TODO: Experimental, lookout for threading related issues
+    noSleep = true;
+    log("quickErrorCheck()");
   }
   
   protected SketchChangedListener sketchChangedListener;
@@ -879,19 +897,21 @@ public class ErrorCheckerService implements Runnable{
                         + "folder>/libraries folder or in the code folder of your sketch");
   
               }
-              String codeFolderPath[] = PApplet.split(
-                  codeFolderClassPath.substring(1).trim(),
-                  File.pathSeparatorChar);
-              try {
-                for (int i = 0; i < codeFolderPath.length; i++) {
-                  classpathJars.add(new File(codeFolderPath[i])
-                      .toURI().toURL());
+              else {
+                String codeFolderPath[] = PApplet.split(
+                    codeFolderClassPath.substring(1).trim(),
+                    File.pathSeparatorChar);
+                try {
+                  for (int i = 0; i < codeFolderPath.length; i++) {
+                    classpathJars.add(new File(codeFolderPath[i])
+                        .toURI().toURL());
+                  }
+    
+                } catch (Exception e2) {
+                  System.out
+                      .println("Yikes! codefolder, prepareImports(): "
+                          + e2);
                 }
-  
-              } catch (Exception e2) {
-                System.out
-                    .println("Yikes! codefolder, prepareImports(): "
-                        + e2);
               }
             } else {
               System.err.println("Experimental Mode: Yikes! Can't find \""
@@ -986,6 +1006,26 @@ public class ErrorCheckerService implements Runnable{
         if (tempErrorLog.size() < 200)
           tempErrorLog.put(problemsList.get(i).getMessage(), problemsList
               .get(i).getIProblem());
+        
+        if(!ExperimentalMode.importSuggestEnabled) continue;
+        Problem p = problemsList.get(i);
+        if(p.getIProblem().getID() == IProblem.UndefinedType) {
+          String args[] = p.getIProblem().getArguments();        
+          if (args.length > 0) {
+            String missingClass = args[0];
+//            log("Will suggest for type:" + missingClass);
+            //astGenerator.suggestImports(missingClass);
+            String[] si = astGenerator.getSuggestImports(missingClass);
+            if(si != null && si.length > 0){
+              p.setImportSuggestions(si);
+              errorData[i][0] = "<html>"
+                  + problemsList.get(i).getMessage()
+                  + " (<font color=#0000ff><u>Import Suggestions available</u></font>)</html>";
+            }
+            
+          }
+        }
+        
       }
 
       DefaultTableModel tm = new DefaultTableModel(errorData,

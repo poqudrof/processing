@@ -344,17 +344,12 @@ public class ASTGenerator {
 
           StringBuilder tehPath = new StringBuilder(System
               .getProperty("java.class.path"));
-          if(Base.isMacOS()){
-            // rt.jar equivalent on OS X is JAVA_HOME/bundle/Classes/classes.jar
-            tehPath.append(File.pathSeparatorChar
-                           + System.getProperty("java.home") + File.separator + "bundle"
-                + File.separator + "Classes" + File.separator + "classes.jar"
-                + File.pathSeparatorChar);
-          }else{
+          // Starting with JDK 1.7, no longer using Apple's Java, so
+          // rt.jar has the same path on all OSes
           tehPath.append(File.pathSeparatorChar
               + System.getProperty("java.home") + File.separator + "lib"
               + File.separator + "rt.jar" + File.pathSeparatorChar);
-          }
+
           if (errorCheckerService.classpathJars != null) {
             synchronized (errorCheckerService.classpathJars) {
               for (URL jarPath : errorCheckerService.classpathJars) {
@@ -985,18 +980,17 @@ public class ASTGenerator {
             String[] resources = classPath.findResources("",
                                                          regExpResourceFilter);
             for (String matchedClass2 : resources) {
-              matchedClass2 = matchedClass2.replace('/', '.');
+              matchedClass2 = matchedClass2.replace('/', '.'); //package name
               String matchedClass = matchedClass2.substring(0, matchedClass2
                   .length() - 6);
               int d = matchedClass.lastIndexOf('.');
               if (ignorableImport(matchedClass2,matchedClass.substring(d + 1)))
                 continue;
               
-              matchedClass = matchedClass.substring(d + 1);
-              candidates
-                  .add(new CompletionCandidate(matchedClass, matchedClass
-                      + " : " + matchedClass2.substring(0, d), matchedClass,
-                                               CompletionCandidate.PREDEF_CLASS));
+              matchedClass = matchedClass.substring(d + 1); //class name
+              candidates.add(new CompletionCandidate(matchedClass, 
+                  matchedClass + " : "
+                  + matchedClass2.substring(0, d) , matchedClass, CompletionCandidate.PREDEF_CLASS)); // display package name in grey
               //log("-> " + className);
             }
           }
@@ -1087,8 +1081,10 @@ public class ASTGenerator {
               || candidates.get(i).getType() == CompletionCandidate.PREDEF_METHOD) {
             CompletionCandidate cc = candidates.get(i - 1);
             String label = cc.getLabel();
+            log(label);
             int x = label.lastIndexOf(')');
-            cc.setLabel(cc.getElementName() + "(...)" + label.substring(x + 1));
+            cc.setLabel((cc.getLabel().contains("<html>") ? "" : "")
+                + cc.getElementName() + "(...)" + label.substring(x + 1));
             cc.setCompletionString(cc.getElementName() + "(");
             ignoredSome = true;
             continue;
@@ -3311,6 +3307,68 @@ public class ASTGenerator {
       }
     }
     return null;
+  }
+  
+  public String[] getSuggestImports(final String className){
+    if(ignoredImportSuggestions == null) {
+      ignoredImportSuggestions = new TreeSet<String>();
+    } else {
+      if(ignoredImportSuggestions.contains(className)) {
+        log("Ignoring import suggestions for " + className);
+        return null;
+      }
+    }
+
+    log("Looking for class " + className);
+    RegExpResourceFilter regf = new RegExpResourceFilter(
+                                                         Pattern.compile(".*"),
+                                                         Pattern
+                                                             .compile(className
+                                                                          + ".class",
+                                                                      Pattern.CASE_INSENSITIVE));
+    String[] resources = classPath
+        .findResources("", regf);
+    ArrayList<String> candidates = new ArrayList<String>();
+    for (String res : resources) {
+      candidates.add(res);
+    }
+    
+    // log("Couldn't find import for class " + className);
+
+    for (Library lib : editor.dmode.contribLibraries) {
+      ClassPath cp = factory.createFromPath(lib.getClassPath());
+      resources = cp.findResources("", regf);
+      for (String res : resources) {
+        candidates.add(res);
+        log("Res: " + res);
+      }
+    }
+    
+    if (editor.getSketch().hasCodeFolder()) {
+      File codeFolder = editor.getSketch().getCodeFolder();
+      // get a list of .jar files in the "code" folder
+      // (class files in subfolders should also be picked up)
+      ClassPath cp = factory.createFromPath(Base
+                                            .contentsToClassPath(codeFolder));
+      resources = cp.findResources("", regf);
+      for (String res : resources) {
+        candidates.add(res);
+        log("Res: " + res);
+      }
+    }
+
+    resources = new String[candidates.size()];
+    for (int i = 0; i < resources.length; i++) {
+      resources[i] = candidates.get(i).replace('/', '.')
+          .substring(0, candidates.get(i).length() - 6);
+    }
+    
+//    ArrayList<String> ans = new ArrayList<String>();
+//    for (int i = 0; i < resources.length; i++) {
+//      ans.add(resources[i]);
+//    }
+    
+    return resources;
   }
   protected JFrame frmImportSuggest;
   private TreeSet<String> ignoredImportSuggestions;

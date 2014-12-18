@@ -22,8 +22,6 @@
 package processing.app;
 
 import java.io.*;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.*;
 
 import processing.core.PApplet;
@@ -31,10 +29,9 @@ import processing.core.PApplet;
 
 /**
  * Internationalization (i18n)
- * @author Darius Morawiec
  */
 public class Language {
-  static private final String FILE = "processing.app.languages.PDE";
+//  static private final String FILE = "processing.app.languages.PDE";
   //static private final String LISTING = "processing/app/languages/languages.txt";
   
   // Store the language information in a file separate from the preferences,
@@ -51,7 +48,9 @@ public class Language {
   /** Available languages */
   private HashMap<String, String> languages;
   
-  private ResourceBundle bundle;
+  //private ResourceBundle bundle;
+  //private Settings bundle;
+  private LanguageBundle bundle;
 
 
   private Language() {
@@ -81,7 +80,12 @@ public class Language {
     }
 
     // Get bundle with translations (processing.app.language.PDE)
-    bundle = ResourceBundle.getBundle(Language.FILE, new Locale(this.language), new UTF8Control());
+    //bundle = ResourceBundle.getBundle(Language.FILE, new Locale(this.language), new UTF8Control());
+    try {
+      bundle = new LanguageBundle(language);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
   
   
@@ -99,7 +103,7 @@ public class Language {
       "nl", // Dutch, Nederlands
       "pt", // Portuguese
       "tr", // Turkish
-	  "zh" // chinese
+      "zh"  // Chinese
     };
     return SUPPORTED;
 
@@ -167,7 +171,8 @@ public class Language {
 
   /** Get translation from bundles. */
   static public String text(String text) {
-    ResourceBundle bundle = init().bundle;
+//    ResourceBundle bundle = init().bundle;
+    LanguageBundle bundle = init().bundle;
 
     try {
       return bundle.getString(text);
@@ -178,17 +183,19 @@ public class Language {
 
   
   static public String interpolate(String text, Object... arguments) {
+//    return String.format(init().bundle.getString(text), arguments);
     return String.format(init().bundle.getString(text), arguments);
   }
 
   
   static public String pluralize(String text, int count) {
-    ResourceBundle bundle = init().bundle;
+//    ResourceBundle bundle = init().bundle;
+    LanguageBundle bundle = init().bundle;
 
     String fmt = text + ".%s";
-
-    if (bundle.containsKey(String.format(fmt, count))) {
-      return interpolate(String.format(fmt, count), count);
+    String key = String.format(fmt, count);
+    if (bundle.containsKey(key)) {
+      return interpolate(key, count);
     }
     return interpolate(String.format(fmt, "n"), count);
   }
@@ -223,6 +230,7 @@ public class Language {
    * Custom 'Control' class for consistent encoding.
    * http://stackoverflow.com/questions/4659929/how-to-use-utf-8-in-resource-properties-with-resourcebundle
    */
+  /*
   static class UTF8Control extends ResourceBundle.Control {
     public ResourceBundle newBundle(String baseName, Locale locale, String format, ClassLoader loader, boolean reload) throws IllegalAccessException, InstantiationException,IOException {
       // The below is a copy of the default implementation.
@@ -251,6 +259,63 @@ public class Language {
         }
       }
       return bundle;
+    }
+  }
+  */
+  
+  
+  static class LanguageBundle {
+    Map<String, String> table;
+    
+    LanguageBundle(String language) throws IOException {
+      table = new HashMap<String, String>();
+      
+      String baseFilename = "languages/PDE.properties";
+      String langFilename = "languages/PDE_" + language + ".properties";
+
+      File baseFile = Base.getLibFile(baseFilename);
+      File userBaseFile = new File(Base.getSketchbookFolder(), baseFilename);
+      if (userBaseFile.exists()) {
+        baseFile = userBaseFile;
+      }
+
+      File langFile = Base.getLibFile(langFilename);
+      File userLangFile = new File(Base.getSketchbookFolder(), langFilename);
+      if (userLangFile.exists()) {
+        langFile = userLangFile;
+      }
+      
+      read(baseFile);
+      read(langFile);
+    }
+    
+    void read(File additions) {
+      String[] lines = PApplet.loadStrings(additions);
+      for (String line : lines) {
+        if ((line.length() == 0) ||
+            (line.charAt(0) == '#')) continue;
+
+        // this won't properly handle = signs being in the text
+        int equals = line.indexOf('=');
+        if (equals != -1) {
+          String key = line.substring(0, equals).trim();
+          String value = line.substring(equals + 1).trim();
+          
+          // fix \n and \'
+          value = value.replaceAll("\\\\n", "\n");
+          value = value.replaceAll("\\\\'", "'");
+
+          table.put(key, value);
+        }
+      }
+    }
+    
+    String getString(String key) {
+      return table.get(key);
+    }
+    
+    boolean containsKey(String key) {
+      return table.containsKey(key);
     }
   }
 }
