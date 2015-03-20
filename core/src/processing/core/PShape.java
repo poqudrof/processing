@@ -1605,6 +1605,12 @@ public class PShape implements PConstants {
              params[6], params[7]);
 
     } else if (kind == RECT) {
+        
+      if(imagePath != null){
+          setTexture(g.parent.loadImage(imagePath));
+          System.out.println("Loaded texture " + imagePath + " to object " + this.image);
+          imagePath = null;
+      }
       if (image != null) {
         g.imageMode(CORNER);
         g.image(image, params[0], params[1], params[2], params[3]);
@@ -1614,38 +1620,7 @@ public class PShape implements PConstants {
       }
       
     } else if (kind == IMAGE_SHAPE) {
-        // The image have to be loaded...
-        if(image == null) {
-     
-            g.rectMode(CORNER);
-            g.rect(params[0], params[1], params[2], params[3]);
-     
-            if(imagePath != null){
-                    String path;
-                 if(imagePath.startsWith("file://"))
-                path = imagePath;
-            else
-                path = g.parent.sketchPath(imagePath);
-            PImage img;
-            if(loadedImages.containsKey(path)){
-                img = loadedImages.get(path);
-                System.out.println("Image already loaded " + path);
-            }else {
-                img = g.parent.loadImage(path);
-                if (img == null){
-             //    System.err.println("ERROR: could not load image: " + path);
-              }else {
-                loadedImages.put(path, img);
-                System.out.println("Loaded image : " + path + "  "  + img );
-              }
-            }
-            this.setTexture(img);
-            }
-        }else {
-        g.imageMode(CORNER);
-        g.image(image, params[0], params[1], params[2], params[3]);
-   
-        }
+      
    
     } else if (kind == ELLIPSE) {
       g.ellipseMode(CORNER);

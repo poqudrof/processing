@@ -480,7 +480,10 @@ public class PShapeSVG extends PShape {
   }
   
   protected void parseImage() {
-    kind = IMAGE_SHAPE;  // Hack -> See PConstants
+//    kind = IMAGE_SHAPE;  // Hack -> See PConstants
+    kind = RECT;  // Hack -> See PConstants
+    textureMode = NORMAL;
+    
     family = PRIMITIVE;
     params = new float[] {
       getFloatWithUnit(element, "x"),
@@ -488,9 +491,61 @@ public class PShapeSVG extends PShape {
       getFloatWithUnit(element, "width"),
       getFloatWithUnit(element, "height")
     };
+  
     
-    this.imagePath = getText(element, "xlink:href");
+    String imgPath = getText(element, "xlink:href");
+//    System.out.println("ImagePath " + imgPath);
+    
+    if(imgPath.startsWith("data:image")){
+        imagePath = null;
+        return; 
+       // TODO: load base64 stuff. 
+//        http://stackoverflow.com/questions/13109588/base64-encoding-in-java
+    } else {
+
+        if(imgPath.startsWith("file://")){
+            imagePath = imgPath;
+        }
+     }
   }
+//     
+//            if(imagePath != null){
+//                 String path;
+//                 if(imagePath.startsWith("file://") || imagePath.startsWith("data:image")){
+//                   path = imagePath;
+//                 }
+//                 else{
+//                   path = g.parent.sketchPath(imagePath);
+//                 }
+//            
+//                PImage img = null;
+//            
+//                if(loadedImages.containsKey(path)){
+//                    img = loadedImages.get(path);
+//                    System.out.println("Image already loaded " + path);
+//                }else {
+//                    if(path.startsWith("data:image")){
+//                        // do nothing yet 
+//                        // Decode Base64
+//                    } else {
+//                        System.out.println("Trying to load the image ... " + path);
+//                        img = g.parent.loadImage(path);
+//
+//                        if (img == null){
+//                           System.err.println("ERROR: could not load image: " + path);
+//                        }else {
+//                           loadedImages.put(path, img);
+//                           System.out.println("Loaded image : " + path + "  "  + img );
+//                        }
+//                    }
+//                }
+//                this.setTexture(img);
+//            }
+//        }else {
+//        g.imageMode(CORNER);
+//        g.image(image, params[0], params[1], params[2], params[3]);
+//   
+//        }
 
 
   /**
