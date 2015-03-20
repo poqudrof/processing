@@ -35,10 +35,19 @@ import java.awt.geom.Rectangle2D;
 import java.awt.image.ColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.xml.bind.DatatypeConverter;
+
+//import org.apache.commons.codec.binary.Base64;
 
 /**
  * This class is not part of the Processing API and should not be used
@@ -479,9 +488,10 @@ public class PShapeSVG extends PShape {
     };
   }
   
+
+
   protected void parseImage() {
-//    kind = IMAGE_SHAPE;  // Hack -> See PConstants
-    kind = RECT;  // Hack -> See PConstants
+    kind = RECT;  
     textureMode = NORMAL;
     
     family = PRIMITIVE;
@@ -492,22 +502,23 @@ public class PShapeSVG extends PShape {
       getFloatWithUnit(element, "height")
     };
   
-    
     String imgPath = getText(element, "xlink:href");
 //    System.out.println("ImagePath " + imgPath);
     
     if(imgPath.startsWith("data:image")){
-        imagePath = null;
-        return; 
-       // TODO: load base64 stuff. 
-//        http://stackoverflow.com/questions/13109588/base64-encoding-in-java
+        imagePath = imgPath;
+        imageTemporary = true;
     } else {
-
         if(imgPath.startsWith("file://")){
             imagePath = imgPath;
+            imageTemporary = false;
         }
      }
   }
+  
+  
+  
+  
 //     
 //            if(imagePath != null){
 //                 String path;

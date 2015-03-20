@@ -22,7 +22,13 @@
 
 package processing.core;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.xml.bind.DatatypeConverter;
 
 import processing.core.PApplet;
 import processing.core.PGraphicsJava2D;
@@ -80,6 +86,7 @@ import processing.core.PGraphicsJava2D;
 public class PShape implements PConstants {
   protected String name;
   protected String imagePath = null;
+  protected boolean imageTemporary = false;
   protected HashMap<String,PShape> nameTable;
 
 //  /** Generic, only draws its child objects. */
@@ -1605,10 +1612,19 @@ public class PShape implements PConstants {
              params[6], params[7]);
 
     } else if (kind == RECT) {
-        
       if(imagePath != null){
-          setTexture(g.parent.loadImage(imagePath));
-          System.out.println("Loaded texture " + imagePath + " to object " + this.image);
+          
+          // TODO: for some reason the elements are loaded once by the main thread
+          // and once by the drawing thread. 
+//          System.out.println("Thread " + Thread.currentThread());
+//          System.out.println("SVGElement " + this +" "+ this.name + " try to load a texture");
+          if(this.imageTemporary){
+            loadBase64Image(g);
+            imageTemporary = false;
+          }else {
+            setTexture(g.parent.loadImage(imagePath));
+          }
+          
           imagePath = null;
       }
       if (image != null) {
@@ -1619,9 +1635,6 @@ public class PShape implements PConstants {
         g.rect(params[0], params[1], params[2], params[3]);
       }
       
-    } else if (kind == IMAGE_SHAPE) {
-      
-   
     } else if (kind == ELLIPSE) {
       g.ellipseMode(CORNER);
       g.ellipse(params[0], params[1], params[2], params[3]);
@@ -1640,6 +1653,45 @@ public class PShape implements PConstants {
     } else if (kind == SPHERE) {
       g.sphere(params[0]);
     }
+  }
+  
+  private void loadBase64Image(PGraphics g){
+      
+      
+    String[] parts = this.imagePath.split(";base64");
+    String extension = parts[0].substring(11);
+    String encodedData = parts[1];
+
+    byte[] decodedBytes = DatatypeConverter.parseBase64Binary(encodedData);
+
+    // "Random" name generation for temporary file
+    String tmpFileName = Long.toHexString(Double.doubleToLongBits(Math.random()));
+    tmpFileName = tmpFileName +  "." + extension;
+
+    String tmpPath;
+    
+    // try to make things faster on linux supporting files in /dev/shm (ram). 
+    if(Files.exists(Paths.get("/dev/shm/"))){
+        tmpPath = "/dev/shm/" + tmpFileName;
+    } else {
+       tmpPath = g.parent.sketchPath + "/" + tmpFileName;
+    }
+    
+    try {
+        // Save to disk
+        Files.write(Paths.get(tmpPath), decodedBytes);
+        
+        // load with Processing
+        setTexture(g.parent.loadImage(tmpPath));
+
+        // Remove from disk
+        Files.delete(Paths.get(tmpPath));
+        
+    } catch (IOException ex) {
+        System.out.println("IOException impossiblet to write ? "  + ex);
+//            Logger.getLogger(PShapeSVG.class.getName()).log(Level.SEVERE, null, ex);
+    }
+        
   }
 
 
