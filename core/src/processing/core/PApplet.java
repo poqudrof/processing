@@ -809,6 +809,11 @@ public class PApplet implements PConstants {
   protected PSurface surface;
 
 
+  public PSurface getSurface() {
+    return surface;
+  }
+
+
   /**
    * A dummy frame to keep compatibility with 2.x code
    * and encourage users to update.
@@ -6659,18 +6664,21 @@ public class PApplet implements PConstants {
       try {
         URL url = new URL(filename);
         URLConnection conn = url.openConnection();
-        HttpURLConnection httpConn = (HttpURLConnection) conn;
-        // Will not handle a protocol change (see below)
-        httpConn.setInstanceFollowRedirects(true);
-        int response = httpConn.getResponseCode();
-        // Normally will not follow HTTPS redirects from HTTP due to security concerns
-        // http://stackoverflow.com/questions/1884230/java-doesnt-follow-redirect-in-urlconnection/1884427
-        if (response >= 300 && response < 400) {
-          String newLocation = httpConn.getHeaderField("Location");
-          return createInputRaw(newLocation);
+        if (conn instanceof HttpURLConnection) {
+          HttpURLConnection httpConn = (HttpURLConnection) conn;
+          // Will not handle a protocol change (see below)
+          httpConn.setInstanceFollowRedirects(true);
+          int response = httpConn.getResponseCode();
+          // Normally will not follow HTTPS redirects from HTTP due to security concerns
+          // http://stackoverflow.com/questions/1884230/java-doesnt-follow-redirect-in-urlconnection/1884427
+          if (response >= 300 && response < 400) {
+            String newLocation = httpConn.getHeaderField("Location");
+            return createInputRaw(newLocation);
+          }
+          return conn.getInputStream();
+        } else if (conn instanceof JarURLConnection) {
+          return url.openStream();
         }
-        return conn.getInputStream();
-
       } catch (MalformedURLException mfue) {
         // not a url, that's fine
 
@@ -10230,7 +10238,7 @@ public class PApplet implements PConstants {
         @Override
         public void setSize(int w, int h) {
           deprecationWarning("setSize");
-          surface.setLocation(w, h);
+          surface.setSize(w, h);
         }
 
         private void deprecationWarning(String method) {
@@ -10335,7 +10343,7 @@ public class PApplet implements PConstants {
    * ( end auto-generated )
    *
    * @webref output:files
-   * @param renderer for example, PDF
+   * @param renderer PDF or SVG
    * @param filename filename for output
    * @see PApplet#endRecord()
    */
