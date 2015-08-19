@@ -163,7 +163,7 @@ public class JEditTextArea extends JComponent
 
             // inertia scrolling on OS X will fire several shift-wheel events
             // that are negative values.. this makes the scrolling area jump.
-            boolean isHorizontal = Base.isMacOS() && e.isShiftDown();
+            boolean isHorizontal = Platform.isMacOS() && e.isShiftDown();
             if (isHorizontal) {
               horizontal.setValue(horizontal.getValue() + scrollAmount);
             }else{
@@ -1913,6 +1913,16 @@ public class JEditTextArea extends JComponent
       } catch (Exception e) {
         getToolkit().beep();
         System.err.println("Clipboard does not contain a string");
+        DataFlavor[] flavors = clipboard.getAvailableDataFlavors();
+        for (DataFlavor f : flavors) {
+          try {
+            Object o = clipboard.getContents(this).getTransferData(f);
+            System.out.println(f + " = " + o);
+          } catch (Exception ex) {
+            ex.printStackTrace();
+          }
+        }
+
       }
     }
   }
@@ -2369,7 +2379,7 @@ public class JEditTextArea extends JComponent
         try {
           select(getMarkPosition(), xyToOffset(evt.getX(), evt.getY()));
         } catch (ArrayIndexOutOfBoundsException e) {
-          Base.loge("xToOffset problem", e);
+          Messages.loge("xToOffset problem", e);
         }
       } else {
         int line = yToLine(evt.getY());
@@ -2434,7 +2444,7 @@ public class JEditTextArea extends JComponent
       // As a result, better to just check for BUTTON3 now, indicating that
       // isPopupTrigger() is going to fire on the release anyway.
       boolean windowsRightClick =
-        Base.isWindows() && (event.getButton() == MouseEvent.BUTTON3);
+        Platform.isWindows() && (event.getButton() == MouseEvent.BUTTON3);
       if ((event.isPopupTrigger() || windowsRightClick) && (popup != null)) {
 //      // Windows fires the popup trigger on release (see mouseReleased() below)(
 //      if (!Base.isWindows()) {
