@@ -23,9 +23,11 @@ package processing.app.ui;
 
 import java.awt.EventQueue;
 import java.io.File;
+import java.io.IOException;
 
 import processing.app.Base;
 import processing.app.Language;
+import processing.app.Platform;
 import processing.app.Preferences;
 import processing.core.PApplet;
 import processing.data.StringDict;
@@ -35,7 +37,7 @@ public class Welcome extends WebFrame {
   Base base;
 
 
-  public Welcome(Base base, boolean sketchbook) {
+  public Welcome(Base base, boolean sketchbook) throws IOException {
     super(getIndexFile(sketchbook), 400);
     this.base = base;
     //addStyle("#new_sketchbook { background-color: rgb(0, 255, 0); }");
@@ -61,6 +63,7 @@ public class Welcome extends WebFrame {
                            this, this);
     }
 
+    // If un-checked, the key won't be in the dict, so null will be passed
     boolean keepShowing = "on".equals(dict.get("show_each_time", null));
     Preferences.setBoolean("welcome.show", keepShowing);
     Preferences.save();
@@ -97,7 +100,7 @@ public class Welcome extends WebFrame {
     }
     // processing/build/macosx/work/Processing.app/Contents/Java
     // version for Scott to use for OS X debugging
-    htmlFile = Base.getContentFile("../../../../../shared/lib/" + filename);
+    htmlFile = Platform.getContentFile("../../../../../shared/lib/" + filename);
     if (htmlFile.exists()) {
       return htmlFile;
     }
@@ -112,15 +115,19 @@ public class Welcome extends WebFrame {
 
 
   static public void main(String[] args) {
-    Base.initPlatform();
+    Platform.init();
 
     EventQueue.invokeLater(new Runnable() {
       public void run() {
-        new Welcome(null, true) {
-          public void handleClose() {
-            System.exit(0);
-          }
-        };
+        try {
+          new Welcome(null, true) {
+            public void handleClose() {
+              System.exit(0);
+            }
+          };
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
       }
     });
   }

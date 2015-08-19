@@ -31,6 +31,7 @@ import java.util.Random;
 
 import javax.swing.JOptionPane;
 
+import processing.app.contrib.ContributionManager;
 import processing.core.PApplet;
 
 
@@ -116,16 +117,18 @@ public class UpdateCheck {
     Preferences.set("update.last", String.valueOf(now));
 
     if (base.activeEditor != null) {
-      boolean offerToUpdateContributions = true;
+//      boolean offerToUpdateContributions = true;
 
       if (latest > Base.getRevision()) {
         System.out.println("You are running Processing revision 0" +
                            Base.getRevision() + ", the latest build is 0" +
                            latest + ".");
         // Assume the person is busy downloading the latest version
-        offerToUpdateContributions = !promptToVisitDownloadPage();
+//        offerToUpdateContributions = !promptToVisitDownloadPage();
+        promptToVisitDownloadPage();
       }
 
+      /*
       if (offerToUpdateContributions) {
         // Wait for xml file to be downloaded and updates to come in.
         // (this should really be handled better).
@@ -135,6 +138,7 @@ public class UpdateCheck {
           promptToOpenContributionManager();
         }
       }
+      */
     }
   }
 
@@ -152,7 +156,7 @@ public class UpdateCheck {
                                               options,
                                               options[0]);
     if (result == JOptionPane.YES_OPTION) {
-      Base.openURL(DOWNLOAD_URL);
+      Platform.openURL(DOWNLOAD_URL);
       return true;
     }
 
@@ -161,9 +165,12 @@ public class UpdateCheck {
 
 
   protected boolean promptToOpenContributionManager() {
-    String contributionPrompt = Language.text("update_check.updates_available.contributions");
+    String contributionPrompt =
+      Language.text("update_check.updates_available.contributions");
 
-    Object[] options = { Language.text("prompt.yes"), Language.text("prompt.no") };
+    Object[] options = {
+      Language.text("prompt.yes"), Language.text("prompt.no")
+    };
     int result = JOptionPane.showOptionDialog(base.activeEditor,
                                               contributionPrompt,
                                               Language.text("update_check"),
@@ -173,7 +180,7 @@ public class UpdateCheck {
                                               options,
                                               options[0]);
     if (result == JOptionPane.YES_OPTION) {
-      base.handleShowUpdates();
+      ContributionManager.openUpdates(base.getActiveEditor());
       return true;
     }
 

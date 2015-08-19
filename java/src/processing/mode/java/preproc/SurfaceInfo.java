@@ -23,12 +23,14 @@
 
 package processing.mode.java.preproc;
 
-import processing.app.Base;
+import processing.app.Messages;
 import processing.core.PApplet;
+import processing.data.StringList;
 
 
 public class SurfaceInfo {
-  String statement;
+  StringList statements = new StringList();
+
   String width;
   String height;
   String renderer;
@@ -49,7 +51,7 @@ public class SurfaceInfo {
         "The screenWidth and screenHeight variables are named\n" +
         "displayWidth and displayHeight in Processing 3.\n" +
         "Or you can use the fullScreen() method instead of size().";
-      Base.showWarning("Time for a quick update", message, null);
+      Messages.showWarning("Time for a quick update", message, null);
       return true;
     }
     if (width.equals("screen.width") ||
@@ -60,7 +62,7 @@ public class SurfaceInfo {
         "The screen.width and screen.height variables are named\n" +
         "displayWidth and displayHeight in Processing 3.\n" +
         "Or you can use the fullScreen() method instead of size().";
-      Base.showWarning("Time for a quick update", message, null);
+      Messages.showWarning("Time for a quick update", message, null);
       return true;
     }
     return false;
@@ -101,7 +103,39 @@ public class SurfaceInfo {
   }
 
 
-  public String getStatement() {
-    return statement;
+//  public String getStatements() {
+//    return statements.join(" ");
+//  }
+
+
+  public StringList getStatements() {
+    return statements;
+  }
+
+
+  /**
+   * Add an item that will be moved from size() into the settings() method.
+   * This needs to be the exact version of the statement so that it can be
+   * matched against and removed from the size() method in the code.
+   */
+  public void addStatement(String stmt) {
+    statements.append(stmt);
+  }
+
+
+  public void addStatements(StringList list) {
+    statements.append(list);
+  }
+
+
+  /** @return true if there's code to be inserted for a settings() method. */
+  public boolean hasSettings() {
+    return statements.size() != 0;
+  }
+
+
+  /** @return the contents of the settings() method to be inserted */
+  public String getSettings() {
+    return statements.join(" ");
   }
 }

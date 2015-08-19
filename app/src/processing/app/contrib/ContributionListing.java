@@ -23,8 +23,10 @@ package processing.app.contrib;
 
 import java.io.*;
 import java.net.*;
+import java.text.Normalizer;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Pattern;
 
 import processing.app.Base;
 import processing.app.Library;
@@ -35,19 +37,17 @@ import processing.data.StringDict;
 
 public class ContributionListing {
   // Stable URL that will redirect to wherever we're hosting the file
-  static final String LISTING_URL =
-    "http://download.processing.org/contribs";
-    //"http://download.processing.org/contribs.txt";
+  static final String LISTING_URL = "http://download.processing.org/contribs";
   static final String LOCAL_FILENAME = "contribs.txt";
 
   static volatile ContributionListing singleInstance;
 
   File listingFile;
-  ArrayList<ContributionChangeListener> listeners;
-  ArrayList<AvailableContribution> advertisedContributions;
+  List<ContributionChangeListener> listeners;
+  List<AvailableContribution> advertisedContributions;
   Map<String, List<Contribution>> librariesByCategory;
   public Map<String, Contribution> librariesByImportHeader;
-  ArrayList<Contribution> allContributions;
+  List<Contribution> allContributions;
   boolean hasDownloadedLatestList;
   boolean hasListDownloadFailed;
   ReentrantLock downloadingListingLock;
@@ -286,13 +286,18 @@ public class ContributionListing {
 
     filter = ".*" + filter.toLowerCase() + ".*";
 
-    return contrib.getAuthorList() != null && contrib.getAuthorList().toLowerCase().matches(filter)
-        || contrib.getSentence() != null && contrib.getSentence().toLowerCase().matches(filter)
-        || contrib.getParagraph() != null && contrib.getParagraph().toLowerCase().matches(filter)
+    return contrib.getAuthorList() != null && deAccent(contrib.getAuthorList().toLowerCase()).matches(filter)
+        || contrib.getSentence() != null && deAccent(contrib.getSentence().toLowerCase()).matches(filter)
+        || contrib.getParagraph() != null && deAccent(contrib.getParagraph().toLowerCase()).matches(filter)
         || contrib.hasCategory(filter)
-        || contrib.getName() != null && contrib.getName().toLowerCase().matches(filter);
+        || contrib.getName() != null && deAccent(contrib.getName().toLowerCase()).matches(filter);
   }
 
+  public String deAccent(String str) {
+    String nfdNormalizedString = Normalizer.normalize(str, Normalizer.Form.NFD);
+    Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+    return pattern.matcher(nfdNormalizedString).replaceAll("");
+  }
 
   private boolean isProperty(String property) {
     return property.startsWith("updat") || property.startsWith("upgrad")
@@ -444,6 +449,7 @@ public class ContributionListing {
   }
 
 
+  /*
   boolean hasUpdates() {
     for (Contribution info : allContributions) {
       if (hasUpdates(info)) {
@@ -452,6 +458,36 @@ public class ContributionListing {
     }
     return false;
   }
+  */
+
+
+  /**
+   * TODO This needs to be called when the listing loads, and also whenever
+   * the contribs list has been updated (for whatever reason). In addition,
+   * the caller (presumably Base) should update all Editor windows with the
+   * correct information on the number of items available.
+   * @return The number of contributions that have available updates.
+   */
+  int countUpdates(Base base) {
+    int count = 0;
+    for (ModeContribution mc : base.getModeContribs()) {
+      if (hasUpdates(mc)) {
+        count++;
+      }
+    }
+    for (Library lib : base.getActiveEditor().getMode().contribLibraries) {
+      if (hasUpdates(lib)) {
+        count++;
+      }
+    }
+    for (ToolContribution tc : base.getActiveEditor().getToolContribs()) {
+      if (hasUpdates(tc)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
 
   boolean hasUpdates(Base base) {
     for (ModeContribution mc : base.getModeContribs()) {

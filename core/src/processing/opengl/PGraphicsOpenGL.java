@@ -2000,23 +2000,17 @@ public class PGraphicsOpenGL extends PGraphics {
   @Override
   public void beginDraw() {
     if (primaryGraphics) {
-//      if (initialized) {
-//        if (sized) pgl.reinitSurface();
-//        if (parent.canDraw()) pgl.requestDraw();
-//      } else {
-//        initPrimary();
-//      }
-
       if (!initialized) {
         initPrimary();
       }
-
       setCurrentPG(this);
     } else {
       pgl.getGL(getPrimaryPGL());
       getPrimaryPG().setCurrentPG(this);
     }
 
+    // This has to go after the surface initialization, otherwise offscreen
+    // surfaces will have a null gl object.
     report("top beginDraw()");
 
     if (!checkGLThread()) {
@@ -2236,7 +2230,7 @@ public class PGraphicsOpenGL extends PGraphics {
         if (offscreenMultisample) {
           // Making sure the offscreen FBO is up-to-date
           int mask = PGL.COLOR_BUFFER_BIT;
-          if (hints[ENABLE_DEPTH_READING]) {
+          if (hints[ENABLE_BUFFER_READING]) {
             mask |= PGL.DEPTH_BUFFER_BIT | PGL.STENCIL_BUFFER_BIT;
           }
           multisampleFramebuffer.copy(offscreenFramebuffer, mask);
@@ -2479,9 +2473,9 @@ public class PGraphicsOpenGL extends PGraphics {
         flush();
         isDepthSortingEnabled = false;
       }
-    } else if (which == ENABLE_DEPTH_READING) {
+    } else if (which == ENABLE_BUFFER_READING) {
       restartPGL();
-    } else if (which == DISABLE_DEPTH_READING) {
+    } else if (which == DISABLE_BUFFER_READING) {
       restartPGL();
     }
   }
@@ -5677,18 +5671,14 @@ public class PGraphicsOpenGL extends PGraphics {
 
 
   protected void enableLighting() {
-    if (!lights) {
-      flush(); // Flushing non-lit geometry.
-      lights = true;
-    }
+    flush();
+    lights = true;
   }
 
 
   protected void disableLighting() {
-    if (lights) {
-      flush(); // Flushing lit geometry.
-      lights = false;
-    }
+    flush();
+    lights = false;
   }
 
 
@@ -5701,7 +5691,7 @@ public class PGraphicsOpenGL extends PGraphics {
     lightPosition[4 * num + 2] =
       x*modelview.m20 + y*modelview.m21 + z*modelview.m22 + modelview.m23;
 
-    // Used to inicate if the light is directional or not.
+    // Used to indicate if the light is directional or not.
     lightPosition[4 * num + 3] = dir ? 1: 0;
   }
 
@@ -5995,7 +5985,7 @@ public class PGraphicsOpenGL extends PGraphics {
 
   protected void drawPixels(int x, int y, int w, int h) {
     int f = (int)getPixelScale();
-    int len = f * w * h;
+    int len = f * w * f * h;
     if (nativePixels == null || nativePixels.length < len) {
       nativePixels = new int[len];
       nativePixelBuffer = PGL.allocateIntBuffer(nativePixels);
@@ -6883,7 +6873,7 @@ public class PGraphicsOpenGL extends PGraphics {
 
 
   protected void endOnscreenDraw() {
-    pgl.endDraw(clearColorBuffer0, parent.sketchWindowColor());
+    pgl.endDraw(clearColorBuffer, parent.sketchWindowColor());
   }
 
 
@@ -6914,7 +6904,7 @@ public class PGraphicsOpenGL extends PGraphics {
       // The offscreen framebuffer where the multisampled image is finally drawn
       // to. If depth reading is disabled it doesn't need depth and stencil buffers
       // since they are part of the multisampled framebuffer.
-      if (hints[ENABLE_DEPTH_READING]) {
+      if (hints[ENABLE_BUFFER_READING]) {
         offscreenFramebuffer =
           new FrameBuffer(this, texture.glWidth, texture.glHeight, 1, 1,
                           depthBits, stencilBits, packed, false);
@@ -7046,9 +7036,15 @@ public class PGraphicsOpenGL extends PGraphics {
     if (smooth < 1) {
       pgl.disable(PGL.MULTISAMPLE);
     } else {
-      pgl.enable(PGL.MULTISAMPLE);
+      // work around runtime exceptions in Broadcom's VC IV driver
+      if (false == OPENGL_RENDERER.equals("VideoCore IV HW")) {
+        pgl.enable(PGL.MULTISAMPLE);
+      }
     }
-    pgl.disable(PGL.POLYGON_SMOOTH);
+    // work around runtime exceptions in Broadcom's VC IV driver
+    if (false == OPENGL_RENDERER.equals("VideoCore IV HW")) {
+      pgl.disable(PGL.POLYGON_SMOOTH);
+    }
 
     if (sized) {
 //      reapplySettings();
@@ -7158,12 +7154,25 @@ public class PGraphicsOpenGL extends PGraphics {
     pgl.getIntegerv(PGL.MAX_TEXTURE_SIZE, intBuffer);
     maxTextureSize = intBuffer.get(0);
 
-    pgl.getIntegerv(PGL.MAX_SAMPLES, intBuffer);
-    maxSamples = intBuffer.get(0);
+    // work around runtime exceptions in Broadcom's VC IV driver
+    if (false == OPENGL_RENDERER.equals("VideoCore IV HW")) {
+      pgl.getIntegerv(PGL.MAX_SAMPLES, intBuffer);
+      maxSamples = intBuffer.get(0);
+    }
 
     if (anisoSamplingSupported) {
       pgl.getFloatv(PGL.MAX_TEXTURE_MAX_ANISOTROPY, floatBuffer);
       maxAnisoAmount = floatBuffer.get(0);
+    }
+
+    // overwrite the default shaders with vendor specific versions
+    // if needed
+    if (OPENGL_RENDERER.equals("VideoCore IV HW") ||    // Broadcom's binary driver for Raspberry Pi
+      OPENGL_RENDERER.equals("Gallium 0.4 on VC4")) {   // Mesa driver for same hardware
+        defLightShaderVertURL =
+          PGraphicsOpenGL.class.getResource("/processing/opengl/shaders/LightVert-vc4.glsl");
+        defTexlightShaderVertURL =
+          PGraphicsOpenGL.class.getResource("/processing/opengl/shaders/TexLightVert-vc4.glsl");
     }
 
     glParamsRead = true;
@@ -7188,25 +7197,25 @@ public class PGraphicsOpenGL extends PGraphics {
     shader.setType(type);
     shader.setFragmentShader(fragFilename);
     if (type == PShader.POINT) {
-      String[] vertSource = pgl.loadVertexShader(defPointShaderVertURL, 120);
+      String[] vertSource = pgl.loadVertexShader(defPointShaderVertURL);
       shader.setVertexShader(vertSource);
     } else if (type == PShader.LINE) {
-      String[] vertSource = pgl.loadVertexShader(defLineShaderVertURL, 120);
+      String[] vertSource = pgl.loadVertexShader(defLineShaderVertURL);
       shader.setVertexShader(vertSource);
     } else if (type == PShader.TEXLIGHT) {
-      String[] vertSource = pgl.loadVertexShader(defTexlightShaderVertURL, 120);
+      String[] vertSource = pgl.loadVertexShader(defTexlightShaderVertURL);
       shader.setVertexShader(vertSource);
     } else if (type == PShader.LIGHT) {
-      String[] vertSource = pgl.loadVertexShader(defLightShaderVertURL, 120);
+      String[] vertSource = pgl.loadVertexShader(defLightShaderVertURL);
       shader.setVertexShader(vertSource);
     } else if (type == PShader.TEXTURE) {
-      String[] vertSource = pgl.loadVertexShader(defTextureShaderVertURL, 120);
+      String[] vertSource = pgl.loadVertexShader(defTextureShaderVertURL);
       shader.setVertexShader(vertSource);
     } else if (type == PShader.COLOR) {
-      String[] vertSource = pgl.loadVertexShader(defColorShaderVertURL, 120);
+      String[] vertSource = pgl.loadVertexShader(defColorShaderVertURL);
       shader.setVertexShader(vertSource);
     } else {
-      String[] vertSource = pgl.loadVertexShader(defTextureShaderVertURL, 120);
+      String[] vertSource = pgl.loadVertexShader(defTextureShaderVertURL);
       shader.setVertexShader(vertSource);
     }
     return shader;
@@ -7300,8 +7309,8 @@ public class PGraphicsOpenGL extends PGraphics {
       if (tex) {
         if (useDefault || !polyShader.checkPolyType(PShader.TEXLIGHT)) {
           if (ppg.defTexlightShader == null) {
-            String[] vertSource = pgl.loadVertexShader(defTexlightShaderVertURL, 120);
-            String[] fragSource = pgl.loadFragmentShader(defTexlightShaderFragURL, 120);
+            String[] vertSource = pgl.loadVertexShader(defTexlightShaderVertURL);
+            String[] fragSource = pgl.loadFragmentShader(defTexlightShaderFragURL);
             ppg.defTexlightShader = new PShader(parent, vertSource, fragSource);
           }
           shader = ppg.defTexlightShader;
@@ -7311,8 +7320,8 @@ public class PGraphicsOpenGL extends PGraphics {
       } else {
         if (useDefault || !polyShader.checkPolyType(PShader.LIGHT)) {
           if (ppg.defLightShader == null) {
-            String[] vertSource = pgl.loadVertexShader(defLightShaderVertURL, 120);
-            String[] fragSource = pgl.loadFragmentShader(defLightShaderFragURL, 120);
+            String[] vertSource = pgl.loadVertexShader(defLightShaderVertURL);
+            String[] fragSource = pgl.loadFragmentShader(defLightShaderFragURL);
             ppg.defLightShader = new PShader(parent, vertSource, fragSource);
           }
           shader = ppg.defLightShader;
@@ -7329,8 +7338,8 @@ public class PGraphicsOpenGL extends PGraphics {
       if (tex) {
         if (useDefault || !polyShader.checkPolyType(PShader.TEXTURE)) {
           if (ppg.defTextureShader == null) {
-            String[] vertSource = pgl.loadVertexShader(defTextureShaderVertURL, 120);
-            String[] fragSource = pgl.loadFragmentShader(defTextureShaderFragURL, 120);
+            String[] vertSource = pgl.loadVertexShader(defTextureShaderVertURL);
+            String[] fragSource = pgl.loadFragmentShader(defTextureShaderFragURL);
             ppg.defTextureShader = new PShader(parent, vertSource, fragSource);
           }
           shader = ppg.defTextureShader;
@@ -7340,8 +7349,8 @@ public class PGraphicsOpenGL extends PGraphics {
       } else {
         if (useDefault || !polyShader.checkPolyType(PShader.COLOR)) {
           if (ppg.defColorShader == null) {
-            String[] vertSource = pgl.loadVertexShader(defColorShaderVertURL, 120);
-            String[] fragSource = pgl.loadFragmentShader(defColorShaderFragURL, 120);
+            String[] vertSource = pgl.loadVertexShader(defColorShaderVertURL);
+            String[] fragSource = pgl.loadFragmentShader(defColorShaderFragURL);
             ppg.defColorShader = new PShader(parent, vertSource, fragSource);
           }
           shader = ppg.defColorShader;
@@ -7364,8 +7373,8 @@ public class PGraphicsOpenGL extends PGraphics {
     PGraphicsOpenGL ppg = getPrimaryPG();
     if (lineShader == null) {
       if (ppg.defLineShader == null) {
-        String[] vertSource = pgl.loadVertexShader(defLineShaderVertURL, 120);
-        String[] fragSource = pgl.loadFragmentShader(defLineShaderFragURL, 120);
+        String[] vertSource = pgl.loadVertexShader(defLineShaderVertURL);
+        String[] fragSource = pgl.loadFragmentShader(defLineShaderFragURL);
         ppg.defLineShader = new PShader(parent, vertSource, fragSource);
       }
       shader = ppg.defLineShader;
@@ -7384,8 +7393,8 @@ public class PGraphicsOpenGL extends PGraphics {
     PGraphicsOpenGL ppg = getPrimaryPG();
     if (pointShader == null) {
       if (ppg.defPointShader == null) {
-        String[] vertSource = pgl.loadVertexShader(defPointShaderVertURL, 120);
-        String[] fragSource = pgl.loadFragmentShader(defPointShaderFragURL, 120);
+        String[] vertSource = pgl.loadVertexShader(defPointShaderVertURL);
+        String[] fragSource = pgl.loadFragmentShader(defPointShaderFragURL);
         ppg.defPointShader = new PShader(parent, vertSource, fragSource);
       }
       shader = ppg.defPointShader;

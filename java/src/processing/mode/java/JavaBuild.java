@@ -257,13 +257,25 @@ public class JavaBuild {
       return null;
     }
     //System.out.format("size() is '%s'%n", info[0]);
-    
-    // Remove the size() statement (will be added back by writeFooter())
-    if (sizeInfo != null) {
-      String sizeStatement = sizeInfo.getStatement();
-      if (sizeStatement != null) {
-        int index = bigCode.indexOf(sizeStatement);
-        bigCode.delete(index, index + sizeStatement.length());
+
+    // Remove the entries being moved to settings(). They will be re-inserted
+    // by writeFooter() when it emits the settings() method.
+    if (sizeInfo != null && sizeInfo.hasSettings()) {
+//      String sizeStatement = sizeInfo.getStatement();
+      for (String stmt : sizeInfo.getStatements()) {
+        //System.out.format("size stmt is '%s'%n", sizeStatement);
+        // Don't remove newlines (and while you're at it, just keep spaces)
+        // https://github.com/processing/processing/issues/3654
+        stmt = stmt.trim();
+        int index = bigCode.indexOf(stmt);
+        if (index != -1) {
+          bigCode.delete(index, index + stmt.length());
+          System.out.println("code now " + bigCode);
+        } else {
+          // TODO remove once we hit final; but prevent an exception like in
+          // https://github.com/processing/processing/issues/3531
+          System.err.format("Error removing '%s' from the code.", stmt);
+        }
       }
     }
 
@@ -769,35 +781,42 @@ public class JavaBuild {
     // if name != exportSketchName, then that's weirdness
     // BUG unfortunately, that can also be a bug in the preproc :(
     if (!sketch.getName().equals(foundName)) {
-      Base.showWarning("Error during export",
-                       "Sketch name is " + sketch.getName() + " but the sketch\n" +
-                       "name in the code was " + foundName, null);
+      Messages.showWarning("Error during export",
+                           "Sketch name is " + sketch.getName() + " but the sketch\n" +
+                           "name in the code was " + foundName, null);
       return false;
     }
 
     File folder = null;
     for (String platformName : PConstants.platformNames) {
-      int platform = Base.getPlatformIndex(platformName);
+      int platform = Platform.getIndex(platformName);
 
       // Can only embed Java on the native platform
       boolean embedJava = (platform == PApplet.platform) &&
         Preferences.getBoolean("export.application.embed_java");
 
-      if (Preferences.getBoolean("export.application.platform." + platformName)) {
+      if (Preferences.getBoolean(JavaEditor.EXPORT_PREFIX + platformName)) {
         if (Library.hasMultipleArch(platform, importedLibraries)) {
           // export the 32-bit version
           folder = new File(sketch.getFolder(), "application." + platformName + "32");
-          if (!exportApplication(folder, platform, 32, embedJava && Base.getNativeBits() == 32)) {
+          if (!exportApplication(folder, platform, "32", embedJava && Platform.getNativeBits() == 32 && "x86".equals(Platform.getNativeArch()))) {
             return false;
           }
           // export the 64-bit version
           folder = new File(sketch.getFolder(), "application." + platformName + "64");
-          if (!exportApplication(folder, platform, 64, embedJava && Base.getNativeBits() == 64)) {
+          if (!exportApplication(folder, platform, "64", embedJava && Platform.getNativeBits() == 64 && "x86".equals(Platform.getNativeArch()))) {
             return false;
+          }
+          if (platform == PConstants.LINUX) {
+            // export the armv6hf version as well
+            folder = new File(sketch.getFolder(), "application.linux-armv6hf");
+            if (!exportApplication(folder, platform, "armv6hf", embedJava && Platform.getNativeBits() == 32 && "arm".equals(Platform.getNativeArch()))) {
+              return false;
+            }
           }
         } else { // just make a single one for this platform
           folder = new File(sketch.getFolder(), "application." + platformName);
-          if (!exportApplication(folder, platform, 0, embedJava)) {
+          if (!exportApplication(folder, platform, "", embedJava)) {
             return false;
           }
         }
@@ -838,19 +857,19 @@ public class JavaBuild {
    */
   protected boolean exportApplication(File destFolder,
                                       int exportPlatform,
-                                      int exportBits,
+                                      String exportVariant,
                                       boolean embedJava) throws IOException, SketchException {
     // TODO this should probably be a dialog box instead of a warning
     // on the terminal. And the message should be written better than this.
     // http://code.google.com/p/processing/issues/detail?id=884
     for (Library library : importedLibraries) {
-      if (!library.supportsArch(exportPlatform, exportBits)) {
+      if (!library.supportsArch(exportPlatform, exportVariant)) {
         String pn = PConstants.platformNames[exportPlatform];
-        Base.showWarning("Quibbles 'n Bits",
-                         "The application." + pn + exportBits +
-                         " folder will not be created\n" +
-                         "because no " + exportBits + "-bit version of " +
-                         library.getName() + " is available for " + pn, null);
+        Messages.showWarning("Quibbles 'n Bits",
+                             "The application." + pn + exportVariant +
+                             " folder will not be created\n" +
+                             "because no " + exportVariant + " version of " +
+                             library.getName() + " is available for " + pn, null);
         return true;  // don't cancel all exports for this, just move along
       }
     }
@@ -875,10 +894,10 @@ public class JavaBuild {
     if (exportPlatform == PConstants.MACOSX) {
       dotAppFolder = new File(destFolder, sketch.getName() + ".app");
 
-      File contentsOrig = new File(Base.getJavaHome(), "../../../../..");
+      File contentsOrig = new File(Platform.getJavaHome(), "../../../../..");
 
       if (embedJava) {
-        File jdkFolder = new File(Base.getJavaHome(), "../../..");
+        File jdkFolder = new File(Platform.getJavaHome(), "../../..");
         String jdkFolderName = jdkFolder.getCanonicalFile().getName();
         jvmRuntime = "<key>JVMRuntime</key>\n    <string>" + jdkFolderName + "</string>";
         jdkPath = new File(dotAppFolder, "Contents/PlugIns/" + jdkFolderName).getAbsolutePath();
@@ -942,12 +961,12 @@ public class JavaBuild {
       */
     } else if (exportPlatform == PConstants.LINUX) {
       if (embedJava) {
-        Util.copyDirNative(Base.getJavaHome(), new File(destFolder, "java"));
+        Util.copyDirNative(Platform.getJavaHome(), new File(destFolder, "java"));
       }
 
     } else if (exportPlatform == PConstants.WINDOWS) {
       if (embedJava) {
-        Util.copyDir(Base.getJavaHome(), new File(destFolder, "java"));
+        Util.copyDir(Platform.getJavaHome(), new File(destFolder, "java"));
       }
     }
 
@@ -1053,7 +1072,7 @@ public class JavaBuild {
     /// add contents of 'library' folders to the export
     for (Library library : importedLibraries) {
       // add each item from the library folder / export list to the output
-      for (File exportFile : library.getApplicationExports(exportPlatform, exportBits)) {
+      for (File exportFile : library.getApplicationExports(exportPlatform, exportVariant)) {
 //        System.out.println("export: " + exportFile);
         String exportName = exportFile.getName();
         if (!exportFile.exists()) {
@@ -1167,7 +1186,7 @@ public class JavaBuild {
       pw.close();
 
       // attempt to code sign if the Xcode tools appear to be installed
-      if (Base.isMacOS() && new File("/usr/bin/codesign_allocate").exists()) {
+      if (Platform.isMacOS() && new File("/usr/bin/codesign_allocate").exists()) {
         if (embedJava) {
           ProcessHelper.ffs("codesign", "--force", "--sign", "-", jdkPath);
         }
@@ -1281,7 +1300,7 @@ public class JavaBuild {
 
       String shellPath = shellScript.getAbsolutePath();
       // will work on osx or *nix, but just dies on windows, oh well..
-      if (!Base.isWindows()) {
+      if (!Platform.isWindows()) {
         Runtime.getRuntime().exec(new String[] { "chmod", "+x", shellPath });
       }
     }
@@ -1423,7 +1442,7 @@ public class JavaBuild {
       String[] dataFiles = Util.listFiles(sketch.getDataFolder(), false);
       int offset = sketch.getFolder().getAbsolutePath().length() + 1;
       for (String path : dataFiles) {
-        if (Base.isWindows()) {
+        if (Platform.isWindows()) {
           path = path.replace('\\', '/');
         }
         //File dataFile = new File(dataFiles[i]);

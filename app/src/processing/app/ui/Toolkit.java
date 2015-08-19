@@ -66,8 +66,9 @@ import javax.swing.JPopupMenu;
 import javax.swing.JRootPane;
 import javax.swing.KeyStroke;
 
-import processing.app.Base;
 import processing.app.Language;
+import processing.app.Messages;
+import processing.app.Platform;
 import processing.app.Preferences;
 
 
@@ -226,7 +227,7 @@ public class Toolkit {
    *          A menu, a list of menus or an array of menu items to set mnemonics for.
    */
   static public void setMenuMnemonics(JMenuItem... menu) {
-    if (Base.isMacOS()) return;
+    if (Platform.isMacOS()) return;
     if (menu.length == 0) return;
 
     // The English is http://techbase.kde.org/Projects/Usability/HIG/Keyboard_Accelerators,
@@ -472,7 +473,7 @@ public class Toolkit {
    * @since 3.0a6
    */
   static public ImageIcon getLibIcon(String filename) {
-    File file = Base.getContentFile("lib/" + filename);
+    File file = Platform.getContentFile("lib/" + filename);
     if (!file.exists()) {
 //      System.err.println("does not exist: " + file);
       return null;
@@ -498,7 +499,7 @@ public class Toolkit {
    * window, not the window icon for the dock or cmd-tab.
    */
   static public void setIcon(Window window) {
-    if (!Base.isMacOS()) {
+    if (!Platform.isMacOS()) {
       if (iconImages == null) {
         iconImages = new ArrayList<Image>();
         final int[] sizes = { 16, 32, 48, 64, 128, 256, 512 };
@@ -672,7 +673,7 @@ public class Toolkit {
   // A 5-minute search didn't turn up any such event in the Java API.
   // Also, should we use the Toolkit associated with the editor window?
   static private boolean checkRetina() {
-    if (Base.isMacOS()) {
+    if (Platform.isMacOS()) {
       GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
       GraphicsDevice device = env.getDefaultScreenDevice();
 
@@ -827,7 +828,7 @@ public class Toolkit {
           }
         }
       } catch (Exception e) {
-        Base.loge("Could not load mono font", e);
+        Messages.loge("Could not load mono font", e);
         monoFont = new Font("Monospaced", Font.PLAIN, size);
         monoBoldFont = new Font("Monospaced", Font.BOLD, size);
       }
@@ -863,7 +864,7 @@ public class Toolkit {
           }
         }
       } catch (Exception e) {
-        Base.loge("Could not load sans font", e);
+        Messages.loge("Could not load sans font", e);
         sansFont = new Font("SansSerif", Font.PLAIN, size);
         sansBoldFont = new Font("SansSerif", Font.BOLD, size);
       }
@@ -888,10 +889,11 @@ public class Toolkit {
    * Get a font from the JRE lib/fonts folder. Our default fonts are also
    * installed there so that the monospace (and others) can be used by other
    * font listing calls (i.e. it appears in the list of monospace fonts in
-   * the Preferences window).
+   * the Preferences window, and can be used by HTMLEditorKit for WebFrame).
    */
   static private Font createFont(String filename, int size) throws IOException, FontFormatException {
-    //InputStream is = Base.getLibStream("fonts/" + filename);
+    // Can't use Base.getJavaHome(), because if we're not using our local JRE,
+    // we likely have bigger problems with how things are running.
     File fontFile = new File(System.getProperty("java.home"), "lib/fonts/" + filename);
     if (!fontFile.exists()) {
       // if we're debugging from Eclipse, grab it from the work folder (user.dir is /app)
@@ -902,13 +904,31 @@ public class Toolkit {
       fontFile = new File(System.getProperty("user.dir"), "../../shared/lib/fonts/" + filename);
     }
     if (!fontFile.exists()) {
-      Base.showError("Font Sadness", "Could not find required fonts", null);
+      String msg = "Could not find required fonts. ";
+      // This gets the JAVA_HOME for the *local* copy of the JRE installed with
+      // Processing. If it's not using the local JRE, it may be because of this
+      // launch4j bug: https://github.com/processing/processing/issues/3543
+      if (hasNonAsciiChars(Platform.getJavaHome().getAbsolutePath())) {
+        msg += "Trying moving Processing\n" +
+          "to a location with only ASCII characters in the path.";
+      } else {
+        msg += "Please reinstall Processing.";
+      }
+      Messages.showError("Font Sadness", msg, null);
     }
 
     BufferedInputStream input = new BufferedInputStream(new FileInputStream(fontFile));
     Font font = Font.createFont(Font.TRUETYPE_FONT, input);
     input.close();
     return font.deriveFont((float) size);
+  }
+
+
+  static private final boolean hasNonAsciiChars(String what) {
+    for (char c : what.toCharArray()) {
+      if (c < 32 || c > 127) return true;
+    }
+    return false;
   }
 
 
