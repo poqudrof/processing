@@ -21,6 +21,7 @@ along with this program; if not, write to the Free Software Foundation, Inc.
 package processing.mode.java.pdex;
 
 import java.io.File;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -843,11 +844,10 @@ public class ErrorCheckerService implements Runnable {
               codeFolderChecked = true;
               // huh? doesn't this mean .length() == 0? [fry]
               if (codeFolderClassPath.equalsIgnoreCase("")) {
-                System.err.format("Cannot find \"%s\" library. Line %d in tab %s%n",
-                                  entry, impstat.getLineNumber(),
-                                  editor.getSketch().getCode(impstat.getTab()).getPrettyName());
-                System.err.println("Make sure that the library is installed properly.");
-
+                String message = String.format("Cannot find \"%s\" library in code folder. Line %d in tab %s%n",
+                        entry, impstat.getLineNumber(),
+                        editor.getSketch().getCode(impstat.getTab()).getPrettyName());
+                Messages.log(message);
               } else {
                 String codeFolderPath[] =
                   PApplet.split(codeFolderClassPath.substring(1).trim(),
@@ -860,19 +860,22 @@ public class ErrorCheckerService implements Runnable {
                   e2.printStackTrace();
                 }
               }
-            } else {
-              System.err.format("Cannot find \"%s\" library. Line %d in tab %s%n",
-                                entry, impstat.getLineNumber(),
-                                editor.getSketch().getCode(impstat.getTab()).getPrettyName());
             }
 
-          } else {
-            new Exception("Error while handling '" + entry + "'", e).printStackTrace();
           }
         }
       }
-    }
 
+      // Also add jars specified in mode's search path
+      String modeJars[] = ((JavaMode) getEditor().getMode()).getSearchPath().split(File.pathSeparatorChar + "");
+      for (String mj : modeJars) {
+        try {
+          classpathJars.add(new File(mj).toURI().toURL());
+        } catch (MalformedURLException e) {
+          e.printStackTrace();
+        }
+      }
+    }
     new Thread(new Runnable() {
       public void run() {
         astGenerator.loadJars(); // update jar file for completion lookup
@@ -996,8 +999,9 @@ public class ErrorCheckerService implements Runnable {
     // editor.statusNotice("Position: " +
     // editor.getTextArea().getCaretLine());
     if (JavaMode.errorCheckEnabled) {
-      synchronized (editor.getErrorPoints()) {
-        for (LineMarker emarker : editor.getErrorPoints()) {
+      List<LineMarker> errorPoints = editor.getErrorPoints();
+      synchronized (errorPoints) {
+        for (LineMarker emarker : errorPoints) {
           if (emarker.getProblem().getLineNumber() == editor.getTextArea().getCaretLine()) {
             if (emarker.getType() == LineMarker.WARNING) {
               editor.statusMessage(emarker.getProblem().getMessage(),
@@ -1118,8 +1122,8 @@ public class ErrorCheckerService implements Runnable {
    * Calculates the tab number and line number of the error in that particular
    * tab. Provides mapping between pure java and pde code.
    *
-   * @param problem
-   *            - IProblem
+   * @param javalineNumber
+   *            - int
    * @return int[0] - tab number, int[1] - line number
    */
   protected int[] calculateTabIndexAndLineNumber(int javalineNumber) {
@@ -1334,7 +1338,7 @@ public class ErrorCheckerService implements Runnable {
   /**
    * Now defunct.
    * The super method that highlights any ASTNode in the pde editor =D
-   * @param node
+   * @param awrap
    * @return true - if highlighting happened correctly.
    */
   private boolean highlightNode(ASTNodeWrapper awrap){
@@ -1590,6 +1594,7 @@ public class ErrorCheckerService implements Runnable {
   public void handleErrorCheckingToggle() {
     if (!JavaMode.errorCheckEnabled) {
       Messages.log(editor.getSketch().getName() + " Error Checker paused.");
+      //editor.clearErrorPoints();
       editor.getErrorPoints().clear();
       problemsList.clear();
       updateErrorTable();

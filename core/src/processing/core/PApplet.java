@@ -39,8 +39,6 @@ import java.awt.Toolkit;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 
-
-
 // used by loadImage() functions
 import javax.imageio.ImageIO;
 // allows us to remove our own MediaTracker code
@@ -10024,6 +10022,27 @@ public class PApplet implements PConstants {
 
     // Remove 60fps limit on the JavaFX "pulse" timer
     System.setProperty("javafx.animation.fullspeed", "true");
+
+    // This doesn't work, need to mess with Info.plist instead
+    /*
+    // In an exported application, add the Contents/Java folder to the
+    // java.library.path, so that native libraries work properly.
+    // Without this, the library path is only set to Contents/MacOS
+    // where the launcher binary lives.
+    if (platform == MACOSX) {
+      URL coreJarURL =
+        PApplet.class.getProtectionDomain().getCodeSource().getLocation();
+      // The jarPath from above will/may be URL encoded (%20 for spaces)
+      String coreJarPath = urlDecode(coreJarURL.getPath());
+      if (coreJarPath.endsWith("/Contents/Java/core.jar")) {
+        // remove the /core.jar part from the end
+        String javaPath = coreJarPath.substring(0, coreJarPath.length() - 9);
+        String libraryPath = System.getProperty("java.library.path");
+        libraryPath += File.pathSeparator + javaPath;
+        System.setProperty("java.library.path", libraryPath);
+      }
+    }
+    */
 
     // Catch any HeadlessException to provide more useful feedback
     try {
