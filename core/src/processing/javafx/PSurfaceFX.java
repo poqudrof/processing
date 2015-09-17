@@ -36,6 +36,7 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.event.EventType;
 import javafx.scene.Scene;
+import javafx.scene.SceneAntialiasing;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -56,6 +57,7 @@ public class PSurfaceFX implements PSurface {
   Canvas canvas;
 
   final Animation animation;
+  float frameRate = 60;
 
   public PSurfaceFX(PGraphicsFX2D graphics) {
     fx = graphics;
@@ -65,9 +67,21 @@ public class PSurfaceFX implements PSurface {
     KeyFrame keyFrame = new KeyFrame(Duration.millis(1000),
                                      new EventHandler<ActionEvent>() {
       public void handle(ActionEvent event) {
+        long startNanoTime = System.nanoTime();
         sketch.handleDraw();
+        long drawNanos = System.nanoTime() - startNanoTime;
+
         if (sketch.exitCalled()) {
-          Platform.exit();  // version for safe JavaFX shutdown
+          // using Platform.runLater() didn't work
+//          Platform.runLater(new Runnable() {
+//            public void run() {
+          // instead of System.exit(), safely shut down JavaFX this way
+          Platform.exit();
+//            }
+//          });
+        }
+        if (sketch.frameCount > 5) {
+          animation.setRate(-PApplet.min(1e9f / drawNanos, frameRate));
         }
       }
     });
@@ -79,7 +93,7 @@ public class PSurfaceFX implements PSurface {
 
     // setting rate to negative so that event fires at the start of
     // the key frame and first frame is drawn immediately
-    animation.setRate(-60);
+    animation.setRate(-frameRate);
   }
 
 
@@ -214,9 +228,28 @@ public class PSurfaceFX implements PSurface {
       PApplet sketch = surface.sketch;
       int width = sketch.sketchWidth();
       int height = sketch.sketchHeight();
+      int smooth = sketch.sketchSmooth();
+
+      /*
+      SceneAntialiasing sceneAntialiasing = (smooth == 0) ?
+          SceneAntialiasing.DISABLED :
+          SceneAntialiasing.BALANCED;
 
       //stage.setScene(new Scene(new Group(canvas)));
-      stage.setScene(new Scene(stackPane, width, height));
+      stage.setScene(new Scene(stackPane, width, height, false, sceneAntialiasing));
+      */
+
+      // Workaround for https://bugs.openjdk.java.net/browse/JDK-8136495
+      // Only set when we're turning it off; the default doesn't have the bug,
+      // but still seems to anti-alias properly.
+      // https://github.com/processing/processing/issues/3795
+      if (smooth == 0) {
+        stage.setScene(new Scene(stackPane, width, height, false, SceneAntialiasing.DISABLED));
+      } else {
+        // ...or maybe not, these seem to go to the same code path
+        stage.setScene(new Scene(stackPane, width, height, false));
+      }
+
       //stage.show();  // move to setVisible(true)?
 
       // initFrame in different thread is waiting for
@@ -281,6 +314,12 @@ public class PSurfaceFX implements PSurface {
 
   public void setIcon(PImage icon) {
     // TODO implement this in JavaFX
+  }
+
+
+  @Override
+  public void setAlwaysOnTop(boolean always) {
+    stage.setAlwaysOnTop(always);
   }
 
 
@@ -453,7 +492,10 @@ public class PSurfaceFX implements PSurface {
   public void setFrameRate(float fps) {
     // setting rate to negative so that event fires at the start of
     // the key frame and first frame is drawn immediately
-    if (fps > 0) animation.setRate(-fps);
+    if (fps > 0) {
+      frameRate = fps;
+      animation.setRate(-frameRate);
+    }
   }
 
 
@@ -732,18 +774,10 @@ public class PSurfaceFX implements PSurface {
 
   @SuppressWarnings("deprecation")
   private char getKeyChar(KeyEvent fxEvent) {
-    if (fxEvent.getEventType() == KeyEvent.KEY_TYPED) {
-      String ch = fxEvent.getCharacter();
-      if (ch.length() < 1) return PConstants.CODED;
-      return ch.charAt(0);
-    }
-
     KeyCode kc = fxEvent.getCode();
 
-    if (kc.isKeypadKey()) {
-      return (char) (kc.impl_getChar().charAt(0) - ('a' - '0') + 1);
-    }
-
+    // Overriding chars for some
+    // KEY_PRESSED and KEY_RELEASED events
     switch (kc) {
       case UP:
       case KP_UP:
@@ -785,9 +819,59 @@ public class PSurfaceFX implements PSurface {
         return PConstants.CODED;
       case ENTER:
         return '\n';
+      case DIVIDE:
+        return '/';
+      case MULTIPLY:
+        return '*';
+      case SUBTRACT:
+        return '-';
+      case ADD:
+        return '+';
+      case NUMPAD0:
+        return '0';
+      case NUMPAD1:
+        return '1';
+      case NUMPAD2:
+        return '2';
+      case NUMPAD3:
+        return '3';
+      case NUMPAD4:
+        return '4';
+      case NUMPAD5:
+        return '5';
+      case NUMPAD6:
+        return '6';
+      case NUMPAD7:
+        return '7';
+      case NUMPAD8:
+        return '8';
+      case NUMPAD9:
+        return '9';
+      case DECIMAL:
+        // KEY_TYPED does not go through here and will produce
+        // dot or comma based on the keyboard layout.
+        // For KEY_PRESSED and KEY_RELEASED, let's just go with
+        // the dot. Users can detect the key by its keyCode.
+        return '.';
+      case UNDEFINED:
+        // KEY_TYPED has KeyCode: UNDEFINED
+        // and falls through here
+        break;
       default:
         break;
     }
-    return kc.impl_getChar().charAt(0);
+
+    // Just go with what FX gives us for the rest of
+    // KEY_PRESSED and KEY_RELEASED and all of KEY_TYPED
+    String ch;
+    if (fxEvent.getEventType() == KeyEvent.KEY_TYPED) {
+      ch = fxEvent.getCharacter();
+    } else {
+      ch = kc.impl_getChar();
+    }
+
+    if (ch.length() < 1) return PConstants.CODED;
+    if (ch.startsWith("\r")) return '\n'; // normalize enter key
+    return ch.charAt(0);
   }
 }

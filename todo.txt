@@ -1,36 +1,25 @@
-0244 (3.0b6)
-o 3.0b4 demos fail to create PDF files
-o   https://github.com/processing/processing/issues/3708
-X   problem was that the example was creating files inside Processing.app
-X Casey reports that exported app still asks to download Java
-X   could this be a JOGL bug (linking against the app stub?)
-X   ran otool -L on the binaries and saw nothing
+0245 (3.0b7)
+X add jar files from 'code' folder to the library path
+X   Code editor wrongly detects errors for libraries in code folder
+X   https://github.com/processing/processing/issues/3732
+o dim out the Run button if there are compile errors detected
+o   the AST checker has better error message handling for those cases
+o   and hitting Run replaces the useful error with something weird
+X   https://github.com/processing/processing/issues/3408
+X   not great because the error checker runs more slowly than your typing
 
-gsoc
-X CM: Category dropdown alignment
-X   https://github.com/processing/processing/issues/3644
-X   https://github.com/processing/processing/pull/3666
-X   https://github.com/processing/processing/pull/3669
+manager
+X CM: Clicking item in Libraries list throws exception
+X   https://github.com/processing/processing/issues/3667
+X CM: Libraries missing descriptions and PFoundation credit
+X   https://github.com/processing/processing/issues/3688
+X use real version of bold font, rather than the fake version
+X remove the "v" from the version numbers in the updates tab
 
-fixed in b5, but unconfirmed at press time
-X CM - Focus is shifted out of the filter field when something is searched
-X   https://github.com/processing/processing/issues/3682
-X   https://github.com/processing/processing/pull/3701
-X CM - info panel text color
-X   https://github.com/processing/processing/issues/3642
-X   https://github.com/processing/processing/pull/3695
-X   https://github.com/processing/processing/pull/3696
-X CM - Filter field display
-X   https://github.com/processing/processing/issues/3689
-X   https://github.com/processing/processing/pull/3698
-X Update buttom enabled when updates are present and background is set
-X   https://github.com/processing/processing/issues/3614
-X   https://github.com/processing/processing/pull/3694
-X Fix info panel text color and alignment in CM
-X   https://github.com/processing/processing/issues/3642
-X   https://github.com/processing/processing/pull/3684
-X Ready to add contributed example packages?
-X   https://github.com/processing/processing/issues/2953
+watcher
+X prevent re-prompting users when they say "no" to "sketch modified" message
+X add more preferences for editor.watcher
+X cleaning up the logic in the watcher
 
 
 known issues
@@ -41,7 +30,33 @@ _   https://github.com/processing/processing/issues/3543
 _   move to javapackager or another option?
 _   http://www.excelsiorjet.com/kb/35/howto-create-a-single-exe-from-your-java-application
 _ mouse events (i.e. toggle breakpoint) seem to be firing twice
+
+
+3.0 final
+_ https://github.com/processing/processing/milestones/3.0%20final
+_ Hitting enter on code completion completes and then creates a new line
+_   https://github.com/processing/processing/issues/3741
+_   can't seem to get completion working at all on my machine
+_ ctrl-space first inserts space, then deletes it, with completion
+_ Live error checking throws error when calling color() on a PGraphics
+_   https://github.com/processing/processing/issues/3762
+_ "color type detected! this shouldn't be happening! please report"
+_   happens when user does 'new color' instead of 'color'
+_   https://github.com/processing/processing/issues/3739
+_ change Tool API because it's not one Editor per Tool anymore?
+_   or just change the documentation?
+_ Contributions Manager UI design
+_   https://github.com/processing/processing/issues/3482
+_ items still show up in "Recent" if they no longer exist (on startup)
+_ replace about screen (1x and 2x versions)
+_   change 'alpha' to correct name
+_   also change the revision in the "about processing" dialog
+_   https://github.com/processing/processing/issues/3665
+_ UnsatisfiedLinkError on startup "Access is denied" on Windows 10
+_   https://github.com/processing/processing/issues/3800
+_   administrator, but using Microsoft account to log in
 _ JNA errors on startup when run from an account w/ non-ASCII characters
+_   https://github.com/processing/processing/issues/3624
 _   set jna.tmpdir (or java.io.tmpdir) to another location
 _   https://github.com/twall/jna/issues/124
 _   https://github.com/twall/jna/issues/238
@@ -53,31 +68,25 @@ _   http://happygiraffe.net/blog/2009/09/24/java-platform-encoding/
 _   fix: get sun.jnu.encoding and make sure the user name is supported in it?
 _     and if not, put up a warning for the user?
 _   http://www.oracle.com/us/technologies/java/locale-140624.html
+_ Red error underline is sometimes at wrong location
+_   https://github.com/processing/processing/issues/3759
 
 
-3.0 final
-_ Contributions Manager UI design
-_   https://github.com/processing/processing/issues/3482
-_ items still show up in "Recent" if they no longer exist (on startup)
-_ replace about screen (1x and 2x versions)
-_   change 'alpha' to correct name
-_   also change the revision in the "about processing" dialog
-_   https://github.com/processing/processing/issues/3665
-
-
-sketch modified externally
-_ sketch modified externally with FAT32 volumes on OS X
-_   https://github.com/processing/processing/issues/3387
-_ also appearing with encrypted volumes?
-_   also an un-ending loop caused by it
-_   https://github.com/processing/processing/issues/3650
-_ add this to the preferences?
+sketch modified externally (3.0 final)
+X sketch modified externally with FAT32 volumes on OS X
+X   https://github.com/processing/processing/issues/3387
+_   might have this fixed with the larger time window
+_   need to check if "save as" thing is causing trouble
+X "Your sketch has been modified externally" with encrypted OS X volumes
+X   https://github.com/processing/processing/issues/3650
+o add this to the preferences?
+o use watcher service after all? 
+o   https://docs.oracle.com/javase/tutorial/essential/io/notification.html
 
 
 gui
 _ different design of squiggly line?
-_ Error/warning location visualisation not updating when editor resizes
-_   https://github.com/processing/processing/issues/3619
+_ build custom scroll bar since the OS versions are so ugly?
 _ error/warning location is awkward when no scroll bar is in use
 _ show hover text when the mouse is over the 'debug' button
 _ show number of updates available in the footer
@@ -117,8 +126,6 @@ _     whether hitting ESC or the close box on the window
 
 
 manager
-_ CM: Clicking item in Libraries list throws exception
-_   https://github.com/processing/processing/issues/3667
 _ fonts are fake-bolded version rather than the real bold
 _ scrolling "past" top/bottom causes the screen to jiggle
 _ number of updates available is not correct
@@ -143,10 +150,6 @@ pde/build
 _ ignore-tools in build.xml not being called for some reason
 _ can't install processing-java into /usr/bin with El Capitan
 _   https://github.com/processing/processing/issues/3497
-_ dim out the Run button if there are compile errors detected
-_   the AST checker has better error message handling for those cases
-_   and hitting Run replaces the useful error with something weird
-_   https://github.com/processing/processing/issues/3408
 _ when variables used in size(), getting exceptions instead of any warning
 _   https://github.com/processing/processing/issues/3311
 _ crashed on startup w/ JavaScript mode as default b/c PdeKeyListener not found
@@ -163,20 +166,6 @@ _   add Processing Foundation as 2012-15
 _   update license info to state gplv2 not v3
 _   run through that online license checker
 
-
-crashing
-_ fix appbundler problems due to rollback
-_   appbundler is no longer being developed by Oracle, switch to "packager"
-_   this re-introduces two bugs (serial export and scrolling)
-_   and any other changes later than 16 November 2014:
-_   https://github.com/processing/processing/commits/master/build/macosx/appbundler.jar
-_   https://github.com/processing/processing/commits/master/build/macosx/appbundler/native/main.m
-_ another possible culprit
-_   https://github.com/processing/processing/commit/fa27b983e76fdbc5c4c1451a1f0d854c652b1639
-_ EXC_BAD_ACCESS inside AppleIntelHD5000GraphicsGLDriver when starting 3.0a8+
-_   https://github.com/processing/processing/issues/3359
-_ Hard crash on startup inside strlen call when using 3.0a8+ on OS X
-_   https://github.com/processing/processing/issues/3360
 
 
 breakage
@@ -896,6 +885,16 @@ _   this may already work with SingleInstance stuff
 
 DIST / Mac OS X
 
+_ replace appbundler with the Java 8 packager
+_   https://github.com/processing/processing/issues/3071
+_ fix appbundler problems due to rollback
+_   https://github.com/processing/processing/issues/3790
+_   appbundler is no longer being developed by Oracle, switch to "packager"
+_   this re-introduces two bugs (serial export and scrolling)
+_   and any other changes later than 16 November 2014:
+_   https://github.com/processing/processing/commits/master/build/macosx/appbundler.jar
+_   https://github.com/processing/processing/commits/master/build/macosx/appbundler/native/main.m
+_   https://github.com/processing/processing/commit/fa27b983e76fdbc5c4c1451a1f0d854c652b1639
 _ Update QuickLook plugin for Processing 3
 _   https://github.com/processing/processing/issues/3261
 _ Find a long-term solution for OS X bundler to address signing/symlink issues

@@ -3,12 +3,13 @@
 /*
   Part of the Processing project - http://processing.org
 
-  Copyright (c) 2011-12 Ben Fry and Casey Reas
+  Copyright (c) 2012-15 The Processing Foundation
+  Copyright (c) 2004-12 Ben Fry and Casey Reas
+  Copyright (c) 2001-04 Massachusetts Institute of Technology
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+  License as published by the Free Software Foundation, version 2.1.
 
   This library is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -44,6 +45,7 @@ import com.jogamp.opengl.GL2ES2;
 import com.jogamp.opengl.GL2ES3;
 import com.jogamp.opengl.GL2GL3;
 import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLCapabilitiesImmutable;
 import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.GLDrawable;
@@ -54,6 +56,7 @@ import com.jogamp.opengl.glu.GLUtessellatorCallbackAdapter;
 
 import processing.core.PApplet;
 import processing.core.PGraphics;
+import processing.core.PSurface;
 
 
 public class PJOGL extends PGL {
@@ -88,49 +91,6 @@ public class PJOGL extends PGL {
 
   // ........................................................
 
-  // OS-specific configuration
-
-  /*
-  protected static int WINDOW_TOOLKIT;
-  protected static int EVENTS_TOOLKIT;
-  protected static boolean USE_JOGL_FBOLAYER;
-  static {
-    if (PApplet.platform == PConstants.WINDOWS) {
-      // Using AWT on Windows because NEWT displays a black background while
-      // initializing, and the cursor functions don't work. GLWindow has some
-      // functions for basic cursor handling (hide/show):
-      // GLWindow.setPointerVisible(false);
-      // but apparently nothing to set the cursor icon:
-      // https://jogamp.org/bugzilla/show_bug.cgi?id=409
-      WINDOW_TOOLKIT = AWT;
-      EVENTS_TOOLKIT = AWT;
-      USE_FBOLAYER_BY_DEFAULT = false;
-      USE_JOGL_FBOLAYER = false;
-    } else if (PApplet.platform == PConstants.MACOSX) {
-      // Note: The JOGL FBO layer (in 2.0.2) seems incompatible with NEWT.
-      WINDOW_TOOLKIT = AWT;
-      EVENTS_TOOLKIT = AWT;
-      USE_FBOLAYER_BY_DEFAULT = true;
-      USE_JOGL_FBOLAYER = true;
-    } else if (PApplet.platform == PConstants.LINUX) {
-      WINDOW_TOOLKIT = AWT;
-      EVENTS_TOOLKIT = AWT;
-      USE_FBOLAYER_BY_DEFAULT = false;
-      USE_JOGL_FBOLAYER = false;
-    } else if (PApplet.platform == PConstants.OTHER) {
-      WINDOW_TOOLKIT = NEWT; // NEWT works on the Raspberry pi?
-      EVENTS_TOOLKIT = NEWT;
-      USE_FBOLAYER_BY_DEFAULT = false;
-      USE_JOGL_FBOLAYER = false;
-    }
-  }
-*/
-
-//  protected static boolean USE_FBOLAYER_BY_DEFAULT = false;
-//  protected static boolean USE_JOGL_FBOLAYER = false;
-
-  // ........................................................
-
   // Protected JOGL-specific objects needed to access the GL profiles
 
   /** The capabilities of the OpenGL rendering surface */
@@ -149,45 +109,8 @@ public class PJOGL extends PGL {
    * multisampled renderbuffers) */
   protected GL2 gl2x;
 
-  /** The AWT-OpenGL canvas */
-//  protected GLCanvas canvasAWT;
-
-  /** The NEWT window */
-//  protected GLWindow windowNEWT;
-
-  /** The NEWT-OpenGL canvas */
-//  protected NewtCanvasAWT canvasNEWT;
-
-  /** The listener that fires the frame rendering in Processing */
-//  protected PGLListener listener;
-
-  /** This countdown latch is used to maintain the synchronization between
-   * Processing's drawing thread and JOGL's rendering thread */
-//  protected CountDownLatch drawLatch = new CountDownLatch(0);
-
-  /** Flag used to do request final display() call to make sure that the
-   * buffers are properly swapped.
-   */
-//  protected boolean prevCanDraw = false;
-
   /** Stores exceptions that ocurred during drawing */
   protected Exception drawException;
-
-  // ........................................................
-
-  // JOGL's FBO-layer
-
-  /** Back (== draw, current frame) buffer */
-//  protected FBObject backFBO;
-  /** Sink buffer, used in the multisampled case */
-//  protected FBObject sinkFBO;
-  /** Front (== read, previous frame) buffer */
-//  protected FBObject frontFBO;
-//  protected FBObject.TextureAttachment backTexAttach;
-//  protected FBObject.TextureAttachment frontTexAttach;
-
-//  protected boolean changedFrontTex = false;
-//  protected boolean changedBackTex = false;
 
   // ........................................................
 
@@ -218,15 +141,45 @@ public class PJOGL extends PGL {
   }
 
 
-  /*
   @Override
-  public Canvas getCanvas() {
-    return canvas;
+  public Object getNative() {
+    return sketch.getSurface().getNative();
   }
-*/
 
 
-  protected void setFps(float fps) {
+  @Override
+  protected void setFrameRate(float fps) {}
+
+
+  @Override
+  protected void initSurface(int antialias) {}
+
+
+  @Override
+  protected void reinitSurface() {}
+
+
+  @Override
+  protected void registerListeners() {}
+
+
+  ///////////////////////////////////////////////////////////////
+
+  // Public methods to get/set renderer's properties
+
+
+  public void setCaps(GLCapabilities caps) {
+    reqNumSamples = caps.getNumSamples();
+    capabilities = caps;
+  }
+
+
+  public GLCapabilitiesImmutable getCaps() {
+    return capabilities;
+  }
+
+
+  public void setFps(float fps) {
     if (!setFps || targetFps != fps) {
       if (60 < fps) {
         // Disables v-sync
@@ -242,264 +195,6 @@ public class PJOGL extends PGL {
   }
 
 
-  /*
-  @Override
-  protected void initSurface(int antialias) {
-
-    if (profile == null) {
-      if (PROFILE == 2) {
-        try {
-          profile = GLProfile.getGL2ES1();
-        } catch (GLException ex) {
-          profile = GLProfile.getMaxFixedFunc(true);
-        }
-      } else if (PROFILE == 3) {
-        try {
-          profile = GLProfile.getGL2GL3();
-        } catch (GLException ex) {
-          profile = GLProfile.getMaxProgrammable(true);
-        }
-        if (!profile.isGL3()) {
-          PGraphics.showWarning("Requested profile GL3 but is not available, got: " + profile);
-        }
-      } else if (PROFILE == 4) {
-        try {
-          profile = GLProfile.getGL4ES3();
-        } catch (GLException ex) {
-          profile = GLProfile.getMaxProgrammable(true);
-        }
-        if (!profile.isGL4()) {
-          PGraphics.showWarning("Requested profile GL4 but is not available, got: " + profile);
-        }
-      } else throw new RuntimeException(UNSUPPORTED_GLPROF_ERROR);
-
-      if (2 < PROFILE) {
-        texVertShaderSource = convertVertexSource(texVertShaderSource, 120, 150);
-        tex2DFragShaderSource = convertFragmentSource(tex2DFragShaderSource, 120, 150);
-        texRectFragShaderSource = convertFragmentSource(texRectFragShaderSource, 120, 150);
-      }
-    }
-
-    if (canvasAWT != null || canvasNEWT != null) {
-      // Restarting...
-      if (canvasAWT != null) {
-        canvasAWT.removeGLEventListener(listener);
-        pg.parent.removeListeners(canvasAWT);
-        pg.parent.remove(canvasAWT);
-      } else if (canvasNEWT != null) {
-        windowNEWT.removeGLEventListener(listener);
-        pg.parent.remove(canvasNEWT);
-      }
-      sinkFBO = backFBO = frontFBO = null;
-    }
-
-    // Setting up the desired capabilities;
-    GLCapabilities caps = new GLCapabilities(profile);
-    caps.setAlphaBits(REQUESTED_ALPHA_BITS);
-    caps.setDepthBits(REQUESTED_DEPTH_BITS);
-    caps.setStencilBits(REQUESTED_STENCIL_BITS);
-
-    caps.setBackgroundOpaque(true);
-    caps.setOnscreen(true);
-    if (USE_FBOLAYER_BY_DEFAULT) {
-      if (USE_JOGL_FBOLAYER) {
-        caps.setPBuffer(false);
-        caps.setFBO(true);
-        if (1 < antialias) {
-          caps.setSampleBuffers(true);
-          caps.setNumSamples(antialias);
-        } else {
-          caps.setSampleBuffers(false);
-        }
-        fboLayerRequested = false;
-      } else {
-        caps.setPBuffer(false);
-        caps.setFBO(false);
-        caps.setSampleBuffers(false);
-        fboLayerRequested = 1 < antialias;
-      }
-    } else {
-      if (1 < antialias) {
-        caps.setSampleBuffers(true);
-        caps.setNumSamples(antialias);
-      } else {
-        caps.setSampleBuffers(false);
-      }
-      fboLayerRequested = false;
-    }
-    caps.setDepthBits(REQUESTED_DEPTH_BITS);
-    caps.setStencilBits(REQUESTED_STENCIL_BITS);
-    caps.setAlphaBits(REQUESTED_ALPHA_BITS);
-    reqNumSamples = qualityToSamples(antialias);
-
-    if (WINDOW_TOOLKIT == AWT) {
-      canvasAWT = new GLCanvas(caps);
-
-      if (RETINA) {
-        canvasAWT.setSurfaceScale(new int[] { ScalableSurface.AUTOMAX_PIXELSCALE,
-                                              ScalableSurface.AUTOMAX_PIXELSCALE });
-        retf = 2;
-      } else {
-        canvasAWT.setSurfaceScale(new int[] { ScalableSurface.IDENTITY_PIXELSCALE,
-                                              ScalableSurface.IDENTITY_PIXELSCALE });
-      }
-
-      canvasAWT.setBounds(0, 0, pg.width, pg.height);
-      canvasAWT.setBackground(new Color(pg.backgroundColor, true));
-      canvasAWT.setFocusable(true);
-
-      pg.parent.setLayout(new BorderLayout());
-      pg.parent.add(canvasAWT, BorderLayout.CENTER);
-      canvasAWT.requestFocusInWindow();
-
-
-
-      canvas = canvasAWT;
-      canvasNEWT = null;
-    } else if (WINDOW_TOOLKIT == NEWT) {
-      windowNEWT = GLWindow.create(caps);
-      canvasNEWT = new NewtCanvasAWT(windowNEWT);
-      canvasNEWT.setBounds(0, 0, pg.width, pg.height);
-      canvasNEWT.setBackground(new Color(pg.backgroundColor, true));
-      canvasNEWT.setFocusable(true);
-
-      pg.parent.setLayout(new BorderLayout());
-      pg.parent.add(canvasNEWT, BorderLayout.CENTER);
-      canvasNEWT.requestFocusInWindow();
-
-      int[] reqSurfacePixelScale = new int[] { ScalableSurface.AUTOMAX_PIXELSCALE, ScalableSurface.AUTOMAX_PIXELSCALE };
-      windowNEWT.setSurfaceScale(reqSurfacePixelScale);
-
-      canvas = canvasNEWT;
-      canvasAWT = null;
-    }
-
-    pg.parent.defaultSize = false;
-    registerListeners();
-
-
-    fboLayerCreated = false;
-    fboLayerInUse = false;
-    firstFrame = true;
-    setFps = false;
-  }
-    */
-
-/*
-  @Override
-  protected void reinitSurface() {
-    sinkFBO = backFBO = frontFBO = null;
-    fboLayerCreated = false;
-    fboLayerInUse = false;
-    firstFrame = true;
-    pg.parent.defaultSize = false;
-  }
-*/
-
-//  @Override
-//  protected void registerListeners() {
-//    if (WINDOW_TOOLKIT == AWT) {
-//      pg.parent.addListeners(canvasAWT);
-//
-//      listener = new PGLListener();
-//      canvasAWT.addGLEventListener(listener);
-//    } else if (WINDOW_TOOLKIT == NEWT) {
-//      if (EVENTS_TOOLKIT == NEWT) {
-//        NEWTMouseListener mouseListener = new NEWTMouseListener();
-//        windowNEWT.addMouseListener(mouseListener);
-//        NEWTKeyListener keyListener = new NEWTKeyListener();
-//        windowNEWT.addKeyListener(keyListener);
-//        NEWTWindowListener winListener = new NEWTWindowListener();
-//        windowNEWT.addWindowListener(winListener);
-//      } else if (EVENTS_TOOLKIT == AWT) {
-//        pg.parent.addListeners(canvasNEWT);
-//      }
-//
-//      listener = new PGLListener();
-//      windowNEWT.addGLEventListener(listener);
-//    }
-//
-//    if (canvas != null) {
-//      canvas.setFocusTraversalKeysEnabled(false);
-//    }
-//  }
-
-
-//  @Override
-//  protected void deleteSurface() {
-//    super.deleteSurface();
-//
-//    if (canvasAWT != null) {
-//      canvasAWT.removeGLEventListener(listener);
-//      pg.parent.removeListeners(canvasAWT);
-//    } else if (canvasNEWT != null) {
-//      windowNEWT.removeGLEventListener(listener);
-//    }
-//  }
-
-/*
-  @Override
-  protected int getReadFramebuffer() {
-    if (fboLayerInUse) {
-      return glColorFbo.get(0);
-    } else if (capabilities.isFBO()) {
-      return context.getDefaultReadFramebuffer();
-    } else {
-      return 0;
-    }
-  }
-
-
-  @Override
-  protected int getDrawFramebuffer() {
-    if (fboLayerInUse) {
-      if (1 < numSamples) {
-        return glMultiFbo.get(0);
-      } else {
-        return glColorFbo.get(0);
-      }
-    } else if (capabilities.isFBO()) {
-      return context.getDefaultDrawFramebuffer();
-    } else {
-      return 0;
-    }
-  }
-
-
-  @Override
-  protected int getDefaultDrawBuffer() {
-    if (fboLayerInUse) {
-      return COLOR_ATTACHMENT0;
-    } else if (capabilities.isFBO()) {
-      return GL.GL_COLOR_ATTACHMENT0;
-    } else if (capabilities.getDoubleBuffered()) {
-      return GL.GL_BACK;
-    } else {
-      return GL.GL_FRONT;
-    }
-  }
-
-
-  @Override
-  protected int getDefaultReadBuffer() {
-    if (fboLayerInUse) {
-      return COLOR_ATTACHMENT0;
-    } else if (capabilities.isFBO()) {
-      return GL.GL_COLOR_ATTACHMENT0;
-    } else if (capabilities.getDoubleBuffered()) {
-      return GL.GL_BACK;
-    } else {
-      return GL.GL_FRONT;
-    }
-  }
-
-
-  @Override
-  protected boolean isFBOBacked() {
-    return super.isFBOBacked() || capabilities.isFBO();
-  }
-*/
-
   @Override
   protected int getDepthBits() {
     return capabilities.getDepthBits();
@@ -510,134 +205,20 @@ public class PJOGL extends PGL {
   protected int getStencilBits() {
     return capabilities.getStencilBits();
   }
-/*
+
 
   @Override
-  protected Texture wrapBackTexture(Texture texture) {
-    if (texture == null || changedBackTex) {
-      if (USE_JOGL_FBOLAYER) {
-        texture = new Texture(pg);
-        texture.init(pg.width, pg.height,
-                     backTexAttach.getName(), TEXTURE_2D, RGBA,
-                     backTexAttach.getWidth(), backTexAttach.getHeight(),
-                     backTexAttach.minFilter, backTexAttach.magFilter,
-                     backTexAttach.wrapS, backTexAttach.wrapT);
-        texture.invertedY(true);
-        texture.colorBuffer(true);
-        pg.setCache(pg, texture);
-      } else {
-        texture = super.wrapBackTexture(null);
-      }
+  protected float getPixelScale() {
+    PSurface surf = sketch.getSurface();
+    if (surf == null) {
+      return graphics.pixelDensity;
+    } else if (surf instanceof PSurfaceJOGL) {
+      return ((PSurfaceJOGL)surf).getPixelScale();
     } else {
-      if (USE_JOGL_FBOLAYER) {
-        texture.glName = backTexAttach.getName();
-      } else {
-        texture = super.wrapBackTexture(texture);
-      }
-    }
-    return texture;
-  }
-
-
-  @Override
-  protected Texture wrapFrontTexture(Texture texture) {
-    if (texture == null || changedFrontTex) {
-      if (USE_JOGL_FBOLAYER) {
-        texture = new Texture(pg);
-        texture.init(pg.width, pg.height,
-                     backTexAttach.getName(), TEXTURE_2D, RGBA,
-                     frontTexAttach.getWidth(), frontTexAttach.getHeight(),
-                     frontTexAttach.minFilter, frontTexAttach.magFilter,
-                     frontTexAttach.wrapS, frontTexAttach.wrapT);
-        texture.invertedY(true);
-        texture.colorBuffer(true);
-      } else {
-        texture = super.wrapFrontTexture(null);
-      }
-    } else {
-      if (USE_JOGL_FBOLAYER) {
-        texture.glName = frontTexAttach.getName();
-      } else {
-        texture = super.wrapFrontTexture(texture);
-      }
-    }
-    return texture;
-  }
-
-
-  @Override
-  protected void bindFrontTexture() {
-    if (USE_JOGL_FBOLAYER) {
-      usingFrontTex = true;
-      if (!texturingIsEnabled(TEXTURE_2D)) {
-        enableTexturing(TEXTURE_2D);
-      }
-      bindTexture(TEXTURE_2D, frontTexAttach.getName());
-    } else super.bindFrontTexture();
-  }
-
-
-  @Override
-  protected void unbindFrontTexture() {
-    if (USE_JOGL_FBOLAYER) {
-      if (textureIsBound(TEXTURE_2D, frontTexAttach.getName())) {
-        // We don't want to unbind another texture
-        // that might be bound instead of this one.
-        if (!texturingIsEnabled(TEXTURE_2D)) {
-          enableTexturing(TEXTURE_2D);
-          bindTexture(TEXTURE_2D, 0);
-          disableTexturing(TEXTURE_2D);
-        } else {
-          bindTexture(TEXTURE_2D, 0);
-        }
-      }
-    } else super.unbindFrontTexture();
-  }
-
-
-  @Override
-  protected void syncBackTexture() {
-    if (USE_JOGL_FBOLAYER) {
-      if (usingFrontTex) needSepFrontTex = true;
-      if (1 < numSamples && backFBO != null) {
-        backFBO.syncSamplingSink(gl);
-        backFBO.bind(gl);
-      }
-    } else super.syncBackTexture();
-  }
-
-
-  @Override
-  protected void beginDraw(boolean clear0) {
-    if (!setFps) setFps(targetFps);
-    if (USE_JOGL_FBOLAYER) return;
-    super.beginDraw(clear0);
-  }
-
-
-  @Override
-  protected void endDraw(boolean clear0) {
-    if (isFBOBacked()) {
-      if (USE_JOGL_FBOLAYER) {
-        if (!clear0 && isFBOBacked() && !isMultisampled() &&
-            frontFBO != null && backFBO != null) {
-          // Draw the back texture into the front texture, which will be used as
-          // back texture in the next frame. Otherwise flickering will occur if
-          // the sketch uses "incremental drawing" (background() not called).
-          frontFBO.bind(gl);
-          gl.glDisable(GL.GL_BLEND);
-          drawTexture(TEXTURE_2D, backTexAttach.getName(),
-                      backTexAttach.getWidth(), backTexAttach.getHeight(),
-                      pg.width, pg.height,
-                      0, 0, pg.width, pg.height, 0, 0, pg.width, pg.height);
-          backFBO.bind(gl);
-        }
-      } else {
-        super.endDraw(clear0);
-      }
+      throw new RuntimeException("Renderer cannot find a JOGL surface");
     }
   }
-*/
+
 
   @Override
   protected void getGL(PGL pgl) {
@@ -655,7 +236,7 @@ public class PJOGL extends PGL {
   }
 
 
-  protected void getGL(GLAutoDrawable glDrawable) {
+  public void getGL(GLAutoDrawable glDrawable) {
     context = glDrawable.getContext();
     glContext = context.hashCode();
     setThread(Thread.currentThread());
@@ -675,63 +256,62 @@ public class PJOGL extends PGL {
   }
 
 
-
-  /*
   @Override
-  protected boolean canDraw() {
-    return true;
-//    return pg.initialized;
-//      && pg.parent.isDisplayable();
+  protected boolean canDraw() { return true; }
+
+
+  @Override
+  protected  void requestFocus() {}
+
+
+  @Override
+  protected  void requestDraw() {}
+
+
+  @Override
+  protected void swapBuffers()  {
+    PSurfaceJOGL surf = (PSurfaceJOGL)sketch.getSurface();
+    surf.window.swapBuffers();
   }
 
 
   @Override
-  protected void requestFocus() { }
-
-
-  @Override
-  protected void requestDraw() {
-
-    drawException = null;
-    boolean canDraw = pg.parent.canDraw();
-    if (pg.initialized && (canDraw || prevCanDraw)) {
-      drawLatch = new CountDownLatch(1);
-      if (WINDOW_TOOLKIT == AWT) {
-        canvasAWT.display();
-      } else if (WINDOW_TOOLKIT == NEWT) {
-        windowNEWT.display();
-      }
-      try {
-        drawLatch.await(DRAW_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-
-      if (canDraw) prevCanDraw = true;
-      else prevCanDraw = false;
-    }
-
-    // Throw wherever exception happened during drawing outside the GL thread
-    // to it is properly picked up by the PDE.
-    if (drawException != null) {
-      if (drawException instanceof RuntimeException) {
-        throw (RuntimeException)drawException;
+  protected void initFBOLayer() {
+    if (0 < sketch.frameCount) {
+      // Copy the contents of the front and back screen buffers to the textures
+      // of the FBO, so they are properly initialized. Note that the front buffer
+      // of the default framebuffer (the screen) contains the previous frame:
+      // https://www.opengl.org/wiki/Default_Framebuffer
+      // so it is copied to the front texture of the FBO layer:
+      if (pclearColor || 0 < pgeomCount || !sketch.isLooping()) {
+        readBuffer(FRONT);
       } else {
-        throw new RuntimeException(drawException);
+        // ...except when the previous frame has not been cleared and nothing was
+        // rendered while looping. In this case the back buffer, which holds the
+        // initial state of the previous frame, still contains the most up-to-date
+        // screen state.
+        readBuffer(BACK);
       }
+      bindFramebufferImpl(DRAW_FRAMEBUFFER, glColorFbo.get(0));
+      framebufferTexture2D(FRAMEBUFFER, COLOR_ATTACHMENT0,
+                           TEXTURE_2D, glColorTex.get(frontTex), 0);
+      drawBuffer(COLOR_ATTACHMENT0);
+      blitFramebuffer(0, 0, fboWidth, fboHeight,
+                      0, 0, fboWidth, fboHeight,
+                      COLOR_BUFFER_BIT, NEAREST);
+
+      readBuffer(BACK);
+      bindFramebufferImpl(DRAW_FRAMEBUFFER, glColorFbo.get(0));
+      framebufferTexture2D(FRAMEBUFFER, COLOR_ATTACHMENT0,
+                           TEXTURE_2D, glColorTex.get(backTex), 0);
+      drawBuffer(COLOR_ATTACHMENT0);
+      blitFramebuffer(0, 0, fboWidth, fboHeight,
+                      0, 0, fboWidth, fboHeight,
+                      COLOR_BUFFER_BIT, NEAREST);
+
+      bindFramebufferImpl(FRAMEBUFFER, 0);
     }
   }
-
-
-  @Override
-  protected void swapBuffers() {
-    if (WINDOW_TOOLKIT == AWT) {
-      canvasAWT.swapBuffers();
-    } else if (WINDOW_TOOLKIT == NEWT) {
-      windowNEWT.swapBuffers();
-    }
-  }
- */
 
 
   @Override
@@ -741,44 +321,44 @@ public class PJOGL extends PGL {
         projMatrix = new float[16];
       }
       gl2x.glMatrixMode(GLMatrixFunc.GL_PROJECTION);
-      projMatrix[ 0] = pg.projection.m00;
-      projMatrix[ 1] = pg.projection.m10;
-      projMatrix[ 2] = pg.projection.m20;
-      projMatrix[ 3] = pg.projection.m30;
-      projMatrix[ 4] = pg.projection.m01;
-      projMatrix[ 5] = pg.projection.m11;
-      projMatrix[ 6] = pg.projection.m21;
-      projMatrix[ 7] = pg.projection.m31;
-      projMatrix[ 8] = pg.projection.m02;
-      projMatrix[ 9] = pg.projection.m12;
-      projMatrix[10] = pg.projection.m22;
-      projMatrix[11] = pg.projection.m32;
-      projMatrix[12] = pg.projection.m03;
-      projMatrix[13] = pg.projection.m13;
-      projMatrix[14] = pg.projection.m23;
-      projMatrix[15] = pg.projection.m33;
+      projMatrix[ 0] = graphics.projection.m00;
+      projMatrix[ 1] = graphics.projection.m10;
+      projMatrix[ 2] = graphics.projection.m20;
+      projMatrix[ 3] = graphics.projection.m30;
+      projMatrix[ 4] = graphics.projection.m01;
+      projMatrix[ 5] = graphics.projection.m11;
+      projMatrix[ 6] = graphics.projection.m21;
+      projMatrix[ 7] = graphics.projection.m31;
+      projMatrix[ 8] = graphics.projection.m02;
+      projMatrix[ 9] = graphics.projection.m12;
+      projMatrix[10] = graphics.projection.m22;
+      projMatrix[11] = graphics.projection.m32;
+      projMatrix[12] = graphics.projection.m03;
+      projMatrix[13] = graphics.projection.m13;
+      projMatrix[14] = graphics.projection.m23;
+      projMatrix[15] = graphics.projection.m33;
       gl2x.glLoadMatrixf(projMatrix, 0);
 
       if (mvMatrix == null) {
         mvMatrix = new float[16];
       }
       gl2x.glMatrixMode(GLMatrixFunc.GL_MODELVIEW);
-      mvMatrix[ 0] = pg.modelview.m00;
-      mvMatrix[ 1] = pg.modelview.m10;
-      mvMatrix[ 2] = pg.modelview.m20;
-      mvMatrix[ 3] = pg.modelview.m30;
-      mvMatrix[ 4] = pg.modelview.m01;
-      mvMatrix[ 5] = pg.modelview.m11;
-      mvMatrix[ 6] = pg.modelview.m21;
-      mvMatrix[ 7] = pg.modelview.m31;
-      mvMatrix[ 8] = pg.modelview.m02;
-      mvMatrix[ 9] = pg.modelview.m12;
-      mvMatrix[10] = pg.modelview.m22;
-      mvMatrix[11] = pg.modelview.m32;
-      mvMatrix[12] = pg.modelview.m03;
-      mvMatrix[13] = pg.modelview.m13;
-      mvMatrix[14] = pg.modelview.m23;
-      mvMatrix[15] = pg.modelview.m33;
+      mvMatrix[ 0] = graphics.modelview.m00;
+      mvMatrix[ 1] = graphics.modelview.m10;
+      mvMatrix[ 2] = graphics.modelview.m20;
+      mvMatrix[ 3] = graphics.modelview.m30;
+      mvMatrix[ 4] = graphics.modelview.m01;
+      mvMatrix[ 5] = graphics.modelview.m11;
+      mvMatrix[ 6] = graphics.modelview.m21;
+      mvMatrix[ 7] = graphics.modelview.m31;
+      mvMatrix[ 8] = graphics.modelview.m02;
+      mvMatrix[ 9] = graphics.modelview.m12;
+      mvMatrix[10] = graphics.modelview.m22;
+      mvMatrix[11] = graphics.modelview.m32;
+      mvMatrix[12] = graphics.modelview.m03;
+      mvMatrix[13] = graphics.modelview.m13;
+      mvMatrix[14] = graphics.modelview.m23;
+      mvMatrix[15] = graphics.modelview.m33;
       gl2x.glLoadMatrixf(mvMatrix, 0);
     }
   }
@@ -798,74 +378,7 @@ public class PJOGL extends PGL {
   }
 
 
-  ///////////////////////////////////////////////////////////
-
-  // JOGL event listeners
-
-/*
-  protected void getBuffers(GLWindow glWindow) {
-    if (false) {
-//    if (capabilities.isFBO()) {
-//    if (USE_JOGL_FBOLAYER && capabilities.isFBO()) {
-      // The onscreen drawing surface is backed by an FBO layer.
-      GLFBODrawable fboDrawable = null;
-      fboDrawable = (GLFBODrawable)glWindow.getDelegatedDrawable();
-
-      if (fboDrawable != null) {
-        backFBO = fboDrawable.getFBObject(GL.GL_BACK);
-        if (1 < numSamples) {
-          if (needSepFrontTex) {
-            // When using multisampled FBO, the back buffer is the MSAA
-            // surface so it cannot be read from. The sink buffer contains
-            // the readable 2D texture.
-            // In this case, we create an auxiliary "front" buffer that it is
-            // swapped with the sink buffer at the beginning of each frame.
-            // In this way, we always have a readable copy of the previous
-            // frame in the front texture, while the back is synchronized
-            // with the contents of the MSAA back buffer when requested.
-            if (frontFBO == null) {
-              // init
-              frontFBO = new FBObject();
-              frontFBO.reset(gl, pg.width, pg.height, numSamples);
-              frontFBO.attachTexture2D(gl, 0, true);
-              sinkFBO = backFBO.getSamplingSinkFBO();
-              changedFrontTex = changedBackTex = true;
-            } else {
-              // swap
-              FBObject temp = sinkFBO;
-              sinkFBO = frontFBO;
-              frontFBO = temp;
-              backFBO.setSamplingSink(sinkFBO);
-              changedFrontTex = changedBackTex = false;
-            }
-            backTexAttach  = (FBObject.TextureAttachment) sinkFBO.
-                             getColorbuffer(0);
-            frontTexAttach = (FBObject.TextureAttachment)frontFBO.
-                             getColorbuffer(0);
-          } else {
-            changedFrontTex = changedBackTex = sinkFBO == null;
-
-            // Default setting (to save resources): the front and back
-            // textures are the same.
-            sinkFBO = backFBO.getSamplingSinkFBO();
-            backTexAttach = (FBObject.TextureAttachment) sinkFBO.
-                            getColorbuffer(0);
-            frontTexAttach = backTexAttach;
-          }
-        } else {
-          // w/out multisampling, rendering is done on the back buffer.
-          frontFBO = fboDrawable.getFBObject(GL.GL_FRONT);
-          backTexAttach  = (FBObject.TextureAttachment) backFBO.getColorbuffer(0);
-          frontTexAttach = (FBObject.TextureAttachment) frontFBO.getColorbuffer(0);
-        }
-      }
-
-    }
-  }
-*/
-
-  protected void init(GLAutoDrawable glDrawable) {
-    firstFrame = true;
+  public void init(GLAutoDrawable glDrawable) {
     capabilities = glDrawable.getChosenGLCapabilities();
     if (!hasFBOs()) {
       throw new RuntimeException(MISSING_FBO_ERROR);
@@ -873,296 +386,8 @@ public class PJOGL extends PGL {
     if (!hasShaders()) {
       throw new RuntimeException(MISSING_GLSL_ERROR);
     }
-//    if (USE_JOGL_FBOLAYER && capabilities.isFBO()) {
-//      int maxs = maxSamples();
-//      numSamples = PApplet.min(capabilities.getNumSamples(), maxs);
-//    }
   }
 
-  /*
-  protected class PGLListener implements GLEventListener {
-    public PGLListener() {}
-
-    @Override
-    public void display(GLAutoDrawable glDrawable) {
-
-      getGL(glDrawable);
-
-      if (USE_JOGL_FBOLAYER && capabilities.isFBO()) {
-        // The onscreen drawing surface is backed by an FBO layer.
-        GLFBODrawable fboDrawable = null;
-
-        if (WINDOW_TOOLKIT == AWT) {
-          GLCanvas glCanvas = (GLCanvas)glDrawable;
-          fboDrawable = (GLFBODrawable)glCanvas.getDelegatedDrawable();
-        } else {
-          GLWindow glWindow = (GLWindow)glDrawable;
-          fboDrawable = (GLFBODrawable)glWindow.getDelegatedDrawable();
-        }
-
-        if (fboDrawable != null) {
-          backFBO = fboDrawable.getFBObject(GL.GL_BACK);
-          if (1 < numSamples) {
-            if (needSepFrontTex) {
-              // When using multisampled FBO, the back buffer is the MSAA
-              // surface so it cannot be read from. The sink buffer contains
-              // the readable 2D texture.
-              // In this case, we create an auxiliary "front" buffer that it is
-              // swapped with the sink buffer at the beginning of each frame.
-              // In this way, we always have a readable copy of the previous
-              // frame in the front texture, while the back is synchronized
-              // with the contents of the MSAA back buffer when requested.
-              if (frontFBO == null) {
-                // init
-                frontFBO = new FBObject();
-                frontFBO.reset(gl, pg.width, pg.height, numSamples);
-                frontFBO.attachTexture2D(gl, 0, true);
-                sinkFBO = backFBO.getSamplingSinkFBO();
-                changedFrontTex = changedBackTex = true;
-              } else {
-                // swap
-                FBObject temp = sinkFBO;
-                sinkFBO = frontFBO;
-                frontFBO = temp;
-                backFBO.setSamplingSink(sinkFBO);
-                changedFrontTex = changedBackTex = false;
-              }
-              backTexAttach  = (FBObject.TextureAttachment) sinkFBO.
-                               getColorbuffer(0);
-              frontTexAttach = (FBObject.TextureAttachment)frontFBO.
-                               getColorbuffer(0);
-            } else {
-              changedFrontTex = changedBackTex = sinkFBO == null;
-
-              // Default setting (to save resources): the front and back
-              // textures are the same.
-              sinkFBO = backFBO.getSamplingSinkFBO();
-              backTexAttach = (FBObject.TextureAttachment) sinkFBO.
-                              getColorbuffer(0);
-              frontTexAttach = backTexAttach;
-            }
-          } else {
-            // w/out multisampling, rendering is done on the back buffer.
-            frontFBO = fboDrawable.getFBObject(GL.GL_FRONT);
-            backTexAttach  = (FBObject.TextureAttachment) backFBO.getColorbuffer(0);
-            frontTexAttach = (FBObject.TextureAttachment) frontFBO.getColorbuffer(0);
-          }
-        }
-      }
-
-      try {
-        pg.parent.handleDraw();
-      } catch (Exception ex) {
-        drawException = ex;
-      }
-      drawLatch.countDown();
-    }
-
-    @Override
-    public void dispose(GLAutoDrawable adrawable) {
-    }
-
-    @Override
-    public void init(GLAutoDrawable glDrawable) {
-      getGL(glDrawable);
-
-      capabilities = glDrawable.getChosenGLCapabilities();
-      if (!hasFBOs()) {
-        throw new RuntimeException(MISSING_FBO_ERROR);
-      }
-      if (!hasShaders()) {
-        throw new RuntimeException(MISSING_GLSL_ERROR);
-      }
-      if (USE_JOGL_FBOLAYER && capabilities.isFBO()) {
-        int maxs = maxSamples();
-        numSamples = PApplet.min(capabilities.getNumSamples(), maxs);
-      }
-    }
-
-    @Override
-    public void reshape(GLAutoDrawable glDrawable, int x, int y, int w, int h) {
-      //getGL(glDrawable);
-    }
-
-//    private void getGL(GLAutoDrawable glDrawable) {
-//      drawable = glDrawable;
-//      context = glDrawable.getContext();
-//      glContext = context.hashCode();
-//      glThread = Thread.currentThread();
-//
-//      gl = context.getGL();
-//      gl2 = gl.getGL2ES2();
-//      try {
-//        gl2x = gl.getGL2();
-//      } catch (javax.media.opengl.GLException e) {
-//        gl2x = null;
-//      }
-//      try {
-//        gl3 = gl.getGL2GL3();
-//      } catch (javax.media.opengl.GLException e) {
-//        gl3 = null;
-//      }
-//    }
-  }
-  */
-
-  /*
-  protected void nativeMouseEvent(com.jogamp.newt.event.MouseEvent nativeEvent,
-                                  int peAction) {
-    int modifiers = nativeEvent.getModifiers();
-    int peModifiers = modifiers &
-                      (InputEvent.SHIFT_MASK |
-                       InputEvent.CTRL_MASK |
-                       InputEvent.META_MASK |
-                       InputEvent.ALT_MASK);
-
-    int peButton = 0;
-    if ((modifiers & InputEvent.BUTTON1_MASK) != 0) {
-      peButton = PConstants.LEFT;
-    } else if ((modifiers & InputEvent.BUTTON2_MASK) != 0) {
-      peButton = PConstants.CENTER;
-    } else if ((modifiers & InputEvent.BUTTON3_MASK) != 0) {
-      peButton = PConstants.RIGHT;
-    }
-
-    if (PApplet.platform == PConstants.MACOSX) {
-      //if (nativeEvent.isPopupTrigger()) {
-      if ((modifiers & InputEvent.CTRL_MASK) != 0) {
-        peButton = PConstants.RIGHT;
-      }
-    }
-
-    int peCount = 0;
-    if (peAction == MouseEvent.WHEEL) {
-      peCount = nativeEvent.isShiftDown() ? (int)nativeEvent.getRotation()[0] :
-                                            (int)nativeEvent.getRotation()[1];
-    } else {
-      peCount = nativeEvent.getClickCount();
-    }
-
-    MouseEvent me = new MouseEvent(nativeEvent, nativeEvent.getWhen(),
-                                   peAction, peModifiers,
-                                   nativeEvent.getX(), nativeEvent.getY(),
-                                   peButton,
-                                   peCount);
-
-    pg.parent.postEvent(me);
-  }
-
-  protected void nativeKeyEvent(com.jogamp.newt.event.KeyEvent nativeEvent,
-                                int peAction) {
-    int peModifiers = nativeEvent.getModifiers() &
-                      (InputEvent.SHIFT_MASK |
-                       InputEvent.CTRL_MASK |
-                       InputEvent.META_MASK |
-                       InputEvent.ALT_MASK);
-
-    char keyChar;
-    if (nativeEvent.getKeyChar() == 0) {
-      keyChar = PConstants.CODED;
-    } else {
-      keyChar = nativeEvent.getKeyChar();
-    }
-
-    KeyEvent ke = new KeyEvent(nativeEvent, nativeEvent.getWhen(),
-                               peAction, peModifiers,
-                               keyChar,
-                               nativeEvent.getKeyCode());
-
-    pg.parent.postEvent(ke);
-  }
-
-  protected class NEWTWindowListener implements com.jogamp.newt.event.WindowListener {
-    public NEWTWindowListener() {
-      super();
-    }
-    @Override
-    public void windowGainedFocus(com.jogamp.newt.event.WindowEvent arg0) {
-      pg.parent.focusGained(null);
-    }
-
-    @Override
-    public void windowLostFocus(com.jogamp.newt.event.WindowEvent arg0) {
-      pg.parent.focusLost(null);
-    }
-
-    @Override
-    public void windowDestroyNotify(com.jogamp.newt.event.WindowEvent arg0) {
-    }
-
-    @Override
-    public void windowDestroyed(com.jogamp.newt.event.WindowEvent arg0) {
-    }
-
-    @Override
-    public void windowMoved(com.jogamp.newt.event.WindowEvent arg0) {
-    }
-
-    @Override
-    public void windowRepaint(com.jogamp.newt.event.WindowUpdateEvent arg0) {
-    }
-
-    @Override
-    public void windowResized(com.jogamp.newt.event.WindowEvent arg0) { }
-  }
-
-  // NEWT mouse listener
-  protected class NEWTMouseListener extends com.jogamp.newt.event.MouseAdapter {
-    public NEWTMouseListener() {
-      super();
-    }
-    @Override
-    public void mousePressed(com.jogamp.newt.event.MouseEvent e) {
-      nativeMouseEvent(e, MouseEvent.PRESS);
-    }
-    @Override
-    public void mouseReleased(com.jogamp.newt.event.MouseEvent e) {
-      nativeMouseEvent(e, MouseEvent.RELEASE);
-    }
-    @Override
-    public void mouseClicked(com.jogamp.newt.event.MouseEvent e) {
-      nativeMouseEvent(e, MouseEvent.CLICK);
-    }
-    @Override
-    public void mouseDragged(com.jogamp.newt.event.MouseEvent e) {
-      nativeMouseEvent(e, MouseEvent.DRAG);
-    }
-    @Override
-    public void mouseMoved(com.jogamp.newt.event.MouseEvent e) {
-      nativeMouseEvent(e, MouseEvent.MOVE);
-    }
-    @Override
-    public void mouseWheelMoved(com.jogamp.newt.event.MouseEvent e) {
-      nativeMouseEvent(e, MouseEvent.WHEEL);
-    }
-    @Override
-    public void mouseEntered(com.jogamp.newt.event.MouseEvent e) {
-      nativeMouseEvent(e, MouseEvent.ENTER);
-    }
-    @Override
-    public void mouseExited(com.jogamp.newt.event.MouseEvent e) {
-      nativeMouseEvent(e, MouseEvent.EXIT);
-    }
-  }
-
-  // NEWT key listener
-  protected class NEWTKeyListener extends com.jogamp.newt.event.KeyAdapter {
-    public NEWTKeyListener() {
-      super();
-    }
-    @Override
-    public void keyPressed(com.jogamp.newt.event.KeyEvent e) {
-      nativeKeyEvent(e, KeyEvent.PRESS);
-    }
-    @Override
-    public void keyReleased(com.jogamp.newt.event.KeyEvent e) {
-      nativeKeyEvent(e, KeyEvent.RELEASE);
-    }
-    public void keyTyped(com.jogamp.newt.event.KeyEvent e)  {
-      nativeKeyEvent(e, KeyEvent.TYPE);
-    }
-  }
-*/
 
   ///////////////////////////////////////////////////////////
 
@@ -1267,14 +492,14 @@ public class PJOGL extends PGL {
 
   @Override
   protected String[] loadFragmentShader(String filename, int version) {
-    String[] fragSrc0 = pg.parent.loadStrings(filename);
+    String[] fragSrc0 = sketch.loadStrings(filename);
     return preprocessFragmentSource(fragSrc0, version);
   }
 
 
   @Override
   protected String[] loadVertexShader(String filename, int version) {
-    String[] vertSrc0 = pg.parent.loadStrings(filename);
+    String[] vertSrc0 = sketch.loadStrings(filename);
     return preprocessVertexSource(vertSrc0, version);
   }
 
@@ -1898,7 +1123,7 @@ public class PJOGL extends PGL {
 
   @Override
   public void viewport(int x, int y, int w, int h) {
-    float scale = pg.getPixelScale();
+    float scale = getPixelScale();
     viewportImpl((int)scale * x, (int)(scale * y), (int)(scale * w), (int)(scale * h));
   }
 
@@ -1976,12 +1201,12 @@ public class PJOGL extends PGL {
   }
 
   @Override
-  public void drawArrays(int mode, int first, int count) {
+  public void drawArraysImpl(int mode, int first, int count) {
     gl.glDrawArrays(mode, first, count);
   }
 
   @Override
-  public void drawElements(int mode, int count, int type, int offset) {
+  public void drawElementsImpl(int mode, int count, int type, int offset) {
     gl.glDrawElements(mode, count, type, offset);
   }
 
@@ -2408,7 +1633,7 @@ public class PJOGL extends PGL {
 
   @Override
   public void scissor(int x, int y, int w, int h) {
-    float scale = pg.getPixelScale();
+    float scale = getPixelScale();
     gl.glScissor((int)scale * x, (int)(scale * y), (int)(scale * w), (int)(scale * h));
 //    gl.glScissor(x, y, w, h);
   }
@@ -2493,11 +1718,6 @@ public class PJOGL extends PGL {
   }
 
   @Override
-  public void clear(int buf) {
-    gl.glClear(buf);
-  }
-
-  @Override
   public void clearColor(float r, float g, float b, float a) {
     gl.glClearColor(r, g, b, a);
   }
@@ -2510,6 +1730,11 @@ public class PJOGL extends PGL {
   @Override
   public void clearStencil(int s) {
     gl.glClearStencil(s);
+  }
+
+  @Override
+  public void clear(int buf) {
+    gl.glClear(buf);
   }
 
   ///////////////////////////////////////////////////////////

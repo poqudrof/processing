@@ -386,17 +386,29 @@ public class ContributionTab {
 
       List<Library> libraries =
         new ArrayList<Library>(editor.getMode().contribLibraries);
-      libraries.addAll(editor.getMode().coreLibraries);
+
+      // Only add core libraries that are installed in the sketchbook
+      // https://github.com/processing/processing/issues/3688
+      //libraries.addAll(editor.getMode().coreLibraries);
+      final String sketchbookPath =
+        Base.getSketchbookLibrariesFolder().getAbsolutePath();
+      for (Library lib : editor.getMode().coreLibraries) {
+        if (lib.getLibraryPath().startsWith(sketchbookPath)) {
+          libraries.add(lib);
+        }
+      }
+
       contributions.addAll(libraries);
 
-      //ArrayList<ToolContribution> tools = editor.contribTools;
-      List<ToolContribution> tools = editor.getToolContribs();
+      Base base = editor.getBase();
+
+      List<ToolContribution> tools = base.getToolContribs();
       contributions.addAll(tools);
 
-      List<ModeContribution> modes = editor.getBase().getModeContribs();
+      List<ModeContribution> modes = base.getModeContribs();
       contributions.addAll(modes);
 
-      List<ExamplesContribution> examples = editor.getBase().getExampleContribs();
+      List<ExamplesContribution> examples = base.getExampleContribs();
       contributions.addAll(examples);
 
 //    ArrayList<LibraryCompilation> compilations = LibraryCompilation.list(libraries);

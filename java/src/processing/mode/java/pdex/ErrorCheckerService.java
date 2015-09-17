@@ -21,6 +21,7 @@ along with this program; if not, write to the Free Software Foundation, Inc.
 package processing.mode.java.pdex;
 
 import java.io.File;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -202,6 +203,11 @@ public class ErrorCheckerService implements Runnable {
   protected ArrayList<ImportStatement> previousImports = new ArrayList<ImportStatement>();
 
   /**
+   * List of import statements for any .jar files in the code folder.
+   */
+  protected ArrayList<ImportStatement> codeFolderImports = new ArrayList<ImportStatement>();
+
+  /**
    * Teh Preprocessor
    */
   protected XQPreprocessor xqpreproc;
@@ -211,13 +217,24 @@ public class ErrorCheckerService implements Runnable {
    */
   final public String importRegexp = "(?:^|;)\\s*(import\\s+)((?:static\\s+)?\\S+)(\\s*;)";
 
+//  /**
+//   * Regexp for function declarations. (Used from Processing source)
+//   */
+//  final Pattern FUNCTION_DECL = Pattern
+//    .compile("(^|;)\\s*((public|private|protected|final|static)\\s+)*"
+//      + "(void|int|float|double|String|char|byte|boolean)"
+//      + "(\\s*\\[\\s*\\])?\\s+[a-zA-Z0-9]+\\s*\\(", Pattern.MULTILINE);
+
   /**
-   * Regexp for function declarations. (Used from Processing source)
+   * Matches setup or draw function declaration. We search for all those
+   * modifiers and return types in order to have proper error message
+   * when people use incompatible modifiers or non-void return type
    */
-  final Pattern FUNCTION_DECL = Pattern
-    .compile("(^|;)\\s*((public|private|protected|final|static)\\s+)*"
-      + "(void|int|float|double|String|char|byte|boolean)"
-      + "(\\s*\\[\\s*\\])?\\s+[a-zA-Z0-9]+\\s*\\(", Pattern.MULTILINE);
+  private static final Pattern SETUP_OR_DRAW_FUNCTION_DECL =
+      Pattern.compile("(^|;)\\s*((public|private|protected|final|static)\\s+)*" +
+                      "(void|int|float|double|String|char|byte|boolean)" +
+                      "(\\s*\\[\\s*\\])?\\s+(setup|draw)\\s*\\(",
+                      Pattern.MULTILINE);
 
   protected ErrorMessageSimplifier errorMsgSimplifier;
 
@@ -231,7 +248,7 @@ public class ErrorCheckerService implements Runnable {
 
     initParser();
     //initializeErrorWindow();
-    xqpreproc = new XQPreprocessor();
+    xqpreproc = new XQPreprocessor(this);
     PdePreprocessor pdePrepoc = new PdePreprocessor(null);
     defaultImportsOffset = pdePrepoc.getCoreImports().length +
         pdePrepoc.getDefaultImports().length + 1;
@@ -640,6 +657,10 @@ public class ErrorCheckerService implements Runnable {
         loadCompClass = false;
       }
 
+//      for(URL cpUrl: classPath) {
+//        Messages.log("CP jar: " + cpUrl.getPath());
+//      }
+
       if (compilerSettings == null) {
         prepareCompilerSetting();
       }
@@ -808,7 +829,7 @@ public class ErrorCheckerService implements Runnable {
       // log("1..");
       classpathJars = new ArrayList<URL>();
       String entry = "";
-      boolean codeFolderChecked = false;
+//      boolean codeFolderChecked = false;
       for (ImportStatement impstat : programImports) {
         String item = impstat.getImportName();
         int dot = item.lastIndexOf('.');
@@ -832,47 +853,48 @@ public class ErrorCheckerService implements Runnable {
             classpathJars.add(new File(pathItem).toURI().toURL());
           }
         } catch (Exception e) {
-          if (library == null && !codeFolderChecked) {
-            // Look around in the code folder for jar files
-            if (editor.getSketch().hasCodeFolder()) {
-              File codeFolder = editor.getSketch().getCodeFolder();
+          Messages.log("Encountered " + e + " while adding library to classpath");
+        }
+      }
 
-              // get a list of .jar files in the "code" folder
-              // (class files in subfolders should also be picked up)
-              String codeFolderClassPath = Util.contentsToClassPath(codeFolder);
-              codeFolderChecked = true;
-              // huh? doesn't this mean .length() == 0? [fry]
-              if (codeFolderClassPath.equalsIgnoreCase("")) {
-                System.err.format("Cannot find \"%s\" library. Line %d in tab %s%n",
-                                  entry, impstat.getLineNumber(),
-                                  editor.getSketch().getCode(impstat.getTab()).getPrettyName());
-                System.err.println("Make sure that the library is installed properly.");
 
-              } else {
-                String codeFolderPath[] =
+      // Look around in the code folder for jar files and them too
+      if (editor.getSketch().hasCodeFolder()) {
+        File codeFolder = editor.getSketch().getCodeFolder();
+
+        // get a list of .jar files in the "code" folder
+        // (class files in subfolders should also be picked up)
+        String codeFolderClassPath = Util.contentsToClassPath(codeFolder);
+//        codeFolderChecked = true;
+        // huh? doesn't this mean .length() == 0? [fry]
+        if (!codeFolderClassPath.equalsIgnoreCase("")) {
+          Messages.log("Sketch has a code folder. Adding its jars");
+          String codeFolderPath[] =
                   PApplet.split(codeFolderClassPath.substring(1).trim(),
-                                File.pathSeparatorChar);
-                try {
-                  for (String pathItem : codeFolderPath) {
-                    classpathJars.add(new File(pathItem).toURI().toURL());
-                  }
-                } catch (Exception e2) {
-                  e2.printStackTrace();
-                }
-              }
-            } else {
-              System.err.format("Cannot find \"%s\" library. Line %d in tab %s%n",
-                                entry, impstat.getLineNumber(),
-                                editor.getSketch().getCode(impstat.getTab()).getPrettyName());
+                          File.pathSeparatorChar);
+          try {
+            for (String pathItem : codeFolderPath) {
+              classpathJars.add(new File(pathItem).toURI().toURL());
+              Messages.log("Addind cf jar: " + pathItem);
             }
-
-          } else {
-            new Exception("Error while handling '" + entry + "'", e).printStackTrace();
+          } catch (Exception e2) {
+            e2.printStackTrace();
           }
+        }
+
+
+      }
+
+      // Also add jars specified in mode's search path
+      String modeJars[] = ((JavaMode) getEditor().getMode()).getSearchPath().split(File.pathSeparatorChar + "");
+      for (String mj : modeJars) {
+        try {
+          classpathJars.add(new File(mj).toURI().toURL());
+        } catch (MalformedURLException e) {
+          e.printStackTrace();
         }
       }
     }
-
     new Thread(new Runnable() {
       public void run() {
         astGenerator.loadJars(); // update jar file for completion lookup
@@ -996,8 +1018,9 @@ public class ErrorCheckerService implements Runnable {
     // editor.statusNotice("Position: " +
     // editor.getTextArea().getCaretLine());
     if (JavaMode.errorCheckEnabled) {
-      synchronized (editor.getErrorPoints()) {
-        for (LineMarker emarker : editor.getErrorPoints()) {
+      List<LineMarker> errorPoints = editor.getErrorPoints();
+      synchronized (errorPoints) {
+        for (LineMarker emarker : errorPoints) {
           if (emarker.getProblem().getLineNumber() == editor.getTextArea().getCaretLine()) {
             if (emarker.getType() == LineMarker.WARNING) {
               editor.statusMessage(emarker.getProblem().getMessage(),
@@ -1118,8 +1141,8 @@ public class ErrorCheckerService implements Runnable {
    * Calculates the tab number and line number of the error in that particular
    * tab. Provides mapping between pure java and pde code.
    *
-   * @param problem
-   *            - IProblem
+   * @param javalineNumber
+   *            - int
    * @return int[0] - tab number, int[1] - line number
    */
   protected int[] calculateTabIndexAndLineNumber(int javalineNumber) {
@@ -1298,9 +1321,10 @@ public class ErrorCheckerService implements Runnable {
     className = (editor == null) ?
       "DefaultClass" : editor.getSketch().getName();
 
-    // Check whether the code is being written in STATIC mode(no function
-    // declarations) - append class declaration and void setup() declaration
-    Matcher matcher = FUNCTION_DECL.matcher(sourceAlt);
+    // Check whether the code is being written in STATIC mode
+    // (no setup or draw function declarations) - append class
+    // declaration and void setup() declaration
+    Matcher matcher = SETUP_OR_DRAW_FUNCTION_DECL.matcher(sourceAlt);
     staticMode = !matcher.find();
     StringBuilder sb = new StringBuilder();
     sb.append(xqpreproc.prepareImports(programImports));
@@ -1334,7 +1358,7 @@ public class ErrorCheckerService implements Runnable {
   /**
    * Now defunct.
    * The super method that highlights any ASTNode in the pde editor =D
-   * @param node
+   * @param awrap
    * @return true - if highlighting happened correctly.
    */
   private boolean highlightNode(ASTNodeWrapper awrap){
@@ -1590,6 +1614,7 @@ public class ErrorCheckerService implements Runnable {
   public void handleErrorCheckingToggle() {
     if (!JavaMode.errorCheckEnabled) {
       Messages.log(editor.getSketch().getName() + " Error Checker paused.");
+      //editor.clearErrorPoints();
       editor.getErrorPoints().clear();
       problemsList.clear();
       updateErrorTable();

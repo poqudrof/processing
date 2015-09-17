@@ -1,27 +1,16 @@
-0244 core (3.0b6)
+0245 core (3.0b7)
+X FX2D display is inverted in 3.0b6
+X   https://github.com/processing/processing/issues/3795
 
 
-jakub
-X FX - fix transformation stack NPE
-X   https://github.com/processing/processing/pull/3710
-X FX - fix rad-deg conversion in rotate()
-X   https://github.com/processing/processing/pull/3711
-X FX - basic pixel operations (get, set, load, update) 
-X   https://github.com/processing/processing/pull/3709
-X FX - align to pixel grid when drawing 1 px strokes
-X   https://github.com/processing/processing/pull/3712
-X keyChar and keyCode are super wonky and unlike AWT
-X   https://github.com/processing/processing/issues/3290
-X   what's the way to do this after the deprecation?
-X   if this is going to be the default renderer, has to be ironed out
-
-
-known issues
-_ P2D and P3D windows behave strangely when larger than the screen size
-_   https://github.com/processing/processing/issues/3401
+andres
+X surface.setLocation() causing a freeze on Windows
+X   https://github.com/processing/processing/commit/4c0f9234c0a48f62363233cafc9c9951ee351d3e
 
 
 3.0 final
+_ P2D and P3D windows behave strangely when larger than the screen size
+_   https://github.com/processing/processing/issues/3401
 _ move blending calculations from PImage into PGraphics
 _   tricky because that means moving blend_resize() as well
 _   and should that live in PGraphics or be its own class or ??
@@ -39,9 +28,15 @@ _   https://github.com/processing/processing/issues/2063
 _ note in docs that full screen and present are now different
 _   on Export to Application, this has an impact
 _ update wiki/docs to say "don't override sketchXxxx() methods"
-
+_ SVG only exports last frame
+_   possibly because Java2D is disposing the Graphics2D in between?
+_   https://github.com/processing/processing/issues/3753
+_ selectInput/Output() is behind the drawing window (Windows)
+_   https://github.com/processing/processing/issues/3775
 
 javafx
+_ do we really need setTextFont/Size when we already have Impl? 
+_ need keyPressed() to do lower and upper case
 _ static mode sketches (draw once and halt w/o closing window)
 _ fix display handling, line up the device order with AWT
 _   https://docs.oracle.com/javafx/2/api/javafx/stage/Screen.html
@@ -61,7 +56,7 @@ _ get() and set()
 _ clip/noClip
 _   https://github.com/processing/processing/issues/3274
 _ getNative() in PImage problematic because it gives back a BufferedImage
-_   move loadImage() into PGraphics, with AWT version the default?
+_   move loadImage() into PGraphics, with AWT version the default
 _   or pass createImage() through to renderer?
 _ implement external messages (moving the window)
 _ implement PSurfaceFX.setIcon()
@@ -409,10 +404,6 @@ CORE / PImage
 _ TGA files writing strangely
 _   https://github.com/processing/processing/issues/2096
 
-_ don't grab pixels of java2d images unless asked
-_   this is the difference between a lot of loadPixels() and not
-_   so important to have it in before beta if that's the change
-_   https://github.com/processing/processing/issues/99
 _ loadPixels() implementation needs to be in PApplet, not PGraphics
 _ this is a tricky thing to implement because of how OpenGL is handled
 
@@ -538,8 +529,6 @@ _   -Xdock:icon=<path to icon file>
 
 CORE / Events
 
-_ Implement a way to disable automatic key repeat
-_   https://github.com/processing/processing/issues/1622
 _ touch events.. can't do MouseEvent et al with Android
 _   http://dvcs.w3.org/hg/webevents/raw-file/tip/touchevents.html
 _   http://www.html5rocks.com/en/mobile/touch.html
@@ -674,9 +663,6 @@ _     before rewriting all of createInput()
 
 LATER (post 2.0)
 
-_ handle repeat key events 
-_   and/or holding keys down and discerning repeats
-_   https://github.com/processing/processing/issues/1622
 _ fillMode(NONZERO) and fillMode(ODD) to replace solid(boolean)?
 _ create PVec2D and PVec3D as separate classes
 _ gui priorities
