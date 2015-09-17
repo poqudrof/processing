@@ -29,8 +29,10 @@ package processing.core;
 import java.awt.Color;
 
 // Used for the 'image' object that's been here forever
+import java.awt.Font;
 import java.awt.Image;
 
+import java.io.InputStream;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.WeakHashMap;
@@ -1782,7 +1784,7 @@ public class PGraphics extends PImage implements PConstants {
     if (kind == POINT) {
       if (is3D() && len != 2 && len != 3) {
         throw new IllegalArgumentException("Use createShape(POINT, x, y) or createShape(POINT, x, y, z)");
-      } else if (len != 2) {
+      } else if (is2D() && len != 2) {
         throw new IllegalArgumentException("Use createShape(POINT, x, y)");
       }
       return createShapePrimitive(kind, p);
@@ -1790,7 +1792,7 @@ public class PGraphics extends PImage implements PConstants {
     } else if (kind == LINE) {
       if (is3D() && len != 4 && len != 6) {
         throw new IllegalArgumentException("Use createShape(LINE, x1, y1, x2, y2) or createShape(LINE, x1, y1, z1, x2, y2, z1)");
-      } else if (len != 4) {
+      } else if (is2D() && len != 4) {
         throw new IllegalArgumentException("Use createShape(LINE, x1, y1, x2, y2)");
       }
       return createShapePrimitive(kind, p);
@@ -4013,6 +4015,39 @@ public class PGraphics extends PImage implements PConstants {
   // TEXT/FONTS
 
 
+  protected PFont createFont(String name, float size,
+                          boolean smooth, char[] charset) {
+    String lowerName = name.toLowerCase();
+    Font baseFont = null;
+
+    try {
+      InputStream stream = null;
+      if (lowerName.endsWith(".otf") || lowerName.endsWith(".ttf")) {
+        stream = parent.createInput(name);
+        if (stream == null) {
+          System.err.println("The font \"" + name + "\" " +
+                                 "is missing or inaccessible, make sure " +
+                                 "the URL is valid or that the file has been " +
+                                 "added to your sketch and is readable.");
+          return null;
+        }
+        baseFont = Font.createFont(Font.TRUETYPE_FONT, parent.createInput(name));
+
+      } else {
+        baseFont = PFont.findFont(name);
+      }
+      return new PFont(baseFont.deriveFont(size * parent.pixelDensity),
+                       smooth, charset, stream != null,
+                       parent.pixelDensity);
+
+    } catch (Exception e) {
+      System.err.println("Problem with createFont(\"" + name + "\")");
+      e.printStackTrace();
+      return null;
+    }
+  }
+
+
   public void textAlign(int alignX) {
     textAlign(alignX, BASELINE);
   }
@@ -4136,8 +4171,43 @@ public class PGraphics extends PImage implements PConstants {
    * @see PGraphics#textSize(float)
    */
   public void textFont(PFont which) {
-    if (which != null) {
-      textFont = which;
+    if (which == null) {
+      throw new RuntimeException(ERROR_TEXTFONT_NULL_PFONT);
+    }
+    textFontImpl(which, which.getDefaultSize());
+  }
+
+
+  /**
+   * @param size the size of the letters in units of pixels
+   */
+  public void textFont(PFont which, float size) {
+    if (which == null) {
+      throw new RuntimeException(ERROR_TEXTFONT_NULL_PFONT);
+    }
+    // https://github.com/processing/processing/issues/3110
+    if (size <= 0) {
+      // Using System.err instead of showWarning to avoid running out of
+      // memory with a bunch of textSize() variants (cause of this bug is
+      // usually something done with map() or in a loop).
+      System.err.println("textFont: ignoring size " + size + " px:" +
+                             "the text size must be larger than zero");
+      size = textSize;
+    }
+    textFontImpl(which, size);
+  }
+
+
+  /**
+   * Called from textFont. Check the validity of args and
+   * print possible errors to the user before calling this.
+   * Subclasses will want to override this one.
+   *
+   * @param which font to set, not null
+   * @param size size to set, greater than zero
+   */
+  protected void textFontImpl(PFont which, float size) {
+    textFont = which;
 //      if (hints[ENABLE_NATIVE_FONTS]) {
 //        //if (which.font == null) {
 //        which.findNative();
@@ -4166,20 +4236,8 @@ public class PGraphics extends PImage implements PConstants {
         // float w = font.getStringBounds(text, g2.getFontRenderContext()).getWidth();
       }
       */
-      textSize(which.getDefaultSize());
 
-    } else {
-      throw new RuntimeException(ERROR_TEXTFONT_NULL_PFONT);
-    }
-  }
-
-
-  /**
-   * @param size the size of the letters in units of pixels
-   */
-  public void textFont(PFont which, float size) {
-    textFont(which);
-    textSize(size);
+    handleTextSize(size);
   }
 
 
@@ -4293,6 +4351,26 @@ public class PGraphics extends PImage implements PConstants {
     if (textFont == null) {
       defaultFontOrDeath("textSize", size);
     }
+    textSizeImpl(size);
+  }
+
+
+  /**
+   * Called from textSize() after validating size. Subclasses
+   * will want to override this one.
+   * @param size size of the text, greater than zero
+   */
+  protected void textSizeImpl(float size) {
+    handleTextSize(size);
+  }
+
+
+  /**
+   * Sets the actual size. Called from textSizeImpl and
+   * from textFontImpl after setting the font.
+   * @param size size of the text, greater than zero
+   */
+  protected void handleTextSize(float size) {
     textSize = size;
     textLeading = (textAscent() + textDescent()) * 1.275f;
   }

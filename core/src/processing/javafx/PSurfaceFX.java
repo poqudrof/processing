@@ -229,12 +229,27 @@ public class PSurfaceFX implements PSurface {
       int width = sketch.sketchWidth();
       int height = sketch.sketchHeight();
       int smooth = sketch.sketchSmooth();
+
+      /*
       SceneAntialiasing sceneAntialiasing = (smooth == 0) ?
           SceneAntialiasing.DISABLED :
           SceneAntialiasing.BALANCED;
 
       //stage.setScene(new Scene(new Group(canvas)));
       stage.setScene(new Scene(stackPane, width, height, false, sceneAntialiasing));
+      */
+
+      // Workaround for https://bugs.openjdk.java.net/browse/JDK-8136495
+      // Only set when we're turning it off; the default doesn't have the bug,
+      // but still seems to anti-alias properly.
+      // https://github.com/processing/processing/issues/3795
+      if (smooth == 0) {
+        stage.setScene(new Scene(stackPane, width, height, false, SceneAntialiasing.DISABLED));
+      } else {
+        // ...or maybe not, these seem to go to the same code path
+        stage.setScene(new Scene(stackPane, width, height, false));
+      }
+
       //stage.show();  // move to setVisible(true)?
 
       // initFrame in different thread is waiting for
@@ -299,6 +314,12 @@ public class PSurfaceFX implements PSurface {
 
   public void setIcon(PImage icon) {
     // TODO implement this in JavaFX
+  }
+
+
+  @Override
+  public void setAlwaysOnTop(boolean always) {
+    stage.setAlwaysOnTop(always);
   }
 
 

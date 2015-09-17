@@ -1,18 +1,50 @@
+/* -*- mode: java; c-basic-offset: 2; indent-tabs-mode: nil -*- */
+
+/*
+  Part of the Processing project - http://processing.org
+
+  Copyright (c) 2012-15 The Processing Foundation
+  Copyright (c) 2004-12 Ben Fry and Casey Reas
+  Copyright (c) 2001-04 Massachusetts Institute of Technology
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation, version 2.1.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General
+  Public License along with this library; if not, write to the
+  Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+  Boston, MA  02111-1307  USA
+*/
+
 package processing.opengl;
 
 import java.awt.Component;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-//import java.awt.Dimension;
 import java.awt.Point;
-//import java.awt.Frame;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import javax.swing.ImageIcon;
 
 import com.jogamp.common.util.IOUtil.ClassResources;
 import com.jogamp.nativewindow.NativeSurface;
 import com.jogamp.nativewindow.ScalableSurface;
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelRectangle;
 import com.jogamp.opengl.GLAnimatorControl;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
@@ -21,13 +53,12 @@ import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.nativewindow.MutableGraphicsConfiguration;
 import com.jogamp.newt.Display;
+import com.jogamp.newt.Display.PointerIcon;
 import com.jogamp.newt.MonitorDevice;
 import com.jogamp.newt.NewtFactory;
 import com.jogamp.newt.Screen;
 import com.jogamp.newt.awt.NewtCanvasAWT;
 import com.jogamp.newt.event.InputEvent;
-//import com.jogamp.newt.event.WindowAdapter;
-//import com.jogamp.newt.event.WindowEvent;
 import com.jogamp.newt.opengl.GLWindow;
 import com.jogamp.opengl.util.FPSAnimator;
 
@@ -40,6 +71,7 @@ import processing.event.KeyEvent;
 import processing.event.MouseEvent;
 import processing.opengl.PGraphicsOpenGL;
 import processing.opengl.PGL;
+
 
 public class PSurfaceJOGL implements PSurface {
   /** Selected GL profile */
@@ -67,8 +99,8 @@ public class PSurfaceJOGL implements PSurface {
   protected Object waitObject = new Object();
 
   protected NewtCanvasAWT canvas;
-  protected boolean placedWindow = false;
-  protected boolean requestedStart = false;
+//  protected boolean placedWindow = false;
+//  protected boolean requestedStart = false;
 
   protected float[] currentPixelScale = {0, 0};
 
@@ -300,13 +332,14 @@ public class PSurfaceJOGL implements PSurface {
     }
     window.setSurfaceScale(reqSurfacePixelScale);
     window.setSize(sketchWidth, sketchHeight);
+//    window.setResizable(false);
     setSize(sketchWidth, sketchHeight);
     sketchX = displayDevice.getViewportInWindowUnits().getX();
     sketchY = displayDevice.getViewportInWindowUnits().getY();
     if (fullScreen) {
       PApplet.hideMenuBar();
       window.setTopLevelPosition(sketchX, sketchY);
-      placedWindow = true;
+//      placedWindow = true;
       if (spanDisplays) {
         window.setFullscreen(monitors);
       } else {
@@ -330,7 +363,6 @@ public class PSurfaceJOGL implements PSurface {
 
 
   protected void initAnimator() {
-//  System.err.println("1. create animator");
     animator = new FPSAnimator(window, 60);
     drawException = null;
     animator.setUncaughtExceptionHandler(new GLAnimatorControl.UncaughtExceptionHandler() {
@@ -339,7 +371,6 @@ public class PSurfaceJOGL implements PSurface {
                                     final GLAutoDrawable drawable,
                                     final Throwable cause) {
         synchronized (waitObject) {
-//        System.err.println("Caught exception: " + cause.getMessage());
           drawException = cause;
           waitObject.notify();
         }
@@ -362,6 +393,8 @@ public class PSurfaceJOGL implements PSurface {
 //            throw (ThreadDeath)cause;
             } else if (cause instanceof RuntimeException) {
               throw (RuntimeException)cause;
+            } else if (cause instanceof UnsatisfiedLinkError) {
+              throw new UnsatisfiedLinkError(cause.getMessage());
             } else {
               throw new RuntimeException(cause);
             }
@@ -384,19 +417,40 @@ public class PSurfaceJOGL implements PSurface {
 
 
   @Override
-  public void setVisible(boolean visible) {
-    window.setVisible(visible);
+  public void setVisible(final boolean visible) {
+    display.getEDTUtil().invoke(false, new Runnable() {
+      @Override
+      public void run() {
+        window.setVisible(visible);
+      }
+    });
   }
 
 
   @Override
-  public void setResizable(boolean resizable) {
-    // TODO Auto-generated method stub
+  public void setResizable(final boolean resizable) {
+//    display.getEDTUtil().invoke(false, new Runnable() {
+//      @Override
+//      public void run() {
+//        window.setResizable(resizable);
+//      }
+//    });
   }
 
 
   public void setIcon(PImage icon) {
     // TODO Auto-generated method stub
+  }
+
+
+  @Override
+  public void setAlwaysOnTop(final boolean always) {
+    display.getEDTUtil().invoke(false, new Runnable() {
+      @Override
+      public void run() {
+        window.setAlwaysOnTop(always);
+      }
+    });
   }
 
 
@@ -485,8 +539,8 @@ public class PSurfaceJOGL implements PSurface {
       window.setTopLevelPosition(frameLoc.x, 30);
     }
 
-    placedWindow = true;
-    if (requestedStart) startThread();
+//    placedWindow = true;
+//    if (requestedStart) startThread();
 //    canvas.setBounds((contentW - sketchWidth)/2,
 //                     (contentH - sketchHeight)/2,
 //                     sketchWidth, sketchHeight);
@@ -510,9 +564,8 @@ public class PSurfaceJOGL implements PSurface {
                                sketchY + screenRect.y);
 //    window.setTopLevelPosition(0, 0);
     window.setFullscreen(true);
-    placedWindow = true;
-    if (requestedStart) startThread();
-
+//    placedWindow = true;
+//    if (requestedStart) startThread();
 //    }
   }
 
@@ -525,21 +578,7 @@ public class PSurfaceJOGL implements PSurface {
 
   public void startThread() {
     if (animator != null) {
-      if (placedWindow) {
-        window.setVisible(true);
-        animator.start();
-        requestedStart = false;
-      } else {
-        // The GL window is not visible until it has been placed, so we cannot
-        // start the animator because it requires the window to be visible.
-        requestedStart = true;
-        // Need this assignment to bypass the while loop in runSketch, otherwise
-        // the programs hangs waiting for defaultSize to be false, but it never
-        // happens because the animation thread is not yet running to avoid showing
-        // the window in the wrong place:
-        // https://github.com/processing/processing/issues/3308
-//      sketch.defaultSize = false;
-      }
+      animator.start();
     }
   }
 
@@ -576,35 +615,30 @@ public class PSurfaceJOGL implements PSurface {
   }
 
 
-  public void setLocation(int x, int y) {
-    if (window != null) {
-      window.setTopLevelPosition(x, y);
-    }
+  public void setLocation(final int x, final int y) {
+    display.getEDTUtil().invoke(false, new Runnable() {
+      @Override
+      public void run() {
+        window.setTopLevelPosition(x, y);
+      }
+    });
   }
 
 
-  public void setSize(int width, int height) {
+  public void setSize(final int width, final int height) {
     if (width == sketch.width && height == sketch.height) {
       return;
     }
 
-
-//    if (animator.isAnimating()) {
-//      System.err.println("3. set size");
-
-      if (!pgl.presentMode()) {
-//        sketch.width = width;
-//        sketch.height = height;
-        sketch.setSize(width, height);
-        sketchWidth = width;
-        sketchHeight = height;
-        graphics.setSize(width, height);
-        window.setSize(width, height);
-      }
-
-
-//    }
+    if (!pgl.presentMode()) {
+      sketch.setSize(width, height);
+      sketchWidth = width;
+      sketchHeight = height;
+      graphics.setSize(width, height);
+      window.setSize(width, height);
+    }
   }
+
 
   public float getPixelScale() {
     if (graphics.is2X()) {
@@ -650,43 +684,49 @@ public class PSurfaceJOGL implements PSurface {
 
 
   public void requestFocus() {
-    if (window != null) {
-      window.requestFocus();
-    }
+    display.getEDTUtil().invoke(false, new Runnable() {
+      @Override
+      public void run() {
+        window.requestFocus();
+      }
+    });
   }
 
 
   class DrawListener implements GLEventListener {
     public void display(GLAutoDrawable drawable) {
-      pgl.getGL(drawable);
-//      System.out.println(" - " + sketch.frameCount);
-      sketch.handleDraw();
+      if (display.getEDTUtil().isCurrentThreadEDT()) {
+        // For some reason, the first two frames of the animator are run on the
+        // EDT, skipping rendering Processing's frame in that case.
+        return;
+      }
 
-      if (sketch.frameCount == 1) {
+      if (sketch.frameCount == 0) {
         requestFocus();
       }
 
+      pgl.getGL(drawable);
+      int pframeCount = sketch.frameCount;
+      sketch.handleDraw();
+      if (pframeCount == sketch.frameCount) {
+        // This hack allows the FBO layer to be swapped normally even if
+        // the sketch is no looping, otherwise background artifacts will occur.
+        pgl.beginRender();
+        pgl.endRender(sketch.sketchWindowColor());
+      }
+
       if (sketch.exitCalled()) {
-//        System.out.println("exit");
-        animator.stop();
-        sketch.dispose();
+        sketch.dispose(); // calls stopThread(), which stops the animator.
         sketch.exitActual();
       }
     }
     public void dispose(GLAutoDrawable drawable) {
-//      pgl.getGL(drawable);
-//      System.out.println("dispose");
       sketch.dispose();
-//      if (sketch.exitCalled()) {
-//        sketch.exitActual();
-//      }
     }
     public void init(GLAutoDrawable drawable) {
-//      System.err.println("2. init drawable");
       pgl.getGL(drawable);
       pgl.init(drawable);
       sketch.start();
-//      setSize(sketchWidth, sketchHeight);
 
       int c = graphics.backgroundColor;
       pgl.clearColor(((c >> 16) & 0xff) / 255f,
@@ -697,7 +737,13 @@ public class PSurfaceJOGL implements PSurface {
     }
 
     public void reshape(GLAutoDrawable drawable, int x, int y, int w, int h) {
-
+//      int c = graphics.backgroundColor;
+//      pgl.clearColor(((c >> 16) & 0xff) / 255f,
+//                     ((c >>  8) & 0xff) / 255f,
+//                     ((c >>  0) & 0xff) / 255f,
+//                     ((c >> 24) & 0xff) / 255f);
+//      pgl.clear(PGL.COLOR_BUFFER_BIT);
+      pgl.resetFBOLayer();
 //      final float[] valReqSurfacePixelScale = window.getRequestedSurfaceScale(new float[2]);
       window.getCurrentSurfaceScale(currentPixelScale);
 //      final float[] nativeSurfacePixelScale = window.getMaximumSurfaceScale(new float[2]);
@@ -739,8 +785,8 @@ public class PSurfaceJOGL implements PSurface {
 
     @Override
     public void windowDestroyNotify(com.jogamp.newt.event.WindowEvent arg0) {
-      PSurfaceJOGL.this.sketch.dispose();
-      PSurfaceJOGL.this.sketch.exitActual();
+      sketch.dispose();
+      sketch.exitActual();
     }
 
     @Override
@@ -758,7 +804,6 @@ public class PSurfaceJOGL implements PSurface {
     @Override
     public void windowResized(com.jogamp.newt.event.WindowEvent arg0) {
     }
-
   }
 
 
@@ -998,41 +1043,99 @@ public class PSurfaceJOGL implements PSurface {
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 
+  class CursorInfo {
+    PImage image;
+    int x, y;
+
+    CursorInfo(PImage image, int x, int y) {
+      this.image = image;
+      this.x = x;
+      this.y = y;
+    }
+
+    void set() {
+      setCursor(image, x, y);
+    }
+  }
+
+  static Map<Integer, CursorInfo> cursors = new HashMap<>();
+  static Map<Integer, String> cursorNames = new HashMap<Integer, String>();
+  static {
+    cursorNames.put(PConstants.ARROW, "arrow");
+    cursorNames.put(PConstants.CROSS, "cross");
+    cursorNames.put(PConstants.WAIT, "wait");
+    cursorNames.put(PConstants.MOVE, "move");
+    cursorNames.put(PConstants.HAND, "hand");
+    cursorNames.put(PConstants.TEXT, "text");
+  }
+
+
   public void setCursor(int kind) {
-    PGraphics.showWarning("Cursor types not yet supported in OpenGL, provide your cursor image");
+    CursorInfo cursor = cursors.get(kind);
+    if (cursor == null) {
+      String name = cursorNames.get(kind);
+      if (name != null) {
+        ImageIcon icon =
+          new ImageIcon(getClass().getResource("cursors/" + name + ".png"));
+        PImage img = new PImage(icon.getImage());
+        // Most cursors just use the center as the hotspot...
+        int x = img.width / 2;
+        int y = img.height / 2;
+        // ...others are more specific
+        if (kind == PConstants.ARROW) {
+          x = 10; y = 7;
+        } else if (kind == PConstants.HAND) {
+          x = 12; y = 8;
+        } else if (kind == PConstants.TEXT) {
+          x = 16; y = 22;
+        }
+        cursor = new CursorInfo(img, x, y);
+        cursors.put(kind, cursor);
+      }
+      cursor.set();
+
+    } else {
+      PGraphics.showWarning("Unknown cursor type: " + kind);
+    }
   }
 
 
   public void setCursor(PImage image, int hotspotX, int hotspotY) {
-    final Display disp = window.getScreen().getDisplay();
-    disp.createNative();
-
-//    BufferedImage jimg = (BufferedImage)image.getNative();
-//    IntBuffer buf = IntBuffer.wrap(jimg.getRGB(0, 0, jimg.getWidth(), jimg.getHeight(),
-//                                               null, 0, jimg.getWidth()));
-//
-//    final PixelRectangle pixelrect = new PixelRectangle.GenericPixelRect(srcFmt, new Dimension(width, height),
-//        srcStrideBytes, srcIsGLOriented, srcPixels);
-//
-//    PointerIcon pi = disp.createPointerIcon(PixelRectangle pixelrect,
-//                                            hotspotX,
-//                                            hotspotY);
-//
-//    window.setPointerIcon(pi);
-
+    Display disp = window.getScreen().getDisplay();
+    BufferedImage bimg = (BufferedImage)image.getNative();
+    DataBufferInt dbuf = (DataBufferInt)bimg.getData().getDataBuffer();
+    int[] ipix = dbuf.getData();
+    ByteBuffer pixels = ByteBuffer.allocate(ipix.length * 4);
+    pixels.asIntBuffer().put(ipix);
+    PixelFormat format = PixelFormat.ARGB8888;
+    final Dimension size = new Dimension(bimg.getWidth(), bimg.getHeight());
+    PixelRectangle pixelrect = new PixelRectangle.GenericPixelRect(format, size, 0, false, pixels);
+    final PointerIcon pi = disp.createPointerIcon(pixelrect, hotspotX, hotspotY);
+    display.getEDTUtil().invoke(false, new Runnable() {
+      @Override
+      public void run() {
+        window.setPointerIcon(pi);
+      }
+    });
   }
 
 
   public void showCursor() {
-    if (window != null) {
-      window.setPointerVisible(true);
-    }
+    display.getEDTUtil().invoke(false, new Runnable() {
+      @Override
+      public void run() {
+        window.setPointerVisible(true);
+      }
+    });
   }
 
 
   public void hideCursor() {
-    if (window != null) {
-      window.setPointerVisible(false);
-    }
+    display.getEDTUtil().invoke(false, new Runnable() {
+      @Override
+      public void run() {
+        window.setPointerVisible(false);
+      }
+    });
   }
 }

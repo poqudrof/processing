@@ -38,6 +38,7 @@ import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.MalformedTreeException;
 import org.eclipse.text.edits.TextEdit;
 
+import processing.app.Util;
 import processing.data.StringList;
 import processing.mode.java.preproc.PdePreprocessor;
 
@@ -50,12 +51,13 @@ import processing.mode.java.preproc.PdePreprocessor;
 public class XQPreprocessor {
   private ASTRewrite rewrite = null;
   private List<ImportStatement> extraImports;
-
+  private ErrorCheckerService ecs;
   private String[] coreImports;
   private String[] defaultImports;
 
 
-  public XQPreprocessor() {
+  public XQPreprocessor(ErrorCheckerService errorCheckerService) {
+    ecs = errorCheckerService;
     PdePreprocessor p = new PdePreprocessor(null);
     defaultImports = p.getDefaultImports();
     coreImports = p.getCoreImports();
@@ -110,6 +112,19 @@ public class XQPreprocessor {
     }
     for (String imp : defaultImports) {
       imports.append("import " + imp + ";");
+    }
+    if (ecs.getEditor().getSketch().getCodeFolder().exists()) {
+      StringList codeFolderPackages = null;
+      String codeFolderClassPath = Util.contentsToClassPath(ecs.getEditor().getSketch().getCodeFolder());
+      codeFolderPackages = Util.packageListFromClassPath(codeFolderClassPath);
+      if (codeFolderPackages != null) {
+        ecs.codeFolderImports.clear();
+        for (String item : codeFolderPackages) {
+          // Messages.log("CF import " + item);
+          imports.append("import " + item + ".*;");
+          ecs.codeFolderImports.add(new ImportStatement("import " + item + ".*;",0,0));
+        }
+      }
     }
     return imports.join("\n") + "\n";
   }

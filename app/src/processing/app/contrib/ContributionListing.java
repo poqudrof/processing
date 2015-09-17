@@ -515,7 +515,8 @@ public class ContributionListing {
       if (advertised == null) {
         return false;
       }
-      return advertised.getVersion() > contribution.getVersion();
+      return advertised.getVersion() > contribution.getVersion()
+        && advertised.isCompatible(Base.getRevision());
     }
     return false;
   }
@@ -523,9 +524,11 @@ public class ContributionListing {
 
   String getLatestVersion(Contribution contribution) {
     Contribution newestContrib = getAvailableContribution(contribution);
-    if(newestContrib == null){
+    if (newestContrib == null) {
       return null;
     }
+    return newestContrib.getPrettyVersion();
+    /*
     String latestVersion = newestContrib.getPrettyVersion();
     if (latestVersion != null && !latestVersion.isEmpty()) {
       if (latestVersion.toLowerCase().startsWith("build")) // For Python mode
@@ -538,6 +541,7 @@ public class ContributionListing {
     }
     else
       return null;
+    */
   }
 
 
