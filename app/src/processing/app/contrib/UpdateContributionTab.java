@@ -3,6 +3,7 @@ package processing.app.contrib;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Comparator;
@@ -52,7 +53,15 @@ public class UpdateContributionTab extends ContributionTab {
       progressBar = new JProgressBar();
       progressBar.setVisible(false);
       buildErrorPanel();
-      panel = new JPanel(false);
+      panel = new JPanel(false){
+        @Override
+        protected void paintComponent(Graphics g) {
+          super.paintComponent(g);
+          g.setColor(new Color(0xe0fffd));
+          g.fillRect(getX(), panel.getY() - ContributionManagerDialog.TAB_HEIGHT - 2 , panel.getWidth(), 2);
+
+        }
+      };
       loaderLabel = new JLabel(Toolkit.getLibIcon("icons/loader.gif"));
       loaderLabel.setOpaque(false);
       loaderLabel.setBackground(Color.WHITE);
@@ -68,6 +77,7 @@ public class UpdateContributionTab extends ContributionTab {
 
     layout.setVerticalGroup(layout
       .createSequentialGroup()
+      .addGap(2)
       .addGroup(layout.createParallelGroup(GroupLayout.Alignment.CENTER)
                   .addComponent(loaderLabel)
                   .addComponent(contributionListPanel))
@@ -95,7 +105,7 @@ public class UpdateContributionTab extends ContributionTab {
 //      status = new StatusPanel(null);
 
       String[] colName = { "", "Name", "Author", "Installed", "Update To" };
-      dtm = new MyTableModel(){
+      model = new MyTableModel(){
         @Override
         public Class<?> getColumnClass(int columnIndex) {
           if (columnIndex == 0) {
@@ -104,8 +114,8 @@ public class UpdateContributionTab extends ContributionTab {
           return String.class;
         }
       };
-      dtm.setColumnIdentifiers(colName);
-      table = new JTable(dtm){
+      model.setColumnIdentifiers(colName);
+      table = new JTable(model){
         @Override
         public Component prepareRenderer(
                 TableCellRenderer renderer, int row, int column) {
@@ -136,7 +146,7 @@ public class UpdateContributionTab extends ContributionTab {
 //          return super.isRowSelected(row);
 //        }
       };
-      JScrollPane scrollPane = new JScrollPane(table);
+      scrollPane = new JScrollPane(table);
       table.setFillsViewportHeight(true);
       table.setSelectionBackground(new Color(0xe0fffd));
       table.setSelectionForeground(table.getForeground());
@@ -151,7 +161,7 @@ public class UpdateContributionTab extends ContributionTab {
       table.setAutoCreateColumnsFromModel(true);
       table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
       table.setDefaultRenderer(String.class, new StatusRendere());
-      table.getTableHeader().setDefaultRenderer(new MyColumnHeaderRenderer() {
+      table.getTableHeader().setDefaultRenderer(new ContribHeaderRenderer() {
         @Override
         public Component getTableCellRendererComponent(JTable table,
                                                        Object value,
@@ -242,13 +252,18 @@ public class UpdateContributionTab extends ContributionTab {
         .toString(panelByContribution.size()));
       contributionTab.contributionManagerDialog.numberLabel.setVisible(true);
       }
-      dtm.getDataVector().removeAllElements();
-      dtm.fireTableDataChanged();
+      model.getDataVector().removeAllElements();
+      model.fireTableDataChanged();
       ContributionType temp = null;
+
+      // Avoid ugly synthesized bold
+      Font boldFont = Toolkit.getSansFont(table.getFont().getSize(), Font.BOLD);
+      String fontFace = "<font face=\"" + boldFont.getName() + "\">";
+
       for (Contribution entry : contributionsSet) {
         if(entry.getType() != temp){
           temp = entry.getType();
-          dtm.addRow(new Object[] { null, "<html><i>" + temp.getTitle() + "</i></html>", null, null, null });
+          model.addRow(new Object[] { null, "<html><i>" + temp.getTitle() + "</i></html>", null, null, null });
         }
         //TODO Make this into a function
         StringBuilder name = new StringBuilder("");
@@ -271,19 +286,19 @@ public class UpdateContributionTab extends ContributionTab {
         }
         Icon icon = null;
         if (entry.isInstalled()) {
-          icon = Toolkit.getLibIcon("manager/up-to-date.png");
+          icon = Toolkit.getLibIcon("manager/up-to-date-" + ContributionManagerDialog.iconVer + "x.png");
           if (contribListing.hasUpdates(entry)) {
-            icon = Toolkit.getLibIcon("manager/update-available.png");
+            icon = Toolkit.getLibIcon("manager/update-available-" + ContributionManagerDialog.iconVer + "x.png");
           }
           if (!entry.isCompatible(Base.getRevision())) {
-            icon = Toolkit.getLibIcon("manager/incompatible.png");
+            icon = Toolkit.getLibIcon("manager/incompatible-" + ContributionManagerDialog.iconVer + "x.png");
           }
         }
-        dtm
-          .addRow(new Object[] {
-            icon, "<html><b>" + entry.getName() + "</b></html>", name, entry.getPrettyVersion(),
+        model.addRow(new Object[] {
+            icon, "<html>" + fontFace + entry.getName() + "</font></html>", name, entry.getPrettyVersion(),
             contributionTab.contribListing.getLatestVersion(entry) });
       }
+     ((UpdateStatusPanel)statusPanel).update();
     }
     private class MyTableModel extends DefaultTableModel{
       MyTableModel() {
@@ -319,7 +334,7 @@ public class UpdateContributionTab extends ContributionTab {
           }
         }
       });
-      this.setBackground(new Color(0xe0fffd));
+      setBackground(new Color(0xebebeb));
 //      this.setBorder(BorderFactory.createMatteBorder(2, 0, 0, 0, Color.BLACK));
       layout = new GroupLayout(this);
       this.setLayout(layout);
@@ -335,10 +350,10 @@ public class UpdateContributionTab extends ContributionTab {
       layout.setVerticalGroup(layout.createParallelGroup()
         .addComponent(updateButton));
       updateButton.setVisible(true);
+      updateButton.setEnabled(false);
     }
 
-    @Override
-    public void update(ContributionPanel panel) {
+    public void update() {
       if (contributionListPanel.getNoOfRows() > 0) {
         updateButton.setEnabled(true);
       } else {

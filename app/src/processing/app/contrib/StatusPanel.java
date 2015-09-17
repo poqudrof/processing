@@ -29,7 +29,6 @@ import java.awt.event.ActionListener;
 
 import javax.swing.GroupLayout;
 import javax.swing.Icon;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -43,6 +42,7 @@ import javax.swing.text.html.HTMLDocument;
 import processing.app.ui.Toolkit;
 import processing.app.Base;
 import processing.app.Platform;
+
 
 class StatusPanel extends JPanel {
   static final int BUTTON_WIDTH = 150;
@@ -67,13 +67,14 @@ class StatusPanel extends JPanel {
     this.contributionTab = contributionTab;
 
     iconLabel = new JLabel();
+    iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
     label = new JTextPane();
     label.setEditable(false);
     label.setOpaque(false);
     label.setContentType("text/html");
-    bodyRule = "body { font-family: " + ContributionManagerDialog.myFont.getFamily() + "; " +
-            "font-size: " + ContributionManagerDialog.myFont.getSize() + "pt; }";
+    bodyRule = "a, body { font-family: " + ContributionManagerDialog.myFont.getFamily() + "; " +
+            "font-size: " + ContributionManagerDialog.myFont.getSize() + "pt; color: black; text-decoration: none;}";
     label.addHyperlinkListener(new HyperlinkListener() {
 
       @Override
@@ -86,7 +87,7 @@ class StatusPanel extends JPanel {
       }
     });
     installButton = new JButton("Install",
-                                Toolkit.getLibIcon("manager/install.png"));
+                                Toolkit.getLibIcon("manager/install-" + ContributionManagerDialog.iconVer + "x.png"));
     installButton.setFont(Toolkit.getSansFont(14, Font.PLAIN));
     installButton.setHorizontalAlignment(SwingConstants.LEFT);
 //    installButton.setContentAreaFilled(false);
@@ -106,8 +107,9 @@ class StatusPanel extends JPanel {
     progressBarPanel.setOpaque(false);
     updateLabel = new JLabel(" ");
     updateLabel.setFont(Toolkit.getSansFont(14, Font.PLAIN));
+    updateLabel.setHorizontalAlignment(SwingConstants.CENTER);
     updateButton = new JButton("Update",
-                               Toolkit.getLibIcon("manager/update.png"));
+                               Toolkit.getLibIcon("manager/update-" + ContributionManagerDialog.iconVer + "x.png"));
     updateButton.setFont(Toolkit.getSansFont(14, Font.PLAIN));
     updateButton.setHorizontalAlignment(SwingConstants.LEFT);
 //    updateButton.setAlignmentX(SwingConstants.LEFT);
@@ -125,7 +127,7 @@ class StatusPanel extends JPanel {
     });
 
     removeButton = new JButton("Remove",
-                               Toolkit.getLibIcon("manager/remove.png"));
+                               Toolkit.getLibIcon("manager/remove-" + ContributionManagerDialog.iconVer + "x.png"));
     removeButton.setFont(Toolkit.getSansFont(14, Font.BOLD));
     removeButton.setHorizontalAlignment(SwingConstants.LEFT);
 //    removeButton.setContentAreaFilled(false);
@@ -150,24 +152,25 @@ class StatusPanel extends JPanel {
 
     layout.setHorizontalGroup(layout
       .createSequentialGroup()
-      .addComponent(iconLabel, 50, 50, 50)
+      .addGap(0)
+      .addComponent(iconLabel, ContributionManagerDialog.STATUS_WIDTH, ContributionManagerDialog.STATUS_WIDTH, ContributionManagerDialog.STATUS_WIDTH)
       .addGap(0)
       .addComponent(label, labelWidth, labelWidth, labelWidth)
       .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED,
                        GroupLayout.PREFERRED_SIZE, Short.MAX_VALUE)
-      .addGroup(layout
-                  .createParallelGroup(GroupLayout.Alignment.CENTER)
+      .addGroup(layout.createParallelGroup(GroupLayout.Alignment.CENTER)
                   .addComponent(installButton, BUTTON_WIDTH, BUTTON_WIDTH,
-                                BUTTON_WIDTH).addComponent(progressBarPanel)
-                  .addComponent(updateLabel).addComponent(updateButton)
+                                BUTTON_WIDTH)
+                  .addComponent(progressBarPanel)
+                  .addComponent(updateLabel, BUTTON_WIDTH, BUTTON_WIDTH, BUTTON_WIDTH)
+                  .addComponent(updateButton)
                   .addComponent(removeButton)));
 
     layout.setVerticalGroup(layout
       .createParallelGroup(GroupLayout.Alignment.LEADING)
       .addComponent(iconLabel)
       .addComponent(label)
-      .addGroup(layout
-                  .createSequentialGroup()
+      .addGroup(layout.createSequentialGroup()
                   .addComponent(installButton)
                   .addGroup(layout.createParallelGroup()
                               .addComponent(progressBarPanel)
@@ -183,6 +186,7 @@ class StatusPanel extends JPanel {
     installButton.setEnabled(false);
     updateButton.setEnabled(false);
     removeButton.setEnabled(false);
+    updateLabel.setVisible(true);
 
     layout.setHonorsVisibility(updateLabel, false); // Makes the label take up space even though not visible
 
@@ -216,15 +220,13 @@ class StatusPanel extends JPanel {
   }
 
   public void update(ContributionPanel panel) {
-
     progressBarPanel.removeAll();
 
+    Icon icon = null;
     if (panel.getContrib().isSpecial()) {
-      Icon contribIcon = new ImageIcon(Toolkit.getLibImage("/icons/pde-48.png"));
-      iconLabel.setIcon(contribIcon);
-    } else {
-      iconLabel.setIcon(null);
+      icon = Toolkit.getLibIcon("icons/foundation-32.png");  // was 48?
     }
+    iconLabel.setIcon(icon);
     label.setText(panel.description.toString());
     ((HTMLDocument)label.getDocument()).getStyleSheet().addRule(bodyRule);
 
@@ -232,9 +234,19 @@ class StatusPanel extends JPanel {
       && (contributionListing.hasUpdates(panel.getContrib()) && !panel
         .getContrib().isUpdateFlagged()));
 
-    String latestVersion = contributionListing.getLatestVersion(panel
-      .getContrib());
+    String latestVersion =
+      contributionListing.getLatestVersion(panel.getContrib());
     String currentVersion = panel.getContrib().getPrettyVersion();
+
+    installButton.setEnabled(!panel.getContrib().isInstalled()
+                             && contributionListing.hasDownloadedLatestList()
+                             && panel.getContrib().isCompatible(Base.getRevision()));
+
+    if (installButton.isEnabled()) {
+      updateLabel.setText(latestVersion + " available");
+    } else {
+      updateLabel.setText(currentVersion + " installed");
+    }
 
     if (latestVersion != null) {
       latestVersion = "Update to " + latestVersion;
@@ -242,9 +254,7 @@ class StatusPanel extends JPanel {
       latestVersion = "Update";
     }
 
-    if (currentVersion != null) {
-      currentVersion = "Version " + currentVersion;
-    } else {
+    if (currentVersion == null) {
       currentVersion = "";
     }
 
@@ -254,19 +264,12 @@ class StatusPanel extends JPanel {
       updateButton.setText("Update");
     }
 
-    installButton.setEnabled(!panel.getContrib().isInstalled()
-      && contributionListing.hasDownloadedLatestList()
-      && panel.getContrib().isCompatible(Base.getRevision()));
-
-    if (installButton.isEnabled()) {
-      updateLabel.setText(currentVersion + " available");
-    } else {
-      updateLabel.setText(currentVersion + " installed");
-    }
 
     removeButton.setEnabled(panel.getContrib().isInstalled());
     progressBarPanel.add(panel.installProgressBar);
-    if (panel.installProgressBar.isEnabled()) {
+    progressBarPanel.setVisible(false);
+    updateLabel.setVisible(true);
+    if (panel.isUpdateInProgress || panel.isInstallInProgress || panel.isRemoveInProgress) {
       progressBarPanel.setVisible(true);
       updateLabel.setVisible(false);
       progressBarPanel.repaint();

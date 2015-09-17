@@ -22,6 +22,7 @@ package processing.mode.java.pdex;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -300,6 +301,12 @@ public class ASTGenerator {
 
   //protected JFrame frmJavaDoc;
 
+  protected String getJavaSearchPath() {
+    return System.getProperty("java.class.path") +
+            File.pathSeparatorChar + System.getProperty("java.home") +
+            File.separator + "lib" + File.separator + "rt.jar";
+  }
+
   /**
    * Loads up .jar files and classes defined in it for completion lookup
    */
@@ -307,7 +314,7 @@ public class ASTGenerator {
     factory = new ClassPathFactory();
 
     StringBuilder path = new StringBuilder();
-    String modeClassPath = ((JavaMode) editor.getMode()).getSearchPath();
+    String modeClassPath = getJavaSearchPath() + File.pathSeparatorChar + ((JavaMode) editor.getMode()).getSearchPath();
     if (modeClassPath != null) {
       path.append(modeClassPath);
     }
@@ -747,7 +754,7 @@ public class ASTGenerator {
     return null;
   }
 
-  protected void trimCandidates(String newWord){
+  protected void trimCandidates(String newWord) {
     ArrayList<CompletionCandidate> newCandidate = new ArrayList<CompletionCandidate>();
     newWord = newWord.toLowerCase();
     for (CompletionCandidate comp : candidates) {
@@ -758,12 +765,8 @@ public class ASTGenerator {
     candidates = newCandidate;
   }
 
-  /**
-   * List of CompletionCandidates
-   */
-  protected ArrayList<CompletionCandidate> candidates;
+  protected List<CompletionCandidate> candidates;
   protected String lastPredictedWord = " ";
-  //protected AtomicBoolean predictionsEnabled;
   protected int predictionMinLength = 2;
 
 
@@ -778,6 +781,17 @@ public class ASTGenerator {
    */
   public void preparePredictions(final String word, final int line,
                                  final int lineStartNonWSOffset) {
+//    EventQueue.invokeLater(new Runnable() {
+//        public void run() {
+//          preparePredictions2(word, line, lineStartNonWSOffset);
+//        }
+//    });
+//  }
+//
+//  public void preparePredictions2(final String word, final int line,
+//                                 final int lineStartNonWSOffset) {
+//    System.out.println(EventQueue.isDispatchThread() + " " + predictionOngoing.get() + " " + (!JavaMode.codeCompletionsEnabled) + " " + (word.length() < predictionMinLength));
+//    new Exception("preparing predictions " + EventQueue.isDispatchThread() + " " + predictionOngoing.get() + " " + (!JavaMode.codeCompletionsEnabled) + " " + (word.length() < predictionMinLength)).printStackTrace(System.out);
     if (predictionOngoing.get()) return;
     if (!JavaMode.codeCompletionsEnabled) return;
     if (word.length() < predictionMinLength) return;
@@ -791,6 +805,7 @@ public class ASTGenerator {
       return;
     }
 
+    // presumably this was removed because the caller is running from a SwingWorker [fry]
 //    SwingWorker worker = new SwingWorker() {
 //
 //      @Override
@@ -800,48 +815,48 @@ public class ASTGenerator {
 //
 //      protected void done() {
 
-        // If the parsed code contains pde enhancements, take 'em out.
-        String word2 = ASTNodeWrapper.getJavaCode(word);
+    // If the parsed code contains pde enhancements, take 'em out.
+    String word2 = ASTNodeWrapper.getJavaCode(word);
 
-        //After typing 'arg.' all members of arg type are to be listed. This one is a flag for it
-        boolean noCompare = false;
-        if (word2.endsWith(".")) {
-          // return all matches
-          word2 = word2.substring(0, word2.length() - 1);
-          noCompare = true;
+    //After typing 'arg.' all members of arg type are to be listed. This one is a flag for it
+    boolean noCompare = false;
+    if (word2.endsWith(".")) {
+      // return all matches
+      word2 = word2.substring(0, word2.length() - 1);
+      noCompare = true;
+    }
+
+    if (word2.length() >= predictionMinLength && !noCompare
+        && word2.length() > lastPredictedWord.length()) {
+      if (word2.startsWith(lastPredictedWord)) {
+        log(word + " starts with " + lastPredictedWord);
+        log("Don't recalc");
+        if (word2.contains(".")) {
+          int x = word2.lastIndexOf('.');
+          trimCandidates(word2.substring(x + 1));
+        } else {
+          trimCandidates(word2);
         }
+        showPredictions(word);
+        lastPredictedWord = word2;
+        predictionOngoing.set(false);
+        return;
+      }
+    }
 
-        if (word2.length() >= predictionMinLength && !noCompare
-            && word2.length() > lastPredictedWord.length()) {
-          if (word2.startsWith(lastPredictedWord)) {
-            log(word + " starts with " + lastPredictedWord);
-            log("Don't recalc");
-            if (word2.contains(".")) {
-              int x = word2.lastIndexOf('.');
-              trimCandidates(word2.substring(x + 1));
-            } else {
-              trimCandidates(word2);
-            }
-            showPredictions(word);
-            lastPredictedWord = word2;
-            predictionOngoing.set(false);
-            return;
-          }
+    int lineNumber = line;
+    // Adjust line number for tabbed sketches
+    if (errorCheckerService != null) {
+      editor = errorCheckerService.getEditor();
+      int codeIndex = editor.getSketch().getCodeIndex(editor.getCurrentTab());
+      if (codeIndex > 0) {
+        for (int i = 0; i < codeIndex; i++) {
+          SketchCode sc = editor.getSketch().getCode(i);
+          int len = Util.countLines(sc.getProgram()) + 1;
+          lineNumber += len;
         }
-
-        int lineNumber = line;
-        // Adjust line number for tabbed sketches
-        if (errorCheckerService != null) {
-          editor = errorCheckerService.getEditor();
-          int codeIndex = editor.getSketch().getCodeIndex(editor.getCurrentTab());
-          if (codeIndex > 0)
-            for (int i = 0; i < codeIndex; i++) {
-              SketchCode sc = editor.getSketch().getCode(i);
-              int len = Util.countLines(sc.getProgram()) + 1;
-              lineNumber += len;
-            }
-
-        }
+      }
+    }
 
         // Ensure that we're not inside a comment. TODO: Binary search
 
@@ -858,156 +873,149 @@ public class ASTGenerator {
           }
         }*/
 
-        // Now parse the expression into an ASTNode object
-        ASTNode nearestNode = null;
-        ASTParser parser = ASTParser.newParser(AST.JLS4);
-        parser.setKind(ASTParser.K_EXPRESSION);
-        parser.setSource(word2.toCharArray());
-        ASTNode testnode = parser.createAST(null);
-        //Base.loge("PREDICTION PARSER PROBLEMS: " + parser);
-        // Find closest ASTNode of the document to this word
-        Messages.loge("Typed: " + word2 + "|" + " temp Node type: " + testnode.getClass().getSimpleName());
-        if(testnode instanceof MethodInvocation){
-          MethodInvocation mi = (MethodInvocation)testnode;
-          log(mi.getName() + "," + mi.getExpression() + "," + mi.typeArguments().size());
-        }
+    // Now parse the expression into an ASTNode object
+    ASTNode nearestNode = null;
+    ASTParser parser = ASTParser.newParser(AST.JLS4);
+    parser.setKind(ASTParser.K_EXPRESSION);
+    parser.setSource(word2.toCharArray());
+    ASTNode testnode = parser.createAST(null);
+    //Base.loge("PREDICTION PARSER PROBLEMS: " + parser);
+    // Find closest ASTNode of the document to this word
+    Messages.loge("Typed: " + word2 + "|" + " temp Node type: " + testnode.getClass().getSimpleName());
+    if(testnode instanceof MethodInvocation){
+      MethodInvocation mi = (MethodInvocation)testnode;
+      log(mi.getName() + "," + mi.getExpression() + "," + mi.typeArguments().size());
+    }
 
-        // find nearest ASTNode
-        nearestNode = findClosestNode(lineNumber, (ASTNode) errorCheckerService.getLastCorrectCU().types()
-            .get(0));
-        if (nearestNode == null) {
-          // Make sure nearestNode is not NULL if couldn't find a closeset node
-          nearestNode = (ASTNode) errorCheckerService.getLastCorrectCU().types().get(0);
-        }
-        Messages.loge(lineNumber + " Nearest ASTNode to PRED "
-            + getNodeAsString(nearestNode));
+    // find nearest ASTNode
+    nearestNode = findClosestNode(lineNumber, (ASTNode) errorCheckerService.getLastCorrectCU().types()
+                                  .get(0));
+    if (nearestNode == null) {
+      // Make sure nearestNode is not NULL if couldn't find a closeset node
+      nearestNode = (ASTNode) errorCheckerService.getLastCorrectCU().types().get(0);
+    }
+    Messages.loge(lineNumber + " Nearest ASTNode to PRED "
+        + getNodeAsString(nearestNode));
 
-        candidates = new ArrayList<CompletionCandidate>();
-        lastPredictedWord = word2;
-        // Determine the expression typed
+    candidates = new ArrayList<CompletionCandidate>();
+    lastPredictedWord = word2;
+    // Determine the expression typed
 
-        if (testnode instanceof SimpleName && !noCompare) {
-          Messages.loge("One word expression " + getNodeAsString(testnode));
-          //==> Simple one word exprssion - so is just an identifier
+    if (testnode instanceof SimpleName && !noCompare) {
+      Messages.loge("One word expression " + getNodeAsString(testnode));
+      //==> Simple one word exprssion - so is just an identifier
 
-          // Bottom up traversal of the AST to look for possible definitions at
-          // higher levels.
-          //nearestNode = nearestNode.getParent();
-          while (nearestNode != null) {
-            // If the current class has a super class, look inside it for
-            // definitions.
-            if (nearestNode instanceof TypeDeclaration) {
-              TypeDeclaration td = (TypeDeclaration) nearestNode;
-              if (td.getStructuralProperty(TypeDeclaration.SUPERCLASS_TYPE_PROPERTY) != null) {
-                SimpleType st = (SimpleType) td.getStructuralProperty(TypeDeclaration.SUPERCLASS_TYPE_PROPERTY);
-                log("Superclass " + st.getName());
-                ArrayList<CompletionCandidate> tempCandidates =
-                  getMembersForType(st.getName().toString(), word2, noCompare, false);
-                for (CompletionCandidate can : tempCandidates) {
-                  candidates.add(can);
-                }
-                //findDeclaration(st.getName())
-              }
+      // Bottom up traversal of the AST to look for possible definitions at
+      // higher levels.
+      //nearestNode = nearestNode.getParent();
+      while (nearestNode != null) {
+        // If the current class has a super class, look inside it for
+        // definitions.
+        if (nearestNode instanceof TypeDeclaration) {
+          TypeDeclaration td = (TypeDeclaration) nearestNode;
+          if (td.getStructuralProperty(TypeDeclaration.SUPERCLASS_TYPE_PROPERTY) != null) {
+            SimpleType st = (SimpleType) td.getStructuralProperty(TypeDeclaration.SUPERCLASS_TYPE_PROPERTY);
+            log("Superclass " + st.getName());
+            ArrayList<CompletionCandidate> tempCandidates =
+                getMembersForType(st.getName().toString(), word2, noCompare, false);
+            for (CompletionCandidate can : tempCandidates) {
+              candidates.add(can);
             }
-            List<StructuralPropertyDescriptor> sprops =
-              nearestNode.structuralPropertiesForType();
-            for (StructuralPropertyDescriptor sprop : sprops) {
-              ASTNode cnode = null;
-              if (!sprop.isChildListProperty()) {
-                if (nearestNode.getStructuralProperty(sprop) instanceof ASTNode) {
-                  cnode = (ASTNode) nearestNode.getStructuralProperty(sprop);
-                  CompletionCandidate[] types = checkForTypes(cnode);
-                  if (types != null) {
-                    for (int i = 0; i < types.length; i++) {
-                      if (types[i].getElementName().toLowerCase().startsWith(word2.toLowerCase()))
-                        candidates.add(types[i]);
-                    }
-                  }
-                }
-              } else {
-                // Childlist prop
-                List<ASTNode> nodelist = (List<ASTNode>)
-                  nearestNode.getStructuralProperty(sprop);
-                for (ASTNode clnode : nodelist) {
-                  CompletionCandidate[] types = checkForTypes(clnode);
-                  if (types != null) {
-                    for (int i = 0; i < types.length; i++) {
-                      if (types[i].getElementName().toLowerCase().startsWith(word2.toLowerCase()))
-                        candidates.add(types[i]);
-                    }
-                  }
-                }
-              }
-            }
-            nearestNode = nearestNode.getParent();
+            //findDeclaration(st.getName())
           }
-          // We're seeing a simple name that's not defined locally or in
-          // the parent class. So most probably a pre-defined type.
-          log("Empty can. " + word2);
-          if (classPath != null) {
-            RegExpResourceFilter regExpResourceFilter;
-            regExpResourceFilter = new RegExpResourceFilter(Pattern.compile(".*"),
-                                                            Pattern.compile(word2 + "[a-zA-Z_0-9]*.class",
-                                                                            Pattern.CASE_INSENSITIVE));
-            String[] resources = classPath.findResources("", regExpResourceFilter);
-
-            for (String matchedClass2 : resources) {
-              matchedClass2 = matchedClass2.replace('/', '.'); //package name
-              String matchedClass = matchedClass2.substring(0, matchedClass2.length() - 6);
-              int d = matchedClass.lastIndexOf('.');
-              if (ignorableImport(matchedClass,matchedClass.substring(d + 1))) {
-                continue;
+        }
+        List<StructuralPropertyDescriptor> sprops =
+            nearestNode.structuralPropertiesForType();
+        for (StructuralPropertyDescriptor sprop : sprops) {
+          ASTNode cnode = null;
+          if (!sprop.isChildListProperty()) {
+            if (nearestNode.getStructuralProperty(sprop) instanceof ASTNode) {
+              cnode = (ASTNode) nearestNode.getStructuralProperty(sprop);
+              CompletionCandidate[] types = checkForTypes(cnode);
+              if (types != null) {
+                for (int i = 0; i < types.length; i++) {
+                  if (types[i].getElementName().toLowerCase().startsWith(word2.toLowerCase()))
+                    candidates.add(types[i]);
+                }
               }
-              matchedClass = matchedClass.substring(d + 1); //class name
-              candidates
-                  .add(new CompletionCandidate(matchedClass, "<html>"
-                      + matchedClass + " : <font color=#777777>"
-                      + matchedClass2.substring(0, d) + "</font></html>",
-                                               matchedClass,
-                                               CompletionCandidate.PREDEF_CLASS)); // display package name in grey
-              //log("-> " + className);
+            }
+          } else {
+            // Childlist prop
+            List<ASTNode> nodelist =
+              (List<ASTNode>) nearestNode.getStructuralProperty(sprop);
+            for (ASTNode clnode : nodelist) {
+              CompletionCandidate[] types = checkForTypes(clnode);
+              if (types != null) {
+                for (int i = 0; i < types.length; i++) {
+                  if (types[i].getElementName().toLowerCase().startsWith(word2.toLowerCase()))
+                    candidates.add(types[i]);
+                }
+              }
             }
           }
+        }
+        nearestNode = nearestNode.getParent();
+      }
+      // We're seeing a simple name that's not defined locally or in
+      // the parent class. So most probably a pre-defined type.
+      log("Empty can. " + word2);
+      if (classPath != null) {
+        RegExpResourceFilter regExpResourceFilter =
+          new RegExpResourceFilter(Pattern.compile(".*"),
+                                   Pattern.compile(word2 + "[a-zA-Z_0-9]*.class",
+                                                   Pattern.CASE_INSENSITIVE));
+        String[] resources = classPath.findResources("", regExpResourceFilter);
+
+        for (String matchedClass2 : resources) {
+          matchedClass2 = matchedClass2.replace('/', '.'); //package name
+          String matchedClass = matchedClass2.substring(0, matchedClass2.length() - 6);
+          int d = matchedClass.lastIndexOf('.');
+          if (!ignorableImport(matchedClass,matchedClass.substring(d + 1))) {
+            matchedClass = matchedClass.substring(d + 1); //class name
+            // display package name in grey
+            String html = "<html>" + matchedClass + " : <font color=#777777>" +
+              matchedClass2.substring(0, d) + "</font></html>";
+            candidates.add(new CompletionCandidate(matchedClass, html,
+                                                   matchedClass,
+                                                   CompletionCandidate.PREDEF_CLASS));
+          }
+        }
+      }
+    } else {
+      // ==> Complex expression of type blah.blah2().doIt,etc
+      // Have to resolve it by carefully traversing AST of testNode
+      Messages.loge("Complex expression " + getNodeAsString(testnode));
+      log("candidates empty");
+      ASTNode childExpr = getChildExpression(testnode);
+      log("Parent expression : " + getParentExpression(testnode));
+      log("Child expression : " + childExpr);
+      if (childExpr != null) {
+        if (!noCompare) {
+          log("Original testnode " + getNodeAsString(testnode));
+          testnode = getParentExpression(testnode);
+          log("Corrected testnode " + getNodeAsString(testnode));
+        }
+        ClassMember expr =
+          resolveExpression3rdParty(nearestNode, testnode, noCompare);
+        if (expr == null) {
+          log("Expr is null");
         } else {
-
-          // ==> Complex expression of type blah.blah2().doIt,etc
-          // Have to resolve it by carefully traversing AST of testNode
-          Messages.loge("Complex expression " + getNodeAsString(testnode));
-          log("candidates empty");
-          ASTNode childExpr = getChildExpression(testnode);
-          log("Parent expression : " + getParentExpression(testnode));
-          log("Child expression : " + childExpr);
-          if (childExpr != null) {
-            if (!noCompare) {
-              log("Original testnode "
-                  + getNodeAsString(testnode));
-              testnode = getParentExpression(testnode);
-              log("Corrected testnode "
-                  + getNodeAsString(testnode));
-            }
-            ClassMember expr = resolveExpression3rdParty(nearestNode, testnode,
-                                                         noCompare);
-            if (expr == null) {
-              log("Expr is null");
-            } else {
-              log("Expr is " + expr.toString());
-              candidates = getMembersForType(expr, childExpr.toString(),
-                                             noCompare, false);
-            }
-          }
-          else
-          {
-            log("ChildExpr is null");
-          }
+          log("Expr is " + expr.toString());
+          candidates = getMembersForType(expr, childExpr.toString(),
+                                         noCompare, false);
         }
-
-        showPredictions(word);
-        predictionOngoing.set(false);
+      } else {
+        log("ChildExpr is null");
+      }
+    }
+    showPredictions(word);
+    predictionOngoing.set(false);
 //      }
 //    };
 //
 //    worker.execute();
   }
+
 
   protected void showPredictions(final String word) {
     if (sketchOutline != null && sketchOutline.isVisible()) {
@@ -1291,24 +1299,28 @@ public class ASTGenerator {
 
     for (ImportStatement impS : imports) {
       String temp = impS.getPackageName();
-
-      if (temp.endsWith("*")) {
-        temp = temp.substring(0, temp.length() - 1) + className;
-      } else {
-        int x = temp.lastIndexOf('.');
-        //log("fclife " + temp.substring(x + 1));
-        if (!temp.substring(x + 1).equals(className)) {
-          continue;
-        }
+      if (impS.isStarredImport() && className.indexOf('.') == -1) {
+        temp = impS.getPackageName() + "." + className;
       }
       tehClass = loadClass(temp);
       if (tehClass != null) {
         log(tehClass.getName() + " located.");
         return tehClass;
       }
+      //log("Doesn't exist in imp package: " + impS.getImportName());
+    }
 
-      //log("Doesn't exist in package: " + impS.getImportName());
-
+    for (ImportStatement impS : errorCheckerService.codeFolderImports) {
+      String temp = impS.getPackageName();
+      if (impS.isStarredImport() && className.indexOf('.') == -1) {
+        temp = impS.getPackageName() + "." + className;
+      }
+      tehClass = loadClass(temp);
+      if (tehClass != null) {
+        log(tehClass.getName() + " located.");
+        return tehClass;
+      }
+      //log("Doesn't exist in (code folder) imp package: " + impS.getImportName());
     }
 
     PdePreprocessor p = new PdePreprocessor(null);
@@ -2741,31 +2753,31 @@ public class ASTGenerator {
 //                  .toString()));
 
           SimpleType stp = extracTypeInfo(findDeclaration((qnn.getQualifier())));
-//          log(qnn.getQualifier() + "->" + qnn.getName());
-          declaringClass = findDeclaration(stp.getName());
-
-//          log("QN decl class: "
-//              + getNodeAsString(declaringClass));
-          constrains.clear();
-          constrains.add(ASTNode.TYPE_DECLARATION);
-          constrains.add(ASTNode.FIELD_DECLARATION);
-          return definedIn(declaringClass, qnn.getName().toString(), constrains,
-                           null);
+          if (stp != null) {
+            declaringClass = findDeclaration(stp.getName());
+            constrains.clear();
+            constrains.add(ASTNode.TYPE_DECLARATION);
+            constrains.add(ASTNode.FIELD_DECLARATION);
+            return definedIn(declaringClass, qnn.getName().toString(),
+                             constrains, null);
+          } else {
+            return null;
+          }
         }
       }
     } else if (parent.getNodeType() == ASTNode.SIMPLE_TYPE) {
       constrains.add(ASTNode.TYPE_DECLARATION);
-      if (parent.getParent().getNodeType() == ASTNode.CLASS_INSTANCE_CREATION)
+      if (parent.getParent().getNodeType() == ASTNode.CLASS_INSTANCE_CREATION) {
         constrains.add(ASTNode.CLASS_INSTANCE_CREATION);
-    } else if(parent.getNodeType() == ASTNode.TYPE_DECLARATION){
+      }
+    } else if (parent.getNodeType() == ASTNode.TYPE_DECLARATION) {
       // The condition where we look up the name of a class decl
       TypeDeclaration td = (TypeDeclaration) parent;
-      if(findMe.equals(td.getName()))
-      {
+      if (findMe.equals(td.getName())) {
         return parent;
       }
-    }
-    else if (parent instanceof Expression) {
+
+    } else if (parent instanceof Expression) {
 //      constrains.add(ASTNode.TYPE_DECLARATION);
 //      constrains.add(ASTNode.METHOD_DECLARATION);
 //      constrains.add(ASTNode.FIELD_DECLARATION);
@@ -3303,11 +3315,8 @@ public class ASTGenerator {
     }
 
     log("Looking for class " + className);
-    RegExpResourceFilter regf = new RegExpResourceFilter(
-                                                         Pattern.compile(".*"),
-                                                         Pattern
-                                                             .compile(className
-                                                                          + ".class",
+    RegExpResourceFilter regf = new RegExpResourceFilter(Pattern.compile(".*"),
+                                                         Pattern.compile(className + ".class",
                                                                       Pattern.CASE_INSENSITIVE));
     // TODO once saw NPE here...possible for classPath to be null? [fry 150808]
     String[] resources = classPath.findResources("", regf);
@@ -3331,8 +3340,7 @@ public class ASTGenerator {
       File codeFolder = editor.getSketch().getCodeFolder();
       // get a list of .jar files in the "code" folder
       // (class files in subfolders should also be picked up)
-      ClassPath cp = factory.createFromPath(Util
-          .contentsToClassPath(codeFolder));
+      ClassPath cp = factory.createFromPath(Util.contentsToClassPath(codeFolder));
       resources = cp.findResources("", regf);
       for (String res : resources) {
         candidates.add(res);
@@ -3358,7 +3366,7 @@ public class ASTGenerator {
   private TreeSet<String> ignoredImportSuggestions;
 
   public void suggestImports(final String className){
-    if(ignoredImportSuggestions == null) {
+    if (ignoredImportSuggestions == null) {
       ignoredImportSuggestions = new TreeSet<String>();
     } else {
       if(ignoredImportSuggestions.contains(className)) {
@@ -3366,18 +3374,17 @@ public class ASTGenerator {
         return;
       }
     }
-    if(frmImportSuggest != null)
-      if(frmImportSuggest.isVisible())
-      return;
+    if (frmImportSuggest != null) {
+      if (frmImportSuggest.isVisible()) {
+        return;
+      }
+    }
     log("Looking for class " + className);
-    RegExpResourceFilter regf = new RegExpResourceFilter(
-                                                         Pattern.compile(".*"),
-                                                         Pattern
-                                                             .compile(className
-                                                                          + ".class",
-                                                                      Pattern.CASE_INSENSITIVE));
-    String[] resources = classPath
-        .findResources("", regf);
+    RegExpResourceFilter regf =
+      new RegExpResourceFilter(Pattern.compile(".*"),
+                               Pattern.compile(className + ".class",
+                                               Pattern.CASE_INSENSITIVE));
+    String[] resources = classPath.findResources("", regf);
     ArrayList<String> candidates = new ArrayList<String>();
     for (String res : resources) {
       candidates.add(res);
@@ -3498,13 +3505,14 @@ public class ASTGenerator {
       classList.setSelectedIndex(0);
       frmImportSuggest.setVisible(true);
     }
-
   }
+
 
   public void disposeAllWindows() {
     disposeWindow(frmASTView, frameAutoComp, frmImportSuggest,
                   frmOccurenceList, frmRename);
   }
+
 
   public static void disposeWindow(JFrame... f) {
     for (JFrame jFrame : f) {
@@ -3513,35 +3521,43 @@ public class ASTGenerator {
     }
   }
 
+
   protected boolean ignorableImport(String impName, String fullClassName) {
     for (ImportStatement impS : errorCheckerService.getProgramImports()) {
       if (impName.toLowerCase().startsWith(impS.getPackageName().toLowerCase())) {
         return false;
       }
     }
+
+    for (ImportStatement impS : errorCheckerService.codeFolderImports) {
+      if (impName.toLowerCase().startsWith(impS.getPackageName().toLowerCase())) {
+        return false;
+      }
+    }
+
     if (JavaMode.suggestionsMap == null
         || JavaMode.suggestionsMap.keySet().size() == 0) {
       log("SuggestionsMap is null or empty, won't be able to trim class names");
       return true;
     }
-    final String processingInclude = "include.processing";
-    final String processingExclude = "exclude.processing";
-    final String jdkInclude = "include.jdk";
+    final String include = "include";
+    final String exclude = "exclude";
 
     if (impName.startsWith("processing")) {
-      if (JavaMode.suggestionsMap.get(processingInclude).contains(impName)) {
+      if (JavaMode.suggestionsMap.get(include).contains(impName)) {
         return false;
-      } else if (JavaMode.suggestionsMap.get(processingExclude).contains(impName)) {
+      } else if (JavaMode.suggestionsMap.get(exclude).contains(impName)) {
         return true;
       }
     } else if (impName.startsWith("java")) {
-      if (JavaMode.suggestionsMap.get(jdkInclude).contains(impName)) {
+      if (JavaMode.suggestionsMap.get(include).contains(impName)) {
         return false;
       }
     }
 
     return true;
   }
+
 
   public static boolean isAddableASTNode(ASTNode node) {
     switch (node.getNodeType()) {
@@ -3554,6 +3570,7 @@ public class ASTGenerator {
       return true;
     }
   }
+
 
   /**
    * For any line or expression, finds the line start offset(java code).
@@ -3571,6 +3588,7 @@ public class ASTGenerator {
     }
     return node.getStartPosition();
   }
+
 
   /**
    * For any node, finds various offsets (java code).
@@ -3591,7 +3609,6 @@ public class ASTGenerator {
     }
     return new int[]{nodeLineNo, node.getStartPosition(), nodeOffset,nodeLength};
   }
-
 
 
   static protected String getNodeAsString(ASTNode node) {

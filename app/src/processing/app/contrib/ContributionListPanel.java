@@ -43,26 +43,21 @@ import processing.app.ui.Toolkit;
 // It also allows the description text in the panels to wrap properly.
 
 public class ContributionListPanel extends JPanel implements Scrollable, ContributionChangeListener {
-
   ContributionTab contributionTab;
   TreeMap<Contribution, ContributionPanel> panelByContribution;
 
-  static HyperlinkListener nullHyperlinkListener = new HyperlinkListener() {
-    public void hyperlinkUpdate(HyperlinkEvent e) { }
-  };
-
   private ContributionPanel selectedPanel;
-//  protected JPanel statusPlaceholder;
-//  private StatusPanel status;
   protected ContributionFilter filter;
-//  private ContributionListing contribListing;
   protected ContributionListing contribListing = ContributionListing.getInstance();
   protected JTable table;
-  DefaultTableModel dtm;
+  DefaultTableModel model;
+  JScrollPane scrollPane;
+  Font myFont;
 
-  public ContributionListPanel() {
-    // TODO Auto-generated constructor stub
-  }
+
+  public ContributionListPanel() { }
+
+
   public ContributionListPanel(final ContributionTab contributionTab,
                                ContributionFilter filter) {
     super();
@@ -82,8 +77,8 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
 //    status = new StatusPanel(null);
 
 
-    dtm = new MyTableModel();
-    table = new JTable(dtm){
+    model = new ContribTableModel();
+    table = new JTable(model){
       @Override
       public Component prepareRenderer(
               TableCellRenderer renderer, int row, int column) {
@@ -96,19 +91,20 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
           return c;
       }
     };
-    
+
     // There is a space before Status
     String[] colName = { " Status", "Name", "Author" };
-    dtm.setColumnIdentifiers(colName);
-    JScrollPane scrollPane = new JScrollPane(table);
+    model.setColumnIdentifiers(colName);
+    scrollPane = new JScrollPane(table);
+    scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
     table.setFillsViewportHeight(true);
 //    table.setBorder();
-    table.setDefaultRenderer(Contribution.class, new StatusRendere());
+    table.setDefaultRenderer(Contribution.class, new ContribStatusRenderer());
     table.setFont(Toolkit.getSansFont(14, Font.PLAIN));
     table.setRowHeight(28);
     table.setRowMargin(6);
     table.getColumnModel().setColumnMargin(0);
-    table.getColumnModel().getColumn(0).setMaxWidth(60);
+    table.getColumnModel().getColumn(0).setMaxWidth(ContributionManagerDialog.STATUS_WIDTH);
     table.getColumnModel().getColumn(2).setMinWidth(ContributionManagerDialog.AUTHOR_WIDTH);
     table.getColumnModel().getColumn(2).setMaxWidth(ContributionManagerDialog.AUTHOR_WIDTH);
     table.setShowGrid(false);
@@ -117,15 +113,18 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
     table.setAutoCreateColumnsFromModel(true);
     table.setAutoCreateRowSorter(false);
     table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-    table.getSelectionModel()
-      .addListSelectionListener(new ListSelectionListener() {
+
+    table.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
         public void valueChanged(ListSelectionEvent event) {
           //TODO this executes 2 times when clicked and 1 time when traversed using arrow keys
           //Ideally this should always be true but while clearing the table something fishy is going on
           if (table.getSelectedRow() != -1) {
             setSelectedPanel(panelByContribution.get(table.getValueAt(table
               .getSelectedRow(), 0)));
-            table.requestFocusInWindow();
+            // Preventing the focus to move out of filterField after typing every character
+            if (!contributionTab.filterField.hasFocus()) {
+              table.requestFocusInWindow();
+            }
           }
         }
       });
@@ -172,7 +171,7 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
         return pos1 - pos2;
       }
     });
-    table.getTableHeader().setDefaultRenderer(new MyColumnHeaderRenderer());
+    table.getTableHeader().setDefaultRenderer(new ContribHeaderRenderer());
 
     GroupLayout layout = new GroupLayout(this);
     layout.setHorizontalGroup(layout.createParallelGroup().addComponent(scrollPane));
@@ -180,21 +179,13 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
 
     this.setLayout(layout);
     table.setVisible(true);
-
   }
 
-  class MyColumnHeaderRenderer extends DefaultTableCellRenderer {
 
-    /**
-     * Constructs a <code>DefaultTableHeaderCellRenderer</code>.
-     * <P>
-     * The horizontal alignment and text position are set as appropriate to a
-     * table header cell, and the opaque property is set to false.
-     */
-    public MyColumnHeaderRenderer() {
-//      setHorizontalAlignment(CENTER);
+  class ContribHeaderRenderer extends DefaultTableCellRenderer {
+
+    public ContribHeaderRenderer() {
       setHorizontalTextPosition(LEFT);
-//      setVerticalAlignment(BOTTOM);
       setOpaque(true);
     }
 
@@ -275,14 +266,16 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
       }
       return null;
     }
-}
+  }
 
-  class StatusRendere extends DefaultTableCellRenderer {
+
+  private class ContribStatusRenderer extends DefaultTableCellRenderer {
 
     @Override
     public void setVerticalAlignment(int alignment) {
       super.setVerticalAlignment(SwingConstants.CENTER);
     }
+
     @Override
     public Component getTableCellRendererComponent(JTable table, Object value,
                                                    boolean isSelected,
@@ -290,20 +283,26 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
                                                    int column) {
       Contribution contribution = (Contribution) value;
       JLabel label = new JLabel();
+      if (value == null) {
+        // Working on https://github.com/processing/processing/issues/3667
+        //System.err.println("null value seen in getTableCellRendererComponent()");
+        // TODO this is now working, but the underlying issue is not fixed
+        return label;
+      }
       if (column == 0) {
         Icon icon = null;
-        label.setBorder(BorderFactory.createEmptyBorder(2, 17, 0, 0));
         label.setFont(Toolkit.getSansFont(14, Font.PLAIN));
         if (contribution.isInstalled()) {
-          icon = Toolkit.getLibIcon("manager/up-to-date.png");
+          icon = Toolkit.getLibIcon("manager/up-to-date-" + ContributionManagerDialog.iconVer + "x.png");
           if (contribListing.hasUpdates(contribution)) {
-            icon = Toolkit.getLibIcon("manager/update-available.png");
+            icon = Toolkit.getLibIcon("manager/update-available-" + ContributionManagerDialog.iconVer + "x.png");
           }
           if (!contribution.isCompatible(Base.getRevision())) {
-            icon = Toolkit.getLibIcon("manager/incompatible.png");
+            icon = Toolkit.getLibIcon("manager/incompatible-" + ContributionManagerDialog.iconVer + "x.png");
           }
         }
         label.setIcon(icon);
+        label.setHorizontalAlignment(SwingConstants.CENTER);
         if (isSelected) {
           label.setBackground(new Color(0xe0fffd));
         }
@@ -311,16 +310,20 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
 //        return table.getDefaultRenderer(Icon.class).getTableCellRendererComponent(table, icon, isSelected, false, row, column);
       } else if (column == 1) {
         // Generating ellipses based on fontMetrics
-        FontMetrics fontMetrics = table.getFontMetrics(table.getFont());
+        Font boldFont = Toolkit.getSansFont(14, Font.BOLD);
+        String fontFace = "<font face=\"" + boldFont.getName() + "\">";
+        FontMetrics fontMetrics = table.getFontMetrics(boldFont); //table.getFont());
         int colSize = table.getColumnModel().getColumn(1).getWidth();
         String sentence = contribution.getSentence();
-        int currentWidth = table.getFontMetrics(table.getFont().deriveFont(Font.BOLD)).stringWidth(contribution.getName() + " | ");
+        //int currentWidth = table.getFontMetrics(table.getFont().deriveFont(Font.BOLD)).stringWidth(contribution.getName() + " | ");
+        int currentWidth = table.getFontMetrics(boldFont).stringWidth(contribution.getName() + " | ");
         int ellipsesWidth = fontMetrics.stringWidth("...");
-        String name = "<html><body><b>" + contribution.getName();
+        //String name = "<html><body><b>" + contribution.getName();
+        String name = "<html><body>" + fontFace + contribution.getName();
         if (sentence == null) {
-          label.setText(name + "</b></body></html>");
+          label.setText(name + "</font></body></html>");
         } else {
-          sentence = " | </b>" + sentence;
+          sentence = " | </font>" + sentence;
           currentWidth += ellipsesWidth;
           int i = 0;
           for (i = 0; i < sentence.length(); i++) {
@@ -345,9 +348,11 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
         label.setFont(ContributionManagerDialog.myFont);
         label.setOpaque(true);
       } else {
-        label = new JLabel(
-                           contribution.isSpecial() ? Toolkit
-                             .getLibIcon("icons/pde-16.png") : null);
+        if (contribution.isSpecial()) {
+          label = new JLabel(Toolkit.getLibIcon("icons/foundation-16.png"));
+        } else {
+          label = new JLabel();
+        }
         String authorList = contribution.getAuthorList();
         String name = getAuthorNameWithoutMarkup(authorList);
         label.setText(name.toString());
@@ -366,20 +371,26 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
       return label;
     }
   }
-  private class MyTableModel extends DefaultTableModel{
-    MyTableModel() {
-      super(0,0);
+
+
+  private class ContribTableModel extends DefaultTableModel {
+
+    ContribTableModel() {
+      super(0, 0);
     }
+
     @Override
     public boolean isCellEditable(int row, int column) {
       return false;
     }
+
     @Override
     public Class<?> getColumnClass(int columnIndex) {
       return Contribution.class;
     }
   }
-  
+
+
   String getAuthorNameWithoutMarkup(String authorList) {
     StringBuilder name = new StringBuilder("");
     if (authorList != null) {
@@ -401,36 +412,16 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
     return name.toString();
   }
 
+
   void updatePanelOrdering(Set<Contribution> contributionsSet) {
-    /*   int row = 0;
-    for (Entry<Contribution, ContributionPanel> entry : panelByContribution.entrySet()) {
-      GridBagConstraints c = new GridBagConstraints();
-      c.fill = GridBagConstraints.HORIZONTAL;
-      c.weightx = 1;
-      c.gridx = 0;
-      c.gridy = row++;
-      c.anchor = GridBagConstraints.NORTH;
+    model.getDataVector().removeAllElements();
+    model.fireTableDataChanged();
 
-      add(entry.getValue(), c);
-    }
-
-    GridBagConstraints c = new GridBagConstraints();
-    c.fill = GridBagConstraints.BOTH;
-    c.weightx = 1;
-    c.weighty = 1;
-    c.gridx = 0;
-    c.gridy = row++;
-    c.anchor = GridBagConstraints.NORTH;
-    add(status, c);*/
-//    System.out.println(dtm.getDataVector());
-    dtm.getDataVector().removeAllElements();
-    dtm.fireTableDataChanged();
     int rowCount = 0;
     for (Contribution entry : contributionsSet) {
-      ((MyTableModel) table.getModel()).addRow(new Object[] {
-        entry, entry, entry });
-      if (selectedPanel != null && entry.getName()
-        .equals(selectedPanel.getContrib().getName())) {
+      model.addRow(new Object[] { entry, entry, entry });
+      if (selectedPanel != null &&
+          entry.getName().equals(selectedPanel.getContrib().getName())) {
         table.setRowSelectionInterval(rowCount, rowCount);
       }
       rowCount++;

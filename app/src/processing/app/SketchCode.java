@@ -26,6 +26,7 @@ package processing.app;
 
 import java.io.*;
 
+import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.undo.*;
 
@@ -223,6 +224,11 @@ public class SketchCode {
   }
 
 
+  public String getDocumentText() throws BadLocationException {
+    return document.getText(0, document.getLength());
+  }
+
+
   public void setDocument(Document d) {
     document = d;
   }
@@ -296,7 +302,7 @@ public class SketchCode {
       System.err.println();
     }
 
-    lastModified = file.lastModified();
+    setLastModified();
     setModified(false);
   }
 
@@ -324,7 +330,7 @@ public class SketchCode {
     savedProgram = program;
     file = newFile;
     makePrettyName();
-    lastModified = file.lastModified();
+    setLastModified();
     setModified(false);
   }
 
@@ -337,11 +343,21 @@ public class SketchCode {
     file = new File(sketchFolder, file.getName());
   }
 
+
+  /**
+   * Set the last known modification time, so that we're not re-firing
+   * "hey, this is modified!" events incessantly.
+   */
+  public void setLastModified() {
+    lastModified = file.lastModified();
+  }
+
+
   /**
    * Used to determine whether this file was modified externally
    * @return The time the file was last modified
    */
-  public long lastModified(){
+  public long getLastModified() {
     return lastModified;
   }
 }

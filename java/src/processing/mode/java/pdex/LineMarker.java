@@ -20,13 +20,11 @@ along with this program; if not, write to the Free Software Foundation, Inc.
 
 package processing.mode.java.pdex;
 
+
 /**
- * Error markers displayed on the Error Bar.
- * 
- * @author Manindra Moharana &lt;me@mkmoharana.com&gt;
- * 
+ * Line markers displayed on the Error Column.
  */
-public class ErrorMarker {
+public class LineMarker {
   /**
    * y co-ordinate of the marker
    */
@@ -38,25 +36,32 @@ public class ErrorMarker {
   /**
    * Error Type constant
    */
-  public static final int Error = 1;
+  public static final int ERROR = 1;
   /**
    * Warning Type constant
    */
-  public static final int Warning = 2;
+  public static final int WARNING = 2;
   /**
    * Problem that the error marker represents
    * @see Problem
    */
   private Problem problem;
 
-  
-  public ErrorMarker(Problem problem, int y, int type) {
+
+  public LineMarker(Problem problem, boolean error) {
     this.problem = problem;
-    this.y = y;
-    this.type = type;
+    this.type = error ? ERROR : WARNING;
   }
 
-  
+
+  /**
+   * set y co-ordinate of the marker
+   */
+  public void setY(int y) {
+    this.y = y;
+  }
+
+
   /**
    * y co-ordinate of the marker
    */
@@ -64,7 +69,15 @@ public class ErrorMarker {
     return y;
   }
 
-  
+
+  /**
+   * line number of the marker
+   */
+  public int getLineNumber() {
+    return problem.getLineNumber();
+  }
+
+
   /**
    * Type of marker: ErrorMarker.Error or ErrorMarker.Warning?
    */
@@ -72,7 +85,7 @@ public class ErrorMarker {
     return type;
   }
 
-  
+
   /**
    * Problem that the error marker represents
    * @see Problem

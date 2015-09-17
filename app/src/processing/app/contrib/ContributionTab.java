@@ -25,6 +25,7 @@ package processing.app.contrib;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.event.*;
 import java.util.*;
 
@@ -135,7 +136,15 @@ public class ContributionTab {
       progressBar = new JProgressBar();
       progressBar.setVisible(false);
       createComponents();
-      panel = new JPanel(false);
+      panel = new JPanel(false){
+        @Override
+        protected void paintComponent(Graphics g) {
+          super.paintComponent(g);
+          g.setColor(new Color(0xe0fffd));
+          g.fillRect(getX(), panel.getY() - ContributionManagerDialog.TAB_HEIGHT - 2 , panel.getWidth(), 2);
+
+        }
+      };
       loaderLabel = new JLabel(Toolkit.getLibIcon("manager/loader.gif"));
       loaderLabel.setOpaque(false);
       loaderLabel.setBackground(Color.WHITE);
@@ -188,6 +197,7 @@ public class ContributionTab {
 
     });*/
 
+    int scrollBarWidth = contributionListPanel.scrollPane.getVerticalScrollBar().getPreferredSize().width;
 
     GroupLayout layout = new GroupLayout(panel);
     panel.setLayout(layout);
@@ -206,10 +216,10 @@ public class ContributionTab {
       .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED,
                        GroupLayout.PREFERRED_SIZE, Short.MAX_VALUE)
                   .addComponent(categoryChooser,
-                                ContributionManagerDialog.AUTHOR_WIDTH - 10,
-                                ContributionManagerDialog.AUTHOR_WIDTH - 10,
-                                ContributionManagerDialog.AUTHOR_WIDTH - 10)
-                  .addContainerGap()).addComponent(loaderLabel)
+                                ContributionManagerDialog.AUTHOR_WIDTH,
+                                ContributionManagerDialog.AUTHOR_WIDTH,
+                                ContributionManagerDialog.AUTHOR_WIDTH)
+                  .addGap(scrollBarWidth)).addComponent(loaderLabel)
       .addComponent(contributionListPanel).addComponent(errorPanel)
       .addComponent(statusPanel));
 
@@ -227,7 +237,10 @@ public class ContributionTab {
       .addComponent(statusPanel, GroupLayout.PREFERRED_SIZE,
                     GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE));
     layout.linkSize(SwingConstants.VERTICAL, categoryChooser, filterField);
+
+    // these will occupy space even if not visible
     layout.setHonorsVisibility(contributionListPanel, false);
+    layout.setHonorsVisibility(categoryChooser, false);
 
     panel.setBackground(Color.WHITE);
     panel.setBorder(null);
@@ -347,7 +360,7 @@ public class ContributionTab {
           categoriesFound = true;
         }
       }
-      categoryChooser.setEnabled(categoriesFound);
+      categoryChooser.setVisible(categoriesFound);
     }
   }
 
@@ -373,16 +386,29 @@ public class ContributionTab {
 
       List<Library> libraries =
         new ArrayList<Library>(editor.getMode().contribLibraries);
+
+      // Only add core libraries that are installed in the sketchbook
+      // https://github.com/processing/processing/issues/3688
+      //libraries.addAll(editor.getMode().coreLibraries);
+      final String sketchbookPath =
+        Base.getSketchbookLibrariesFolder().getAbsolutePath();
+      for (Library lib : editor.getMode().coreLibraries) {
+        if (lib.getLibraryPath().startsWith(sketchbookPath)) {
+          libraries.add(lib);
+        }
+      }
+
       contributions.addAll(libraries);
 
-      //ArrayList<ToolContribution> tools = editor.contribTools;
-      List<ToolContribution> tools = editor.getToolContribs();
+      Base base = editor.getBase();
+
+      List<ToolContribution> tools = base.getToolContribs();
       contributions.addAll(tools);
 
-      List<ModeContribution> modes = editor.getBase().getModeContribs();
+      List<ModeContribution> modes = base.getModeContribs();
       contributions.addAll(modes);
 
-      List<ExamplesContribution> examples = editor.getBase().getExampleContribs();
+      List<ExamplesContribution> examples = base.getExampleContribs();
       contributions.addAll(examples);
 
 //    ArrayList<LibraryCompilation> compilations = LibraryCompilation.list(libraries);

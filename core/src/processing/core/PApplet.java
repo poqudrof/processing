@@ -29,7 +29,6 @@ import java.awt.Desktop;
 import java.awt.DisplayMode;
 import java.awt.EventQueue;
 import java.awt.FileDialog;
-import java.awt.Font;
 import java.awt.Frame;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
@@ -38,8 +37,6 @@ import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
-
-
 
 // used by loadImage() functions
 import javax.imageio.ImageIO;
@@ -6140,39 +6137,12 @@ public class PApplet implements PConstants {
    * @param charset array containing characters to be generated
    * @see PFont
    * @see PGraphics#textFont(PFont, float)
-   * @see PGraphics#text(String, float, float, float, float, float)
+   * @see PGraphics#text(String, float, float, float, float)
    * @see PApplet#loadFont(String)
    */
   public PFont createFont(String name, float size,
                           boolean smooth, char[] charset) {
-    String lowerName = name.toLowerCase();
-    Font baseFont = null;
-
-    try {
-      InputStream stream = null;
-      if (lowerName.endsWith(".otf") || lowerName.endsWith(".ttf")) {
-        stream = createInput(name);
-        if (stream == null) {
-          System.err.println("The font \"" + name + "\" " +
-                             "is missing or inaccessible, make sure " +
-                             "the URL is valid or that the file has been " +
-                             "added to your sketch and is readable.");
-          return null;
-        }
-        baseFont = Font.createFont(Font.TRUETYPE_FONT, createInput(name));
-
-      } else {
-        baseFont = PFont.findFont(name);
-      }
-      return new PFont(baseFont.deriveFont(size * pixelDensity),
-                       smooth, charset, stream != null,
-                       pixelDensity);
-
-    } catch (Exception e) {
-      System.err.println("Problem with createFont(\"" + name + "\")");
-      e.printStackTrace();
-      return null;
-    }
+    return g.createFont(name, size, smooth, charset);
   }
 
 
@@ -10025,6 +9995,27 @@ public class PApplet implements PConstants {
     // Remove 60fps limit on the JavaFX "pulse" timer
     System.setProperty("javafx.animation.fullspeed", "true");
 
+    // This doesn't work, need to mess with Info.plist instead
+    /*
+    // In an exported application, add the Contents/Java folder to the
+    // java.library.path, so that native libraries work properly.
+    // Without this, the library path is only set to Contents/MacOS
+    // where the launcher binary lives.
+    if (platform == MACOSX) {
+      URL coreJarURL =
+        PApplet.class.getProtectionDomain().getCodeSource().getLocation();
+      // The jarPath from above will/may be URL encoded (%20 for spaces)
+      String coreJarPath = urlDecode(coreJarURL.getPath());
+      if (coreJarPath.endsWith("/Contents/Java/core.jar")) {
+        // remove the /core.jar part from the end
+        String javaPath = coreJarPath.substring(0, coreJarPath.length() - 9);
+        String libraryPath = System.getProperty("java.library.path");
+        libraryPath += File.pathSeparator + javaPath;
+        System.setProperty("java.library.path", libraryPath);
+      }
+    }
+    */
+
     // Catch any HeadlessException to provide more useful feedback
     try {
       // Call validate() while resize events are in progress
@@ -12783,6 +12774,7 @@ public class PApplet implements PConstants {
   /**
    * <h3>Advanced</h3>
    * Rotate about a vector in space. Same as the glRotatef() function.
+   * @nowebref
    * @param x
    * @param y
    * @param z

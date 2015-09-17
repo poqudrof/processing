@@ -3,12 +3,13 @@
 /*
   Part of the Processing project - http://processing.org
 
-  Copyright (c) 2011-13 Ben Fry and Casey Reas
+  Copyright (c) 2012-15 The Processing Foundation
+  Copyright (c) 2004-12 Ben Fry and Casey Reas
+  Copyright (c) 2001-04 Massachusetts Institute of Technology
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+  License as published by the Free Software Foundation, version 2.1.
 
   This library is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -303,24 +304,6 @@ public class PShader implements PConstants {
       PGraphics.showWarning(PGraphicsOpenGL.INCONSISTENT_SHADER_TYPES);
     }
   }
-
-
-//  @Override
-//  protected void finalize() throws Throwable {
-//    try {
-//      if (glVertex != 0) {
-//        PGraphicsOpenGL.finalizeGLSLVertShaderObject(glVertex, context);
-//      }
-//      if (glFragment != 0) {
-//        PGraphicsOpenGL.finalizeGLSLFragShaderObject(glFragment, context);
-//      }
-//      if (glProgram != 0) {
-//        PGraphicsOpenGL.finalizeGLSLProgramObject(glProgram, context);
-//      }
-//    } finally {
-//      super.finalize();
-//    }
-//  }
 
 
   public void setVertexShader(String vertFilename) {
@@ -1336,7 +1319,7 @@ public class PShader implements PConstants {
     if (-1 < normalLoc) pgl.disableVertexAttribArray(normalLoc);
 
     if (-1 < ppixelsLoc) {
-      pgl.requestFBOLayer();
+      pgl.enableFBOLayer();
       pgl.activeTexture(PGL.TEXTURE0 + ppixelsUnit);
       currentPG.unbindFrontTexture();
       pgl.activeTexture(PGL.TEXTURE0);

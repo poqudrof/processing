@@ -22,7 +22,15 @@
 
 package processing.javafx;
 
+import com.sun.javafx.geom.Path2D;
+import com.sun.javafx.geom.PathIterator;
+import com.sun.javafx.geom.Shape;
+
 import java.nio.IntBuffer;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.GraphicsContext;
@@ -35,10 +43,10 @@ import javafx.scene.image.WritablePixelFormat;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.ArcType;
-import javafx.scene.shape.ClosePath;
-import javafx.scene.shape.Path;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.scene.transform.Affine;
 import javafx.scene.transform.Transform;
 
@@ -51,11 +59,15 @@ public class PGraphicsFX2D extends PGraphics {
   static final WritablePixelFormat<IntBuffer> argbFormat =
     PixelFormat.getIntArgbInstance();
 
-  Path workPath;
-  Path auxPath;
+  WritableImage snapshotImage;
+
+  Path2D workPath = new Path2D();
+  Path2D auxPath = new Path2D();
   boolean openContour;
   /// break the shape at the next vertex (next vertex() call is a moveto())
   boolean breakShape;
+
+  private float pathCoordsBuffer[] = new float[6];
 
   /// coordinates for internal curve calculation
   float[] curveCoordX;
@@ -140,16 +152,12 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   public void endDraw() {
+    flush();
+
     if (!primaryGraphics) {
       // TODO this is probably overkill for most tasks...
       loadPixels();
     }
-
-    // Marks pixels as modified so that the pixels will be updated.
-    // Also sets mx1/y1/x2/y2 so that OpenGL will pick it up.
-    setModified();
-
-    //g2.dispose();
   }
 
 
@@ -199,15 +207,16 @@ public class PGraphicsFX2D extends PGraphics {
   public void beginShape(int kind) {
     shape = kind;
     vertexCount = 0;
-    curveVertexCount = 0;
 
-    // set gpath to null, because when mixing curves and straight
-    // lines, vertexCount will be set back to zero, so vertexCount == 1
-    // is no longer a good indicator of whether the shape is new.
-    // this way, just check to see if gpath is null, and if it isn't
-    // then just use it to continue the shape.
-    workPath = null;
-    auxPath = null;
+    workPath.reset();
+    auxPath.reset();
+
+    flushPixels();
+
+    if (drawingThinLines()) {
+      pushMatrix();
+      translate(0.5f, 0.5f);
+    }
   }
 
 
@@ -228,9 +237,6 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   public void vertex(float x, float y) {
-    curveVertexCount = 0;
-    //float vertex[];
-
     if (vertexCount == vertices.length) {
       float temp[][] = new float[vertexCount<<1][VERTEX_FIELD_COUNT];
       System.arraycopy(vertices, 0, temp, 0, vertexCount);
@@ -324,13 +330,11 @@ public class PGraphicsFX2D extends PGraphics {
       break;
 
     case POLYGON:
-      if (workPath == null) {
-        context.moveTo(x, y);
-      } else if (breakShape) {
-        context.moveTo(x, y);
+      if (workPath.getNumCommands() == 0 || breakShape) {
+        workPath.moveTo(x, y);
         breakShape = false;
       } else {
-        context.lineTo(x, y);
+        workPath.lineTo(x, y);
       }
       break;
     }
@@ -369,16 +373,14 @@ public class PGraphicsFX2D extends PGraphics {
     }
 
     // draw contours to auxiliary path so main path can be closed later
-    Path temp = auxPath;
+    Path2D contourPath = auxPath;
     auxPath = workPath;
-    workPath = temp;
+    workPath = contourPath;
 
-//    if (auxPath != null) {  // first contour does not break
-    breakShape = true;
-    auxPath = new Path();
-//    }
+    if (contourPath.getNumCommands() > 0) {  // first contour does not break
+      breakShape = true;
+    }
 
-    breakShape = true;
     openContour = true;
   }
 
@@ -390,15 +392,9 @@ public class PGraphicsFX2D extends PGraphics {
       return;
     }
 
-    // close this contour
-    if (workPath != null) {
-      //gpath.closePath();
-      auxPath.getElements().addAll(workPath.getElements());
-      auxPath.getElements().add(new ClosePath());
-    }
+    if (workPath.getNumCommands() > 0) workPath.closePath();
 
-    // switch back to main path
-    Path temp = workPath;
+    Path2D temp = workPath;
     workPath = auxPath;
     auxPath = temp;
 
@@ -412,21 +408,56 @@ public class PGraphicsFX2D extends PGraphics {
       endContour();
       PGraphics.showWarning("Missing endContour() before endShape()");
     }
-    if (workPath != null) {  // make sure something has been drawn
+    if (workPath.getNumCommands() > 0) {
       if (shape == POLYGON) {
         if (mode == CLOSE) {
-          //gpath.closePath();
-          workPath.getElements().add(new ClosePath());
+          workPath.closePath();
         }
-        if (auxPath != null) {
-          //gpath.append(auxPath, false);
-          workPath.getElements().addAll(auxPath.getElements());
+        if (auxPath.getNumCommands() > 0) {
+          workPath.append(auxPath, false);
         }
-        //drawShape(gpath);
-        // TODO argh, can't go this route
+        drawShape(workPath);
       }
     }
     shape = 0;
+    if (drawingThinLines()) {
+      popMatrix();
+    }
+    loaded = false;
+  }
+
+
+  private void drawShape(Shape s) {
+    context.beginPath();
+    PathIterator pi = s.getPathIterator(null);
+    while (!pi.isDone()) {
+      int pitype = pi.currentSegment(pathCoordsBuffer);
+      switch (pitype) {
+        case PathIterator.SEG_MOVETO:
+          context.moveTo(pathCoordsBuffer[0], pathCoordsBuffer[1]);
+          break;
+        case PathIterator.SEG_LINETO:
+          context.lineTo(pathCoordsBuffer[0], pathCoordsBuffer[1]);
+          break;
+        case PathIterator.SEG_QUADTO:
+          context.quadraticCurveTo(pathCoordsBuffer[0], pathCoordsBuffer[1],
+                                   pathCoordsBuffer[2], pathCoordsBuffer[3]);
+          break;
+        case PathIterator.SEG_CUBICTO:
+          context.bezierCurveTo(pathCoordsBuffer[0], pathCoordsBuffer[1],
+                                pathCoordsBuffer[2], pathCoordsBuffer[3],
+                                pathCoordsBuffer[4], pathCoordsBuffer[5]);
+          break;
+        case PathIterator.SEG_CLOSE:
+          context.closePath();
+          break;
+        default:
+          showWarning("Unknown segment type " + pitype);
+      }
+      pi.next();
+    }
+    if (fill) context.fill();
+    if (stroke) context.stroke();
   }
 
 
@@ -487,12 +518,23 @@ public class PGraphicsFX2D extends PGraphics {
 
 
   @Override
+  protected void bezierVertexCheck() {
+    if (shape == 0 || shape != POLYGON) {
+      throw new RuntimeException("beginShape() or beginShape(POLYGON) " +
+                                 "must be used before bezierVertex() or quadraticVertex()");
+    }
+    if (workPath.getNumCommands() == 0) {
+      throw new RuntimeException("vertex() must be used at least once " +
+                                 "before bezierVertex() or quadraticVertex()");
+    }
+  }
+
+  @Override
   public void bezierVertex(float x1, float y1,
                            float x2, float y2,
                            float x3, float y3) {
     bezierVertexCheck();
-    context.bezierCurveTo(x1, y1, x2, y2, x3, y3);
-
+    workPath.curveTo(x1, y1, x2, y2, x3, y3);
   }
 
 
@@ -513,7 +555,8 @@ public class PGraphicsFX2D extends PGraphics {
   @Override
   public void quadraticVertex(float ctrlX, float ctrlY,
                               float endX, float endY) {
-    context.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
+    bezierVertexCheck();
+    workPath.quadTo(ctrlX, ctrlY, endX, endY);
   }
 
 
@@ -532,7 +575,12 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   protected void curveVertexCheck() {
-    super.curveVertexCheck();
+    if (shape != POLYGON) {
+      throw new RuntimeException("You must use beginShape() or " +
+                                     "beginShape(POLYGON) before curveVertex()");
+    }
+
+    curveInitCheck();
 
     if (curveCoordX == null) {
       curveCoordX = new float[4];
@@ -565,14 +613,14 @@ public class PGraphicsFX2D extends PGraphics {
 
     // since the paths are continuous,
     // only the first point needs the actual moveto
-    if (workPath == null) {
-//      gpath = new GeneralPath();
-      context.moveTo(curveDrawX[0], curveDrawY[0]);
+    if (workPath.getNumCommands() == 0) {
+      workPath.moveTo(curveDrawX[0], curveDrawY[0]);
+      breakShape = false;
     }
 
-    context.bezierCurveTo(curveDrawX[1], curveDrawY[1],
-                          curveDrawX[2], curveDrawY[2],
-                          curveDrawX[3], curveDrawY[3]);
+    workPath.curveTo(curveDrawX[1], curveDrawY[1],
+                     curveDrawX[2], curveDrawY[2],
+                     curveDrawX[3], curveDrawY[3]);
   }
 
 
@@ -587,9 +635,38 @@ public class PGraphicsFX2D extends PGraphics {
 
   // RENDERER
 
+  @Override
+  public void flush() {
+    flushPixels();
+  }
 
-  //public void flush()
 
+  protected void flushPixels() {
+    boolean hasPixels = modified && pixels != null;
+    if (hasPixels) {
+      // If the user has been manipulating individual pixels,
+      // the changes need to be copied to the screen before
+      // drawing any new geometry.
+      int mx1 = getModifiedX1();
+      int mx2 = getModifiedX2();
+      int my1 = getModifiedY1();
+      int my2 = getModifiedY2();
+      int mw = mx2 - mx1;
+      int mh = my2 - my1;
+
+      PixelWriter pw = context.getPixelWriter();
+      pw.setPixels(mx1, my1, mw, mh, argbFormat, pixels,
+                   mx1 + my1 * pixelWidth, pixelWidth);
+    }
+
+    modified = false;
+  }
+
+
+  protected void beforeContextDraw() {
+    flushPixels();
+    loaded = false;
+  }
 
 
   //////////////////////////////////////////////////////////////
@@ -611,6 +688,13 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   public void line(float x1, float y1, float x2, float y2) {
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x1 += 0.5f;
+      x2 += 0.5f;
+      y1 += 0.5f;
+      y2 += 0.5f;
+    }
     context.strokeLine(x1, y1, x2, y2);
   }
 
@@ -618,6 +702,15 @@ public class PGraphicsFX2D extends PGraphics {
   @Override
   public void triangle(float x1, float y1, float x2, float y2,
                        float x3, float y3) {
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x1 += 0.5f;
+      x2 += 0.5f;
+      x3 += 0.5f;
+      y1 += 0.5f;
+      y2 += 0.5f;
+      y3 += 0.5f;
+    }
     context.beginPath();
     context.moveTo(x1, y1);
     context.lineTo(x2, y2);
@@ -631,6 +724,17 @@ public class PGraphicsFX2D extends PGraphics {
   @Override
   public void quad(float x1, float y1, float x2, float y2,
                    float x3, float y3, float x4, float y4) {
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x1 += 0.5f;
+      x2 += 0.5f;
+      x3 += 0.5f;
+      x4 += 0.5f;
+      y1 += 0.5f;
+      y2 += 0.5f;
+      y3 += 0.5f;
+      y4 += 0.5f;
+    }
     context.beginPath();
     context.moveTo(x1, y1);
     context.lineTo(x2, y2);
@@ -656,8 +760,13 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   protected void rectImpl(float x1, float y1, float x2, float y2) {
-//    rect.setFrame(x1, y1, x2-x1, y2-y1);
-//    drawShape(rect);
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x1 += 0.5f;
+      x2 += 0.5f;
+      y1 += 0.5f;
+      y2 += 0.5f;
+    }
     if (fill) context.fillRect(x1, y1, x2 - x1, y2 - y1);
     if (stroke) context.strokeRect(x1, y1, x2 - x1, y2 - y1);
   }
@@ -677,8 +786,11 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   protected void ellipseImpl(float x, float y, float w, float h) {
-//    ellipse.setFrame(x, y, w, h);
-//    drawShape(ellipse);
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x += 0.5f;
+      y += 0.5f;
+    }
     if (fill) context.fillOval(x, y, w, h);
     if (stroke) context.strokeOval(x, y, w, h);
   }
@@ -697,11 +809,17 @@ public class PGraphicsFX2D extends PGraphics {
   @Override
   protected void arcImpl(float x, float y, float w, float h,
                          float start, float stop, int mode) {
+    beforeContextDraw();
+
+    if (drawingThinLines()) {
+      x += 0.5f;
+      y += 0.5f;
+    }
+
     // 0 to 90 in java would be 0 to -90 for p5 renderer
     // but that won't work, so -90 to 0?
-
-    start = -start * RAD_TO_DEG;
-    stop = -stop * RAD_TO_DEG;
+    start = -start;
+    stop = -stop;
 
     float sweep = stop - start;
 
@@ -1154,243 +1272,330 @@ public class PGraphicsFX2D extends PGraphics {
 
 
 
-//  //////////////////////////////////////////////////////////////
-//
-//  // TEXT ATTRIBTUES
-//
-//
-//  //public void textAlign(int align)
-//
-//
-//  //public void textAlign(int alignX, int alignY)
-//
-//
-//  @Override
-//  public float textAscent() {
-//    if (textFont == null) {
-//      defaultFontOrDeath("textAscent");
-//    }
-//
-//    Font font = (Font) textFont.getNative();
-//    if (font != null) {
-//      return getFontMetrics(font).getAscent();
-//    }
-//    return super.textAscent();
-//  }
-//
-//
-//  @Override
-//  public float textDescent() {
-//    if (textFont == null) {
-//      defaultFontOrDeath("textDescent");
-//    }
-//    Font font = (Font) textFont.getNative();
-//    if (font != null) {
-//      return getFontMetrics(font).getDescent();
-//    }
-//    return super.textDescent();
-//  }
-//
-//
-//  //public void textFont(PFont which)
-//
-//
-//  //public void textFont(PFont which, float size)
-//
-//
-//  //public void textLeading(float leading)
-//
-//
-//  //public void textMode(int mode)
-//
-//
-//  @Override
-//  protected boolean textModeCheck(int mode) {
-//    return mode == MODEL;
-//  }
-//
-//
-//  /**
-//   * Same as parent, but override for native version of the font.
-//   * <p/>
-//   * Also gets called by textFont, so the metrics
-//   * will get recorded properly.
-//   */
-//  @Override
-//  public void textSize(float size) {
-//    if (textFont == null) {
-//      defaultFontOrDeath("textSize", size);
-//    }
-//
-//    // if a native version available, derive this font
-////    if (textFontNative != null) {
-////      textFontNative = textFontNative.deriveFont(size);
-////      g2.setFont(textFontNative);
-////      textFontNativeMetrics = g2.getFontMetrics(textFontNative);
-////    }
-//    Font font = (Font) textFont.getNative();
-//    //if (font != null && (textFont.isStream() || hints[ENABLE_NATIVE_FONTS])) {
-//    if (font != null) {
-//      Map<TextAttribute, Object> map =
-//        new HashMap<TextAttribute, Object>();
-//      map.put(TextAttribute.SIZE, size);
-//      map.put(TextAttribute.KERNING,
-//              TextAttribute.KERNING_ON);
-////      map.put(TextAttribute.TRACKING,
-////              TextAttribute.TRACKING_TIGHT);
-//      font = font.deriveFont(map);
-//      g2.setFont(font);
-//      textFont.setNative(font);
-//
-////      Font dfont = font.deriveFont(size);
-//////      Map<TextAttribute, ?> attrs = dfont.getAttributes();
-//////      for (TextAttribute ta : attrs.keySet()) {
-//////        System.out.println(ta + " -> " + attrs.get(ta));
-//////      }
-////      g2.setFont(dfont);
-////      textFont.setNative(dfont);
-//    }
-//
-//    // take care of setting the textSize and textLeading vars
-//    // this has to happen second, because it calls textAscent()
-//    // (which requires the native font metrics to be set)
-//    super.textSize(size);
-//  }
-//
-//
-//  //public float textWidth(char c)
-//
-//
-//  //public float textWidth(String str)
-//
-//
-//  @Override
-//  protected float textWidthImpl(char buffer[], int start, int stop) {
-//    if (textFont == null) {
-//      defaultFontOrDeath("textWidth");
-//    }
-//
-//    Font font = (Font) textFont.getNative();
-//    //if (font != null && (textFont.isStream() || hints[ENABLE_NATIVE_FONTS])) {
-//    if (font != null) {
-//      // maybe should use one of the newer/fancier functions for this?
-//      int length = stop - start;
-//      FontMetrics metrics = getFontMetrics(font);
-//      // Using fractional metrics makes the measurement worse, not better,
-//      // at least on OS X 10.6 (November, 2010).
-//      // TextLayout returns the same value as charsWidth().
-////      System.err.println("using native");
-////      g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
-////                          RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-////      float m1 = metrics.charsWidth(buffer, start, length);
-////      //float m2 = (float) metrics.getStringBounds(buffer, start, stop, g2).getWidth();
-////      TextLayout tl = new TextLayout(new String(buffer, start, length), font, g2.getFontRenderContext());
-////      float m2 = (float) tl.getBounds().getWidth();
-////      System.err.println(m1 + " " + m2);
-//////      return m1;
-////      return m2;
-//      return metrics.charsWidth(buffer, start, length);
-//    }
-////    System.err.println("not native");
-//    return super.textWidthImpl(buffer, start, stop);
-//  }
-//
-//
-////  protected void beginTextScreenMode() {
-////    loadPixels();
-////  }
-//
-//
-////  protected void endTextScreenMode() {
-////    updatePixels();
-////  }
-//
-//
-//  //////////////////////////////////////////////////////////////
-//
-//  // TEXT
-//
-//  // None of the variations of text() are overridden from PGraphics.
-//
-//
-//
-//  //////////////////////////////////////////////////////////////
-//
-//  // TEXT IMPL
-//
-//
-//  //protected void textLineAlignImpl(char buffer[], int start, int stop,
-//  //                                 float x, float y)
-//
-//
-//  @Override
-//  protected void textLineImpl(char buffer[], int start, int stop,
-//                              float x, float y) {
-//    Font font = (Font) textFont.getNative();
-////    if (font != null && (textFont.isStream() || hints[ENABLE_NATIVE_FONTS])) {
-//    if (font != null) {
-//      /*
-//      // save the current setting for text smoothing. note that this is
-//      // different from the smooth() function, because the font smoothing
-//      // is controlled when the font is created, not now as it's drawn.
-//      // fixed a bug in 0116 that handled this incorrectly.
-//      Object textAntialias =
-//        g2.getRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING);
-//
-//      // override the current text smoothing setting based on the font
-//      // (don't change the global smoothing settings)
-//      g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-//                          textFont.smooth ?
-//                          RenderingHints.VALUE_ANTIALIAS_ON :
-//                          RenderingHints.VALUE_ANTIALIAS_OFF);
-//      */
-//      Object antialias =
-//        g2.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
-//      if (antialias == null) {
-//        // if smooth() and noSmooth() not called, this will be null (0120)
-//        antialias = RenderingHints.VALUE_ANTIALIAS_DEFAULT;
-//      }
-//
-//      // override the current smoothing setting based on the font
-//      // also changes global setting for antialiasing, but this is because it's
-//      // not possible to enable/disable them independently in some situations.
-//      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-//                          textFont.smooth ?
-//                          RenderingHints.VALUE_ANTIALIAS_ON :
-//                          RenderingHints.VALUE_ANTIALIAS_OFF);
-//
-//      g2.setColor(fillColorObject);
-//
-//      int length = stop - start;
-//      if (length != 0) {
-//      g2.drawChars(buffer, start, length, (int) (x + 0.5f), (int) (y + 0.5f));
-//      // better to use round here? also, drawChars now just calls drawString
-////      g2.drawString(new String(buffer, start, stop - start), Math.round(x), Math.round(y));
-//
-//      // better to use drawString() with floats? (nope, draws the same)
-//      //g2.drawString(new String(buffer, start, length), x, y);
-//
-//      // this didn't seem to help the scaling issue, and creates garbage
-//      // because of a fairly heavyweight new temporary object
-////      java.awt.font.GlyphVector gv =
-////        font.createGlyphVector(g2.getFontRenderContext(), new String(buffer, start, stop - start));
-////      g2.drawGlyphVector(gv, x, y);
-//      }
-//
-//      // return to previous smoothing state if it was changed
-//      //g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, textAntialias);
-//      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, antialias);
-//
-//    } else {  // otherwise just do the default
-//      super.textLineImpl(buffer, start, stop, x, y);
-//    }
-//  }
-//
-//
-//  @Override
-//  public FontMetrics getFontMetrics(Font font) {
-//    return (g2 != null) ? g2.getFontMetrics(font) : super.getFontMetrics(font);
-//  }
+  //////////////////////////////////////////////////////////////
+
+  // TEXT ATTRIBTUES
+
+
+  protected FontCache fontCache = new FontCache();
+
+  // Is initialized when defaultFontOrDeath() is called
+  // and mirrors PGraphics.textFont field
+  protected FontInfo textFontInfo;
+
+
+  @Override
+  protected PFont createFont(String name, float size,
+                             boolean smooth, char[] charset) {
+    PFont font = super.createFont(name, size, smooth, charset);
+    if (font.isStream()) {
+      fontCache.nameToFilename.put(font.getName(), name);
+    }
+    return font;
+  }
+
+
+  @Override
+  protected void defaultFontOrDeath(String method, float size) {
+    super.defaultFontOrDeath(method, size);
+    handleTextFont(textFont, size);
+  }
+
+
+  @Override
+  protected boolean textModeCheck(int mode) {
+    return mode == MODEL;
+  }
+
+
+  @Override
+  public float textAscent() {
+    if (textFont == null) {
+      defaultFontOrDeath("textAscent");
+    }
+    if (textFontInfo.font == null) {
+      return super.textAscent();
+    }
+    return textFontInfo.ascent;
+  }
+
+
+  @Override
+  public float textDescent() {
+    if (textFont == null) {
+      defaultFontOrDeath("textDescent");
+    }
+    if (textFontInfo.font == null) {
+      return super.textDescent();
+    }
+    return textFontInfo.descent;
+  }
+
+
+  static final class FontInfo {
+    // TODO: this should be based on memory consumption
+    // this should be enough e.g. for all grays and alpha combos
+    static final int MAX_CACHED_COLORS_PER_FONT = 1 << 16;
+
+    // used only when there is native font
+    Font font;
+    float ascent;
+    float descent;
+
+    // used only when there is no native font
+    // maps 32-bit color to the arrays of tinted glyph images
+    Map<Integer, PImage[]> tintCache;
+  }
+
+
+  static final class FontCache {
+    static final int MAX_CACHE_SIZE = 512;
+
+    // keeps track of filenames of fonts loaded from ttf and otf files
+    Map<String, String> nameToFilename = new HashMap<>();
+
+    // keeps track of fonts which should be rendered as pictures
+    // so we don't go through native font search process every time
+    final HashSet<String> nonNativeNames = new HashSet<>();
+
+    // keeps all created fonts for reuse up to MAX_CACHE_SIZE limit
+    // when the limit is reached, the least recently used font is removed
+    // TODO: this should be based on memory consumtion
+    final LinkedHashMap<Key, FontInfo> cache =
+        new LinkedHashMap<Key, FontInfo>(16, 0.75f, true) {
+      @Override
+      protected boolean removeEldestEntry(Map.Entry<Key, FontInfo> eldest) {
+        return size() > MAX_CACHE_SIZE;
+      }
+    };
+
+    // key for retrieving fonts from cache; don't use for insertion,
+    // every font has to have its own new Key instance
+    final Key retrievingKey = new Key();
+
+    // text node used for measuring sizes of text
+    final Text measuringText = new Text();
+
+    FontInfo get(String name, float size) {
+      if (nonNativeNames.contains(name)) {
+        // Don't have native font, using glyph images.
+        // Size is set to zero, because all sizes of this font
+        // should share one FontInfo with one tintCache.
+        size = 0;
+      }
+      retrievingKey.name = name;
+      retrievingKey.size = size;
+      return cache.get(retrievingKey);
+    }
+
+    void put(String name, float size, FontInfo fontInfo) {
+      if (fontInfo.font == null) {
+        // Don't have native font, using glyph images.
+        // Size is set to zero, because all sizes of this font
+        // should share one FontInfo with one tintCache.
+        nonNativeNames.add(name);
+        size = 0;
+      }
+      Key key = new Key();
+      key.name = name;
+      key.size = size;
+      cache.put(key, fontInfo);
+    }
+
+    FontInfo createFontInfo(Font font) {
+      FontInfo result = new FontInfo();
+      result.font = font;
+      if (font != null) {
+        // measure ascent and descent
+        measuringText.setFont(result.font);
+        measuringText.setText(" ");
+        float lineHeight = (float) measuringText.getLayoutBounds().getHeight();
+        result.ascent = (float) measuringText.getBaselineOffset();
+        result.descent = lineHeight - result.ascent;
+      }
+      return result;
+    }
+
+    static final class Key {
+      String name;
+      float size;
+
+      @Override
+      public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Key that = (Key) o;
+        if (Float.compare(that.size, size) != 0) return false;
+        return name.equals(that.name);
+      }
+
+      @Override
+      public int hashCode() {
+        int result = name.hashCode();
+        result = 31 * result + (size != +0.0f ? Float.floatToIntBits(size) : 0);
+        return result;
+      }
+    }
+  }
+
+
+  ///////////////////////////////////////////////////////////////
+
+  // TEXT
+
+  // None of the variations of text() are overridden from PGraphics.
+
+
+
+  //////////////////////////////////////////////////////////////
+
+  // TEXT IMPL
+
+
+  @Override
+  protected void textFontImpl(PFont which, float size) {
+    handleTextFont(which, size);
+    handleTextSize(size);
+  }
+
+
+  @Override
+  protected void textSizeImpl(float size) {
+    handleTextFont(textFont, size);
+    handleTextSize(size);
+  }
+
+
+  /**
+   * FX specific. When setting font or size, new font has to
+   * be created. Both textFontImpl and textSizeImpl call this one.
+   * @param which font to be set, not null
+   * @param size size to be set, greater than zero
+   */
+  protected void handleTextFont(PFont which, float size) {
+    textFont = which;
+
+    String fontName = which.getName();
+    String fontPsName = which.getPostScriptName();
+
+    textFontInfo = fontCache.get(fontName, size);
+    if (textFontInfo == null) {
+      Font font = null;
+
+      if (which.isStream()) {
+        // Load from ttf or otf file
+        String filename = fontCache.nameToFilename.get(fontName);
+        font = Font.loadFont(parent.createInput(filename), size);
+      }
+
+      if (font == null) {
+        // Look up font name
+        font = new Font(fontName, size);
+        if (!fontName.equalsIgnoreCase(font.getName())) {
+          // Look up font postscript name
+          font = new Font(fontPsName, size);
+          if (!fontPsName.equalsIgnoreCase(font.getName())) {
+            font = null; // Done with it
+          }
+        }
+      }
+
+      if (font == null && which.getNative() != null) {
+        // Ain't got nothing, but AWT has something, so glyph images are not
+        // going to be used for this font; go with the default font then
+        font = new Font(size);
+      }
+
+      textFontInfo = fontCache.createFontInfo(font);
+      fontCache.put(fontName, size, textFontInfo);
+    }
+
+    context.setFont(textFontInfo.font);
+  }
+
+
+  @Override
+  protected void textLineImpl(char[] buffer, int start, int stop, float x, float y) {
+    if (textFontInfo.font == null) {
+      super.textLineImpl(buffer, start, stop, x, y);
+    } else {
+      context.fillText(new String(buffer, start, stop - start), x, y);
+    }
+  }
+
+
+  protected PImage getTintedGlyphImage(PFont.Glyph glyph, int tintColor) {
+    if (textFontInfo.tintCache == null) {
+      textFontInfo.tintCache = new LinkedHashMap<Integer, PImage[]>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Integer, PImage[]> eldest) {
+          return size() > FontInfo.MAX_CACHED_COLORS_PER_FONT;
+        }
+      };
+    }
+    PImage[] tintedGlyphs = textFontInfo.tintCache.get(tintColor);
+    int index = glyph.index;
+    if (tintedGlyphs == null || tintedGlyphs.length <= index) {
+      PImage[] newArray = new PImage[textFont.getGlyphCount()];
+      if (tintedGlyphs != null) {
+        System.arraycopy(tintedGlyphs, 0, newArray, 0, tintedGlyphs.length);
+      }
+      tintedGlyphs = newArray;
+      textFontInfo.tintCache.put(tintColor, tintedGlyphs);
+    }
+    PImage tintedGlyph = tintedGlyphs[index];
+    if (tintedGlyph == null) {
+      tintedGlyph = glyph.image.copy();
+      tintedGlyphs[index] = tintedGlyph;
+    }
+    return tintedGlyph;
+  }
+
+
+  @Override
+  protected void textCharImpl(char ch, float x, float y) { //, float z) {
+    PFont.Glyph glyph = textFont.getGlyph(ch);
+    if (glyph != null) {
+      if (textMode == MODEL) {
+        float high    = glyph.height     / (float) textFont.getSize();
+        float bwidth  = glyph.width      / (float) textFont.getSize();
+        float lextent = glyph.leftExtent / (float) textFont.getSize();
+        float textent = glyph.topExtent  / (float) textFont.getSize();
+
+        float x1 = x + lextent * textSize;
+        float y1 = y - textent * textSize;
+        float x2 = x1 + bwidth * textSize;
+        float y2 = y1 + high * textSize;
+
+        PImage glyphImage = (fillColor == 0xFFFFFFFF) ?
+          glyph.image : getTintedGlyphImage(glyph, fillColor);
+
+        textCharModelImpl(glyphImage,
+                          x1, y1, x2, y2,
+                          glyph.width, glyph.height);
+      }
+    } else if (ch != ' ' && ch != 127) {
+      showWarning("No glyph found for the " + ch +
+                  " (\\u" + PApplet.hex(ch, 4) + ") character");
+    }
+  }
+
+
+  @Override
+  protected float textWidthImpl(char[] buffer, int start, int stop) {
+    if (textFont == null) {
+      defaultFontOrDeath("textWidth");
+    }
+
+    if (textFontInfo.font == null) {
+      return super.textWidthImpl(buffer, start, stop);
+    }
+
+    fontCache.measuringText.setFont(textFontInfo.font);
+    fontCache.measuringText.setText(new String(buffer, start, stop - start));
+    return (float) fontCache.measuringText.getLayoutBounds().getWidth();
+  }
+
 
 
   //////////////////////////////////////////////////////////////
@@ -1404,7 +1609,7 @@ public class PGraphicsFX2D extends PGraphics {
       throw new RuntimeException("pushMatrix() cannot use push more than " +
                                  transformStack.length + " times");
     }
-    context.getTransform(transformStack[transformCount]);
+    transformStack[transformCount] = context.getTransform(transformStack[transformCount]);
     transformCount++;
   }
 
@@ -1437,7 +1642,7 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   public void rotate(float angle) {
-    context.rotate(PApplet.radians(angle));
+    context.rotate(PApplet.degrees(angle));
   }
 
 
@@ -1729,6 +1934,12 @@ public class PGraphicsFX2D extends PGraphics {
   }
 
 
+  protected boolean drawingThinLines() {
+    // align strokes to pixel centers when drawing thin lines
+    return stroke && strokeWeight == 1;
+  }
+
+
 
   //////////////////////////////////////////////////////////////
 
@@ -1806,6 +2017,12 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   public void backgroundImpl() {
+
+    // if pixels are modified, we don't flush them (just mark them flushed)
+    // because they would be immediatelly overwritten by the background anyway
+    modified = false;
+    loaded = false;
+
     // This only takes into account cases where this is the primary surface.
     // Not sure what we do with offscreen anyway.
     Paint savedFill = context.getFill();
@@ -1908,180 +2125,89 @@ public class PGraphicsFX2D extends PGraphics {
 
   @Override
   public void loadPixels() {
-//    pixelFactor = 2;
-    int wide = width * pixelDensity;
-    int high = height * pixelDensity;
-
-    if ((pixels == null) || (pixels.length != wide*high)) {
-      pixels = new int[wide * high];
+    if ((pixels == null) || (pixels.length != pixelWidth * pixelHeight)) {
+      pixels = new int[pixelWidth * pixelHeight];
+      loaded = false;
     }
 
-//    WritableRaster raster = getRaster();
-//    raster.getDataElements(0, 0, width, height, pixels);
-//    if (raster.getNumBands() == 3) {
-//      // Java won't set the high bits when RGB, returns 0 for alpha
-//      // https://github.com/processing/processing/issues/2030
-//      for (int i = 0; i < pixels.length; i++) {
-//        pixels[i] = 0xff000000 | pixels[i];
-//      }
-//    }
-    SnapshotParameters sp = new SnapshotParameters();
-    if (pixelDensity == 2) {
-      sp.setTransform(Transform.scale(2, 2));
+    if (!loaded) {
+      if (snapshotImage == null ||
+          snapshotImage.getWidth() != pixelWidth ||
+          snapshotImage.getHeight() != pixelHeight) {
+        snapshotImage = new WritableImage(pixelWidth, pixelHeight);
+      }
+
+      SnapshotParameters sp = new SnapshotParameters();
+      if (pixelDensity != 1) {
+        sp.setTransform(Transform.scale(pixelDensity, pixelDensity));
+      }
+      snapshotImage = ((PSurfaceFX) surface).canvas.snapshot(sp, snapshotImage);
+      PixelReader pr = snapshotImage.getPixelReader();
+      pr.getPixels(0, 0, pixelWidth, pixelHeight, argbFormat, pixels, 0, pixelWidth);
+
+      loaded = true;
+      modified = false;
     }
-    WritableImage wi = ((PSurfaceFX) surface).canvas.snapshot(sp, null);
-    PixelReader pr = wi.getPixelReader();
-    //pr.getPixels(0, 0, width, height, argbFormat, pixels, 0, width);
-    //pr.getPixels(0, 0, width*2, height*2, argbFormat, pixels, 0, width*2);
-    pr.getPixels(0, 0, wide, high, argbFormat, pixels, 0, wide);
   }
 
 
-//  /**
-//   * Update the pixels[] buffer to the PGraphics image.
-//   * <P>
-//   * Unlike in PImage, where updatePixels() only requests that the
-//   * update happens, in PGraphicsJava2D, this will happen immediately.
-//   */
-//  @Override
-//  public void updatePixels(int x, int y, int c, int d) {
-//    //if ((x == 0) && (y == 0) && (c == width) && (d == height)) {
-////    System.err.format("%d %d %d %d .. w/h = %d %d .. pw/ph = %d %d %n", x, y, c, d, width, height, pixelWidth, pixelHeight);
-//    if ((x != 0) || (y != 0) || (c != pixelWidth) || (d != pixelHeight)) {
-//      // Show a warning message, but continue anyway.
-//      showVariationWarning("updatePixels(x, y, w, h)");
-////      new Exception().printStackTrace(System.out);
-//    }
-////    updatePixels();
-//    if (pixels != null) {
-//      getRaster().setDataElements(0, 0, width, height, pixels);
-//    }
-//    modified = true;
-//  }
-//
-//
-////  @Override
-////  protected void updatePixelsImpl(int x, int y, int w, int h) {
-////    super.updatePixelsImpl(x, y, w, h);
-////
-////    if ((x != 0) || (y != 0) || (w != width) || (h != height)) {
-////      // Show a warning message, but continue anyway.
-////      showVariationWarning("updatePixels(x, y, w, h)");
-////    }
-////    getRaster().setDataElements(0, 0, width, height, pixels);
-////  }
-//
-//
-//
-//  //////////////////////////////////////////////////////////////
-//
-//  // GET/SET
-//
-//
-//  static int getset[] = new int[1];
-//
-//
-//  @Override
-//  public int get(int x, int y) {
-//    if ((x < 0) || (y < 0) || (x >= width) || (y >= height)) return 0;
-//    //return ((BufferedImage) image).getRGB(x, y);
-////    WritableRaster raster = ((BufferedImage) (useOffscreen && primarySurface ? offscreen : image)).getRaster();
-//    WritableRaster raster = getRaster();
-//    raster.getDataElements(x, y, getset);
-//    if (raster.getNumBands() == 3) {
-//      // https://github.com/processing/processing/issues/2030
-//      return getset[0] | 0xff000000;
-//    }
-//    return getset[0];
-//  }
-//
-//
-//  //public PImage get(int x, int y, int w, int h)
-//
-//
-//  @Override
-//  public PImage get() {
-//    return get(0, 0, width, height);
-//  }
-//
-//
-//  @Override
-//  protected void getImpl(int sourceX, int sourceY,
-//                         int sourceWidth, int sourceHeight,
-//                         PImage target, int targetX, int targetY) {
-//    // last parameter to getRGB() is the scan size of the *target* buffer
-//    //((BufferedImage) image).getRGB(x, y, w, h, output.pixels, 0, w);
-////    WritableRaster raster =
-////      ((BufferedImage) (useOffscreen && primarySurface ? offscreen : image)).getRaster();
-//    WritableRaster raster = getRaster();
-//
-//    if (sourceWidth == target.width && sourceHeight == target.height) {
-//      raster.getDataElements(sourceX, sourceY, sourceWidth, sourceHeight, target.pixels);
-//      // https://github.com/processing/processing/issues/2030
-//      if (raster.getNumBands() == 3) {
-//        target.filter(OPAQUE);
-//      }
-//
-//    } else {
-//      // TODO optimize, incredibly inefficient to reallocate this much memory
-//      int[] temp = new int[sourceWidth * sourceHeight];
-//      raster.getDataElements(sourceX, sourceY, sourceWidth, sourceHeight, temp);
-//
-//      // Copy the temporary output pixels over to the outgoing image
-//      int sourceOffset = 0;
-//      int targetOffset = targetY*target.width + targetX;
-//      for (int y = 0; y < sourceHeight; y++) {
-//        if (raster.getNumBands() == 3) {
-//          for (int i = 0; i < sourceWidth; i++) {
-//            // Need to set the high bits for this feller
-//            // https://github.com/processing/processing/issues/2030
-//            target.pixels[targetOffset + i] = 0xFF000000 | temp[sourceOffset + i];
-//          }
-//        } else {
-//          System.arraycopy(temp, sourceOffset, target.pixels, targetOffset, sourceWidth);
-//        }
-//        sourceOffset += sourceWidth;
-//        targetOffset += target.width;
-//      }
-//    }
-//  }
-//
-//
-//  @Override
-//  public void set(int x, int y, int argb) {
-//    if ((x < 0) || (y < 0) || (x >= width) || (y >= height)) return;
-////    ((BufferedImage) image).setRGB(x, y, argb);
-//    getset[0] = argb;
-////    WritableRaster raster = ((BufferedImage) (useOffscreen && primarySurface ? offscreen : image)).getRaster();
-////    WritableRaster raster = image.getRaster();
-//    getRaster().setDataElements(x, y, getset);
-//  }
-//
-//
-//  //public void set(int x, int y, PImage img)
-//
-//
-//  @Override
-//  protected void setImpl(PImage sourceImage,
-//                         int sourceX, int sourceY,
-//                         int sourceWidth, int sourceHeight,
-//                         int targetX, int targetY) {
-//    WritableRaster raster = getRaster();
-////      ((BufferedImage) (useOffscreen && primarySurface ? offscreen : image)).getRaster();
-//
-//    if ((sourceX == 0) && (sourceY == 0) &&
-//        (sourceWidth == sourceImage.width) &&
-//        (sourceHeight == sourceImage.height)) {
-//      raster.setDataElements(targetX, targetY,
-//                             sourceImage.width, sourceImage.height,
-//                             sourceImage.pixels);
-//    } else {
-//      // TODO optimize, incredibly inefficient to reallocate this much memory
-//      PImage temp = sourceImage.get(sourceX, sourceY, sourceWidth, sourceHeight);
-//      raster.setDataElements(targetX, targetY, temp.width, temp.height, temp.pixels);
-//    }
-//  }
 
+  //////////////////////////////////////////////////////////////
+
+  // GET/SET PIXELS
+
+
+  @Override
+  public int get(int x, int y) {
+    loadPixels();
+    return super.get(x, y);
+  }
+
+
+  @Override
+  protected void getImpl(int sourceX, int sourceY,
+                         int sourceWidth, int sourceHeight,
+                         PImage target, int targetX, int targetY) {
+    loadPixels();
+    super.getImpl(sourceX, sourceY, sourceWidth, sourceHeight,
+                  target, targetX, targetY);
+  }
+
+
+  @Override
+  public void set(int x, int y, int argb) {
+    loadPixels();
+    super.set(x, y, argb);
+  }
+
+
+  @Override
+  protected void setImpl(PImage sourceImage,
+                         int sourceX, int sourceY,
+                         int sourceWidth, int sourceHeight,
+                         int targetX, int targetY) {
+    sourceImage.loadPixels();
+
+    int sourceOffset = sourceX + sourceImage.pixelWidth * sourceY;
+
+    PixelWriter pw = context.getPixelWriter();
+    pw.setPixels(targetX, targetY, sourceWidth, sourceHeight,
+                 argbFormat,
+                 sourceImage.pixels,
+                 sourceOffset,
+                 sourceImage.pixelWidth);
+
+    // Let's keep them loaded
+    if (loaded) {
+      int sourceStride = sourceImage.pixelWidth;
+      int targetStride = pixelWidth;
+      int targetOffset = targetX + targetY * targetStride;
+      for (int i = 0; i < sourceHeight; i++) {
+        System.arraycopy(sourceImage.pixels, sourceOffset + i * sourceStride,
+                         pixels, targetOffset + i * targetStride, sourceWidth);
+      }
+    }
+  }
 
 
   //////////////////////////////////////////////////////////////

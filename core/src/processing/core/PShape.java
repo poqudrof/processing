@@ -29,20 +29,20 @@ import processing.core.PApplet;
 
 
 /**
-   * ( begin auto-generated from PShape.xml )
-   *
-   * Datatype for storing shapes. Processing can currently load and display
-   * SVG (Scalable Vector Graphics) shapes. Before a shape is used, it must
-   * be loaded with the <b>loadShape()</b> function. The <b>shape()</b>
-   * function is used to draw the shape to the display window. The
-   * <b>PShape</b> object contain a group of methods, linked below, that can
-   * operate on the shape data.
-   * <br /><br />
-   * The <b>loadShape()</b> function supports SVG files created with Inkscape
-   * and Adobe Illustrator. It is not a full SVG implementation, but offers
-   * some straightforward support for handling vector data.
-   *
-   * ( end auto-generated )
+ * ( begin auto-generated from PShape.xml )
+ *
+ * Datatype for storing shapes. Processing can currently load and display
+ * SVG (Scalable Vector Graphics) shapes. Before a shape is used, it must
+ * be loaded with the <b>loadShape()</b> function. The <b>shape()</b>
+ * function is used to draw the shape to the display window. The
+ * <b>PShape</b> object contain a group of methods, linked below, that can
+ * operate on the shape data.
+ * <br /><br />
+ * The <b>loadShape()</b> function supports SVG files created with Inkscape
+ * and Adobe Illustrator. It is not a full SVG implementation, but offers
+ * some straightforward support for handling vector data.
+ *
+ * ( end auto-generated )
  * <h3>Advanced</h3>
  *
  * In-progress class to handle shape data, currently to be considered of
@@ -84,12 +84,16 @@ public class PShape implements PConstants {
 //  /** Generic, only draws its child objects. */
 //  static public final int GROUP = 0;
   // GROUP now inherited from PConstants, and is still zero
+
+  // These constants were updated in 3.0b6 so that they could be distinguished
+  // from others in PConstants and improve how some typos were handled.
+  // https://github.com/processing/processing/issues/3776
   /** A line, ellipse, arc, image, etc. */
-  static public final int PRIMITIVE = 1;
+  static public final int PRIMITIVE = 101;
   /** A series of vertex, curveVertex, and bezierVertex calls. */
-  static public final int PATH = 2;
+  static public final int PATH = 102;
   /** Collections of vertices created with beginShape(). */
-  static public final int GEOMETRY = 3;
+  static public final int GEOMETRY = 103;
   /** The shape type, one of GROUP, PRIMITIVE, PATH, or GEOMETRY. */
   protected int family;
 
@@ -116,13 +120,11 @@ public class PShape implements PConstants {
     "getVertexCount() only works with PATH or GEOMETRY shapes";
 
   public static final String NOT_A_SIMPLE_VERTEX =
-      "%1$s can not be called on quadratic or bezier vertices";
+    "%1$s can not be called on quadratic or bezier vertices";
 
-  // boundary box of this shape
-  //protected float x;
-  //protected float y;
-  //protected float width;
-  //protected float height;
+  static public final String PER_VERTEX_UNSUPPORTED =
+    "This renderer does not support %1$s for individual vertices";
+
   /**
    * ( begin auto-generated from PShape_width.xml )
    *
@@ -238,6 +240,8 @@ public class PShape implements PConstants {
 
   /** True if contains 3D data */
   protected boolean is3D = false;
+
+  protected boolean perVertexStyles = false;
 
   // should this be called vertices (consistent with PGraphics internals)
   // or does that hurt flexibility?
@@ -704,8 +708,7 @@ public class PShape implements PConstants {
 
 
   public void vertex(float x, float y, float z) {
-    // why not?
-    vertex(x, y);
+    vertex(x, y);  // maybe? maybe not?
   }
 
 
@@ -1544,6 +1547,9 @@ public class PShape implements PConstants {
 
   // TODO unapproved
   static protected void copyStyles(PShape src, PShape dest) {
+    dest.ellipseMode = src.ellipseMode;
+    dest.rectMode = src.rectMode;
+
     if (src.stroke) {
       dest.stroke = true;
       dest.strokeColor = src.strokeColor;
@@ -1640,8 +1646,13 @@ public class PShape implements PConstants {
 
     } else if (kind == RECT) {
       if (image != null) {
+        int oldMode = g.imageMode;
+        g.imageMode(CORNER);
         g.image(image, params[0], params[1], params[2], params[3]);
+        g.imageMode(oldMode);
       } else {
+        int oldMode = g.rectMode;
+        g.rectMode(rectMode);
         if (params.length == 4) {
           g.rect(params[0], params[1],
                  params[2], params[3]);
@@ -1655,11 +1666,18 @@ public class PShape implements PConstants {
                  params[4], params[5],
                  params[6], params[7]);
         }
+        g.rectMode(oldMode);
       }
     } else if (kind == ELLIPSE) {
+      int oldMode = g.ellipseMode;
+      g.ellipseMode(ellipseMode);
       g.ellipse(params[0], params[1],
                 params[2], params[3]);
+      g.ellipseMode(oldMode);
+
     } else if (kind == ARC) {
+      int oldMode = g.ellipseMode;
+      g.ellipseMode(ellipseMode);
       if (params.length == 6) {
         g.arc(params[0], params[1],
               params[2], params[3],
@@ -1670,6 +1688,8 @@ public class PShape implements PConstants {
               params[4], params[5],
               (int) params[6]);
       }
+      g.ellipseMode(oldMode);
+
     } else if (kind == BOX) {
       if (params.length == 1) {
         g.box(params[0]);
@@ -2352,7 +2372,9 @@ public class PShape implements PConstants {
     }
   }
 
-
+ /**
+  * @nowebref
+  */
   public void setFill(boolean fill) {
     if (openShape) {
       PGraphics.showWarning(INSIDE_BEGIN_END_ERROR, "setFill()");
@@ -2362,7 +2384,24 @@ public class PShape implements PConstants {
     this.fill = fill;
   }
 
-
+ /**
+   * ( begin auto-generated from PShape_setFill.xml )
+   *
+   * The <b>setFill()</b> method defines the fill color of a <b>PShape</b>. 
+   * This method is used after shapes are created or when a shape is defined explicitly 
+   * (e.g. <b>createShape(RECT, 20, 20, 80, 80)</b>) as shown in the above example. 
+   * When a shape is created with <b>beginShape()</b> and <b>endShape()</b>, its 
+   * attributes may be changed with <b>fill()</b> and <b>stroke()</b> within 
+   * <b>beginShape()</b> and <b>endShape()</b>. However, after the shape is 
+   * created, only the <b>setFill()</b> method can define a new fill value for 
+   * the <b>PShape</b>. 
+   *
+   * ( end auto-generated )
+   *
+   * @webref
+   * @param fill
+   * @brief Set the fill value
+   */
   public void setFill(int fill) {
     if (openShape) {
       PGraphics.showWarning(INSIDE_BEGIN_END_ERROR, "setFill()");
@@ -2371,27 +2410,32 @@ public class PShape implements PConstants {
 
     this.fillColor = fill;
 
-    if (vertices != null) {
-      for  (int i = 0; i < vertices.length; i++) {
+    if (vertices != null && perVertexStyles) {
+      for (int i = 0; i < vertexCount; i++) {
         setFill(i, fill);
       }
     }
   }
 
-
+ /**
+  * @nowebref
+  */
   public void setFill(int index, int fill) {
     if (openShape) {
       PGraphics.showWarning(INSIDE_BEGIN_END_ERROR, "setFill()");
       return;
     }
 
-    // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
-      PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "getFill()");
+    if (!perVertexStyles) {
+      PGraphics.showWarning(PER_VERTEX_UNSUPPORTED, "setFill()");
       return;
     }
 
+    // make sure we allocated the vertices array and that vertex exists
+    if (vertices == null || index >= vertices.length) {
+      PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "getFill()");
+      return;
+    }
 
     if (image == null) {
       vertices[index][PGraphics.A] = ((fill >> 24) & 0xFF) / 255.0f;
@@ -2404,8 +2448,7 @@ public class PShape implements PConstants {
 
   public int getTint(int index) {
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "getTint()");
       return this.tintColor;
     }
@@ -2485,7 +2528,9 @@ public class PShape implements PConstants {
     return (a << 24) | (r << 16) | (g << 8) | b;
   }
 
-
+  /**
+   * @nowebref
+   */
   public void setStroke(boolean stroke) {
     if (openShape) {
       PGraphics.showWarning(INSIDE_BEGIN_END_ERROR, "setStroke()");
@@ -2495,7 +2540,24 @@ public class PShape implements PConstants {
     this.stroke = stroke;
   }
 
-
+  /**
+   * ( begin auto-generated from PShape_setStroke.xml )
+   *
+   * The <b>setStroke()</b> method defines the outline color of a <b>PShape</b>. 
+   * This method is used after shapes are created or when a shape is defined 
+   * explicitly (e.g. <b>createShape(RECT, 20, 20, 80, 80)</b>) as shown in 
+   * the above example. When a shape is created with <b>beginShape()</b> and 
+   * <b>endShape()</b>, its attributes may be changed with <b>fill()</b> and 
+   * <b>stroke()</b> within <b>beginShape()</b> and <b>endShape()</b>. 
+   * However, after the shape is created, only the <b>setStroke()</b> method 
+   * can define a new stroke value for the <b>PShape</b>. 
+   *
+   * ( end auto-generated )
+   *
+   * @webref
+   * @param stroke
+   * @brief Set the stroke value
+   */
   public void setStroke(int stroke) {
     if (openShape) {
       PGraphics.showWarning(INSIDE_BEGIN_END_ERROR, "setStroke()");
@@ -2503,23 +2565,30 @@ public class PShape implements PConstants {
     }
 
     strokeColor = stroke;
-    if (vertices != null) {
-      for  (int i = 0; i < vertices.length; i++) {
+
+    if (vertices != null && perVertexStyles) {
+      for (int i = 0; i < vertices.length; i++) {
         setStroke(i, stroke);
       }
     }
   }
 
-
+  /**
+   * @nowebref
+   */
   public void setStroke(int index, int stroke) {
     if (openShape) {
       PGraphics.showWarning(INSIDE_BEGIN_END_ERROR, "setStroke()");
       return;
     }
 
+    if (!perVertexStyles) {
+      PGraphics.showWarning(PER_VERTEX_UNSUPPORTED, "setStroke()");
+      return;
+    }
+
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "setStroke()");
       return;
     }
@@ -2533,12 +2602,10 @@ public class PShape implements PConstants {
 
   public float getStrokeWeight(int index) {
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "getStrokeWeight()");
       return strokeWeight;
     }
-
 
     return vertices[index][PGraphics.SW];
   }
@@ -2552,8 +2619,8 @@ public class PShape implements PConstants {
 
     strokeWeight = weight;
 
-    if (vertices != null) {
-      for  (int i = 0; i < vertices.length; i++) {
+    if (vertices != null && perVertexStyles) {
+      for (int i = 0; i < vertexCount; i++) {
         setStrokeWeight(i, weight);
       }
     }
@@ -2566,9 +2633,13 @@ public class PShape implements PConstants {
       return;
     }
 
+    if (!perVertexStyles) {
+      PGraphics.showWarning(PER_VERTEX_UNSUPPORTED, "setStrokeWeight()");
+      return;
+    }
+
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "setStrokeWeight()");
       return;
     }
@@ -2598,10 +2669,8 @@ public class PShape implements PConstants {
 
 
   public int getAmbient(int index) {
-
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "getAmbient()");
       return ambientColor;
     }
@@ -2636,8 +2705,7 @@ public class PShape implements PConstants {
     }
 
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "setAmbient()");
       return;
     }
@@ -2650,8 +2718,7 @@ public class PShape implements PConstants {
 
   public int getSpecular(int index) {
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "getSpecular()");
       return specularColor;
     }
@@ -2686,8 +2753,7 @@ public class PShape implements PConstants {
     }
 
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "setSpecular()");
       return;
     }
@@ -2700,8 +2766,7 @@ public class PShape implements PConstants {
 
   public int getEmissive(int index) {
     // make sure we allocated the vertices array and that vertex exists
-    if (vertices == null ||
-        index >= vertices.length) {
+    if (vertices == null || index >= vertices.length) {
       PGraphics.showWarning(NO_SUCH_VERTEX_ERROR + " (" + index + ")", "getEmissive()");
       return emissiveColor;
     }

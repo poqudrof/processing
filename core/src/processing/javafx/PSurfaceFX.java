@@ -22,25 +22,21 @@
 
 package processing.javafx;
 
-//import java.awt.event.FocusEvent;
-//import java.awt.event.FocusListener;
-//import java.awt.event.KeyListener;
-//import java.awt.event.MouseListener;
-//import java.awt.event.MouseMotionListener;
-//import java.awt.event.MouseWheelEvent;
-//import java.awt.event.MouseWheelListener;
-
 import java.util.HashMap;
 import java.util.Map;
 
-import javafx.animation.AnimationTimer;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.event.EventType;
 import javafx.scene.Scene;
+import javafx.scene.SceneAntialiasing;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -49,7 +45,7 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
-
+import javafx.util.Duration;
 import processing.core.*;
 
 
@@ -60,13 +56,44 @@ public class PSurfaceFX implements PSurface {
   Stage stage;
   Canvas canvas;
 
-  AnimationTimer timer;
-
+  final Animation animation;
+  float frameRate = 60;
 
   public PSurfaceFX(PGraphicsFX2D graphics) {
     fx = graphics;
     canvas = new ResizableCanvas();
-    fx.context = canvas.getGraphicsContext2D();
+
+    // set up main drawing loop
+    KeyFrame keyFrame = new KeyFrame(Duration.millis(1000),
+                                     new EventHandler<ActionEvent>() {
+      public void handle(ActionEvent event) {
+        long startNanoTime = System.nanoTime();
+        sketch.handleDraw();
+        long drawNanos = System.nanoTime() - startNanoTime;
+
+        if (sketch.exitCalled()) {
+          // using Platform.runLater() didn't work
+//          Platform.runLater(new Runnable() {
+//            public void run() {
+          // instead of System.exit(), safely shut down JavaFX this way
+          Platform.exit();
+//            }
+//          });
+        }
+        if (sketch.frameCount > 5) {
+          animation.setRate(-PApplet.min(1e9f / drawNanos, frameRate));
+        }
+      }
+    });
+    animation = new Timeline(keyFrame);
+    animation.setCycleCount(Animation.INDEFINITE);
+
+    // key frame has duration of 1 second, so the rate of the animation
+    // should be set to frames per second
+
+    // setting rate to negative so that event fires at the start of
+    // the key frame and first frame is drawn immediately
+    animation.setRate(-frameRate);
   }
 
 
@@ -192,6 +219,7 @@ public class PSurfaceFX implements PSurface {
 //      }
 
       Canvas canvas = surface.canvas;
+      surface.fx.context = canvas.getGraphicsContext2D();
       StackPane stackPane = new StackPane();
       stackPane.getChildren().add(canvas);
       canvas.widthProperty().bind(stackPane.widthProperty());
@@ -200,9 +228,28 @@ public class PSurfaceFX implements PSurface {
       PApplet sketch = surface.sketch;
       int width = sketch.sketchWidth();
       int height = sketch.sketchHeight();
+      int smooth = sketch.sketchSmooth();
+
+      /*
+      SceneAntialiasing sceneAntialiasing = (smooth == 0) ?
+          SceneAntialiasing.DISABLED :
+          SceneAntialiasing.BALANCED;
 
       //stage.setScene(new Scene(new Group(canvas)));
-      stage.setScene(new Scene(stackPane, width, height));
+      stage.setScene(new Scene(stackPane, width, height, false, sceneAntialiasing));
+      */
+
+      // Workaround for https://bugs.openjdk.java.net/browse/JDK-8136495
+      // Only set when we're turning it off; the default doesn't have the bug,
+      // but still seems to anti-alias properly.
+      // https://github.com/processing/processing/issues/3795
+      if (smooth == 0) {
+        stage.setScene(new Scene(stackPane, width, height, false, SceneAntialiasing.DISABLED));
+      } else {
+        // ...or maybe not, these seem to go to the same code path
+        stage.setScene(new Scene(stackPane, width, height, false));
+      }
+
       //stage.show();  // move to setVisible(true)?
 
       // initFrame in different thread is waiting for
@@ -267,6 +314,12 @@ public class PSurfaceFX implements PSurface {
 
   public void setIcon(PImage icon) {
     // TODO implement this in JavaFX
+  }
+
+
+  @Override
+  public void setAlwaysOnTop(boolean always) {
+    stage.setAlwaysOnTop(always);
   }
 
 
@@ -437,8 +490,12 @@ public class PSurfaceFX implements PSurface {
 
 
   public void setFrameRate(float fps) {
-    // TODO Auto-generated method stub
-
+    // setting rate to negative so that event fires at the start of
+    // the key frame and first frame is drawn immediately
+    if (fps > 0) {
+      frameRate = fps;
+      animation.setRate(-frameRate);
+    }
   }
 
 
@@ -473,44 +530,28 @@ public class PSurfaceFX implements PSurface {
 
 
   public void startThread() {
-    if (timer == null) {
-      timer = new AnimationTimer() {
-
-        @Override
-        public void handle(long now) {
-          //System.out.println("handle(" + now + ") calling handleDraw()");
-          sketch.handleDraw();
-
-          if (sketch.exitCalled()) {
-            //sketch.exitActual();  // just calls System.exit()
-            Platform.exit();  // version for safe JavaFX shutdown
-          }
-        }
-      };
-      timer.start();
-    }
+    animation.play();
   }
 
 
   public void pauseThread() {
-    // TODO Auto-generated method stub
+    animation.pause();
   }
 
 
   public void resumeThread() {
-    // TODO Auto-generated method stub
+    animation.play();
   }
 
 
   public boolean stopThread() {
-    // TODO Auto-generated method stub
-    return false;
+    animation.stop();
+    return true;
   }
 
 
   public boolean isStopped() {
-    // TODO Auto-generated method stub
-    return false;
+    return animation.getStatus() == Animation.Status.STOPPED;
   }
 
 
@@ -679,7 +720,6 @@ public class PSurfaceFX implements PSurface {
   }
 
 
-  @SuppressWarnings("deprecation")
   protected void fxKeyEvent(javafx.scene.input.KeyEvent fxEvent) {
     int action = 0;
     EventType<? extends KeyEvent> et = fxEvent.getEventType();
@@ -706,12 +746,132 @@ public class PSurfaceFX implements PSurface {
     }
 
     long when = System.currentTimeMillis();
-    KeyCode kc = fxEvent.getCode();
-    // Are they f*ing serious?
-    char key = kc.impl_getChar().charAt(0);
-    int keyCode = kc.impl_getCode();
+
+    char keyChar = getKeyChar(fxEvent);
+    int keyCode = getKeyCode(fxEvent);
     sketch.postEvent(new processing.event.KeyEvent(fxEvent, when,
                                                    action, modifiers,
-                                                   key, keyCode));
+                                                   keyChar, keyCode));
+  }
+
+
+  @SuppressWarnings("deprecation")
+  private int getKeyCode(KeyEvent fxEvent) {
+    if (fxEvent.getEventType() == KeyEvent.KEY_TYPED) {
+      return 0;
+    }
+
+    KeyCode kc = fxEvent.getCode();
+    switch (kc) {
+      case ALT_GRAPH:
+        return PConstants.ALT;
+      default:
+        break;
+    }
+    return kc.impl_getCode();
+  }
+
+
+  @SuppressWarnings("deprecation")
+  private char getKeyChar(KeyEvent fxEvent) {
+    KeyCode kc = fxEvent.getCode();
+
+    // Overriding chars for some
+    // KEY_PRESSED and KEY_RELEASED events
+    switch (kc) {
+      case UP:
+      case KP_UP:
+      case DOWN:
+      case KP_DOWN:
+      case LEFT:
+      case KP_LEFT:
+      case RIGHT:
+      case KP_RIGHT:
+      case ALT:
+      case ALT_GRAPH:
+      case CONTROL:
+      case SHIFT:
+      case CAPS:
+      case META:
+      case WINDOWS:
+      case CONTEXT_MENU:
+      case HOME:
+      case PAGE_UP:
+      case PAGE_DOWN:
+      case END:
+      case PAUSE:
+      case PRINTSCREEN:
+      case INSERT:
+      case NUM_LOCK:
+      case SCROLL_LOCK:
+      case F1:
+      case F2:
+      case F3:
+      case F4:
+      case F5:
+      case F6:
+      case F7:
+      case F8:
+      case F9:
+      case F10:
+      case F11:
+      case F12:
+        return PConstants.CODED;
+      case ENTER:
+        return '\n';
+      case DIVIDE:
+        return '/';
+      case MULTIPLY:
+        return '*';
+      case SUBTRACT:
+        return '-';
+      case ADD:
+        return '+';
+      case NUMPAD0:
+        return '0';
+      case NUMPAD1:
+        return '1';
+      case NUMPAD2:
+        return '2';
+      case NUMPAD3:
+        return '3';
+      case NUMPAD4:
+        return '4';
+      case NUMPAD5:
+        return '5';
+      case NUMPAD6:
+        return '6';
+      case NUMPAD7:
+        return '7';
+      case NUMPAD8:
+        return '8';
+      case NUMPAD9:
+        return '9';
+      case DECIMAL:
+        // KEY_TYPED does not go through here and will produce
+        // dot or comma based on the keyboard layout.
+        // For KEY_PRESSED and KEY_RELEASED, let's just go with
+        // the dot. Users can detect the key by its keyCode.
+        return '.';
+      case UNDEFINED:
+        // KEY_TYPED has KeyCode: UNDEFINED
+        // and falls through here
+        break;
+      default:
+        break;
+    }
+
+    // Just go with what FX gives us for the rest of
+    // KEY_PRESSED and KEY_RELEASED and all of KEY_TYPED
+    String ch;
+    if (fxEvent.getEventType() == KeyEvent.KEY_TYPED) {
+      ch = fxEvent.getCharacter();
+    } else {
+      ch = kc.impl_getChar();
+    }
+
+    if (ch.length() < 1) return PConstants.CODED;
+    if (ch.startsWith("\r")) return '\n'; // normalize enter key
+    return ch.charAt(0);
   }
 }

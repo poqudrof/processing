@@ -36,9 +36,7 @@ import processing.app.SketchCode;
 import processing.app.SketchException;
 import processing.app.Util;
 import processing.app.contrib.ContributionManager;
-import processing.app.contrib.ToolContribution;
 import processing.app.syntax.*;
-import processing.app.tools.*;
 import processing.core.*;
 
 import java.awt.BorderLayout;
@@ -53,10 +51,7 @@ import java.awt.event.*;
 import java.awt.print.*;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Stack;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -110,7 +105,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
   protected JSplitPane splitPane;
   protected EditorFooter footer;
   protected EditorConsole console;
-//  protected EditorLineStatus lineStatus;
+  protected ErrorTable errorTable;
 
   // currently opened program
   protected Sketch sketch;
@@ -145,15 +140,11 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
   private FindReplace find;
   JMenu toolsMenu;
-  JMenu modeMenu;
-
-  List<ToolContribution> coreTools;
-  List<ToolContribution> contribTools;
+  JMenu modePopup;
 
   Image backgroundGradient;
 
 
-//  protected Editor(final Base base, String path, int[] location, final Mode mode) {
   protected Editor(final Base base, String path, final EditorState state,
                    final Mode mode) throws EditorException {
     super("Processing", state.checkConfig());
@@ -161,10 +152,11 @@ public abstract class Editor extends JFrame implements RunnerListener {
     this.state = state;
     this.mode = mode;
 
-    Toolkit.setIcon(this);  // TODO should this be per-mode?
+    // Make sure Base.getActiveEditor() never returns null
+    base.checkFirstEditor(this);
 
-    // Install default actions for Run, Present, etc.
-//    resetHandlers();
+    // This is a Processing window. Get rid of that ugly ass coffee cup.
+    Toolkit.setIcon(this);
 
     // add listener to handle window close box hit event
     addWindowListener(new WindowAdapter() {
@@ -253,7 +245,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
 //    upper.setOpaque(false);
 //    box.setOpaque(false);
 
-    initModeMenu();
+    rebuildModePopup();
     toolbar = createToolbar();
     upper.add(toolbar);
 
@@ -267,10 +259,6 @@ public abstract class Editor extends JFrame implements RunnerListener {
     footer = createFooter();
 
     upper.add(textarea);
-
-    // alternate spot for status, but ugly
-//    status = new EditorStatus(this);
-//    upper.add(status);
 
     splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, upper, footer);
 
@@ -286,7 +274,6 @@ public abstract class Editor extends JFrame implements RunnerListener {
     // remove an ugly border around anything in a SplitPane !$*&!%
     UIManager.getDefaults().put("SplitPane.border", BorderFactory.createEmptyBorder());
     // set the height per our gui design
-    //splitPane.setDividerSize(mode.getInteger("divider.height"));
     splitPane.setDividerSize(EditorStatus.HIGH);
 
     // override the look of the SplitPane so that it's identical across OSes
@@ -294,39 +281,12 @@ public abstract class Editor extends JFrame implements RunnerListener {
       public BasicSplitPaneDivider createDefaultDivider() {
         status = new EditorStatus(this, Editor.this);
         return status;
-        /*
-        return new BasicSplitPaneDivider(this) {
-          final Color dividerColor = mode.getColor("divider.color"); //new Color(204, 204, 204);
-          final Color dotColor = mode.getColor("divider.dot.color"); //new Color(80, 80, 80);
-          int dotSize = mode.getInteger("divider.dot.diameter"); //3;
-
-          @Override
-          public void paint(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                                RenderingHints.VALUE_ANTIALIAS_ON);
-
-            final int w = getSize().width;
-            final int h = getSize().height;
-            g.setColor(dividerColor);
-            g.fillRect(0, 0, w, h);
-
-            g.setColor(dotColor);
-            int x = w/2 - dotSize/2;
-            int y = h/2 - dotSize/2;
-            g.fillOval(x, y, dotSize, dotSize);
-          }
-        };
-        */
       }
     });
 
     box.add(splitPane);
 
     contentPain.add(box);
-
-    // get shift down/up events so we can show the alt version of toolbar buttons
-    //textarea.addKeyListener(toolbar);
 
     // end an undo-chunk any time the caret moves unless it's when text is edited
     textarea.addCaretListener(new CaretListener() {
@@ -349,8 +309,9 @@ public abstract class Editor extends JFrame implements RunnerListener {
     state.apply(this);
 
     // Set the minimum size for the editor window
-    setMinimumSize(new Dimension(Preferences.getInteger("editor.window.width.min"),
-                                 Preferences.getInteger("editor.window.height.min")));
+    int minWidth = Preferences.getInteger("editor.window.width.min");
+    int minHeight = Preferences.getInteger("editor.window.height.min");
+    setMinimumSize(new Dimension(minWidth, minHeight));
 
     // Bring back the general options for the editor
     applyPreferences();
@@ -363,10 +324,6 @@ public abstract class Editor extends JFrame implements RunnerListener {
       public void windowGainedFocus(WindowEvent e) {
         textarea.requestFocusInWindow();
       }
-
-//      public void windowLostFocus(WindowEvent e) {
-//        System.out.println("lost focus, should we tell the text area?");
-//      }
     });
 
     // Open the document that was passed in
@@ -377,6 +334,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
   }
 
 
+  /*
   protected List<ToolContribution> getCoreTools() {
     return coreTools;
   }
@@ -390,45 +348,12 @@ public abstract class Editor extends JFrame implements RunnerListener {
   public void removeToolContrib(ToolContribution tc) {
     contribTools.remove(tc);
   }
+  */
 
 
-  /**
-   * Broken out to get modes working for GSOC, but this needs a longer-term
-   * solution where the listeners are handled properly.
-   */
   protected JEditTextArea createTextArea() {
     return new JEditTextArea(new PdeTextAreaDefaults(mode),
                              new PdeInputHandler());
-    /*
-    return new JEditTextArea(new PdeTextAreaDefaults(mode), new PdeInputHandler()) {
-      // this is a kludge that needs to be removed [fry 150120]
-      public void processKeyEvent(KeyEvent evt) {
-        // this had to be added in Processing 007X, because the menu key
-        // events weren't making it up to the frame.
-        super.processKeyEvent(evt);
-
-        if (inputHandler != null) {
-          // Prevent sketch being marked modified cia ctrl-, on Windows/Linux
-          if ((evt.getModifiers() & InputEvent.CTRL_MASK) != 0 &&
-              evt.getKeyChar() == ',') {
-            System.out.println("skipping " + evt);
-            return;
-          }
-          switch (evt.getID()) {
-          case KeyEvent.KEY_TYPED:
-            inputHandler.keyTyped(evt);
-            break;
-          case KeyEvent.KEY_PRESSED:
-            inputHandler.keyPressed(evt);
-            break;
-          case KeyEvent.KEY_RELEASED:
-            inputHandler.keyReleased(evt);
-            break;
-          }
-        }
-      }
-    };
-    */
   }
 
 
@@ -437,40 +362,21 @@ public abstract class Editor extends JFrame implements RunnerListener {
     console = new EditorConsole(this);
     ef.addPanel(console, Language.text("editor.footer.console"), "/lib/footer/console");
     return ef;
+  }
 
-    /*
-    // assemble console panel, consisting of status area and the console itself
-    JPanel panel = new JPanel();
-    panel.setLayout(new BorderLayout());
 
-//    status = new EditorStatus(this);
-//    consolePanel.add(status, BorderLayout.NORTH);
-
-    console = new EditorConsole(this);
-    // windows puts an ugly border on this guy
-    console.setBorder(null);
-    panel.add(console, BorderLayout.CENTER);
-
-//    lineStatus = new EditorLineStatus(this);
-//    consolePanel.add(lineStatus, BorderLayout.SOUTH);
-    return panel;
-    */
+  public void addErrorTable(EditorFooter ef) {
+    JScrollPane scrollPane = new JScrollPane();
+    errorTable = new ErrorTable(this);
+    scrollPane.setBorder(BorderFactory.createEmptyBorder());
+    scrollPane.setViewportView(errorTable);
+    ef.addPanel(scrollPane, Language.text("editor.footer.errors"), "/lib/footer/error");
   }
 
 
   public EditorState getEditorState() {
     return state;
   }
-
-
-//  public void removeRecent() {
-//    Recent.remove(this);
-//  }
-//
-//
-//  public void addRecent() {
-//    Recent.handle(this);
-//  }
 
 
   /**
@@ -555,8 +461,8 @@ public abstract class Editor extends JFrame implements RunnerListener {
   }
 
 
-  protected void initModeMenu() {
-    modeMenu = new JMenu();
+  public void rebuildModePopup() {
+    modePopup = new JMenu();
     ButtonGroup modeGroup = new ButtonGroup();
     for (final Mode m : base.getModeList()) {
       JRadioButtonMenuItem item = new JRadioButtonMenuItem(m.getTitle());
@@ -571,7 +477,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
             // Re-select the old checkbox, because it was automatically
             // updated by Java, even though the Mode could not be changed.
             // https://github.com/processing/processing/issues/2615
-            for (Component c : modeMenu.getPopupMenu().getComponents()) {
+            for (Component c : getModePopup().getComponents()) {
               if (c instanceof JRadioButtonMenuItem) {
                 if (((JRadioButtonMenuItem)c).getText() == mode.getTitle()) {
                   ((JRadioButtonMenuItem)c).setSelected(true);
@@ -582,34 +488,34 @@ public abstract class Editor extends JFrame implements RunnerListener {
           }
         }
       });
-      modeMenu.add(item);
+      modePopup.add(item);
       modeGroup.add(item);
       if (mode == m) {
         item.setSelected(true);
       }
     }
 
-    modeMenu.addSeparator();
+    modePopup.addSeparator();
     JMenuItem addLib = new JMenuItem(Language.text("toolbar.add_mode"));
     addLib.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         ContributionManager.openModeManager(Editor.this);
       }
     });
-    modeMenu.add(addLib);
+    modePopup.add(addLib);
 
-    Toolkit.setMenuMnemsInside(modeMenu);
+    Toolkit.setMenuMnemsInside(modePopup);
   }
 
 
-  public void rebuildModeMenu() {
-    initModeMenu();
+  public JPopupMenu getModePopup() {
+    return modePopup.getPopupMenu();
   }
 
 
-  public JMenu getModeMenu() {
-    return modeMenu;
-  }
+//  public JMenu getModeMenu() {
+//    return modePopup;
+//  }
 
 
   public EditorConsole getConsole() {
@@ -745,8 +651,9 @@ public abstract class Editor extends JFrame implements RunnerListener {
       menubar.add(modeMenu);
     }
 
-    rebuildToolMenu();
-    menubar.add(getToolMenu());
+    toolsMenu = new JMenu(Language.text("menu.tools"));
+    base.populateToolsMenu(toolsMenu);
+    menubar.add(toolsMenu);
 
     menubar.add(buildHelpMenu());
     Toolkit.setMenuMnemonics(menubar);
@@ -1149,6 +1056,15 @@ public abstract class Editor extends JFrame implements RunnerListener {
   abstract public void handleImportLibrary(String name);
 
 
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
+  public JMenu getToolMenu() {
+    return toolsMenu;
+  }
+
+
+  /*
   public JMenu getToolMenu() {
     if (toolsMenu == null) {
       rebuildToolMenu();
@@ -1156,165 +1072,19 @@ public abstract class Editor extends JFrame implements RunnerListener {
     return toolsMenu;
   }
 
-
-//  protected void rebuildToolList() {
-//    coreTools = ToolContribution.list(Base.getToolsFolder(), true);
-//    contribTools = ToolContribution.list(Base.getSketchbookToolsFolder(), true);
-//  }
-
-
-  public void rebuildToolMenu() {
-    if (toolsMenu == null) {
-      toolsMenu = new JMenu(Language.text("menu.tools"));
-    } else {
-      toolsMenu.removeAll();
-    }
-
-//    rebuildToolList();
-    coreTools = ToolContribution.loadAll(Base.getToolsFolder());
-    contribTools = ToolContribution.loadAll(Base.getSketchbookToolsFolder());
-
-    addInternalTools(toolsMenu);
-    addTools(toolsMenu, coreTools);
-    addTools(toolsMenu, contribTools);
-
-    toolsMenu.addSeparator();
-    JMenuItem item = new JMenuItem(Language.text("menu.tools.add_tool"));
-    item.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) {
-        ContributionManager.openToolManager(Editor.this);
-      }
-    });
-    toolsMenu.add(item);
-  }
-
-
-  public void clearToolMenu() {
-    toolsMenu.removeAll();
-    System.gc();
-  }
-
-
   public void removeTool() {
     rebuildToolMenu();
   }
+  */
 
 
-//  /**
-//   * Attempt to init or run a Tool from the safety of a try/catch block that
-//   * will report errors to the user.
-//   * @param tool The Tool object to be inited or run
-//   * @param item null to call init(), or the existing JMenuItem for run()
-//   * @return
-//   */
-//  protected boolean safeTool(Tool tool, JMenuItem item) {
-//    try {
-//      if (item == null) {
-//        tool.init(Editor.this);
-//      } else {
-//        tool.run();
-//      }
-//      return true;
-//
-//    } catch (NoSuchMethodError nsme) {
-//      System.out.println("tool is " + tool + " ");
-//      statusError("\"" + tool.getMenuTitle() + "\" " +
-//                  "is not compatible with this version of Processing");
-//      nsme.printStackTrace();
-//
-//    } catch (Exception ex) {
-//      statusError("An error occurred inside \"" + tool.getMenuTitle() + "\"");
-//      ex.printStackTrace();
-//    }
-//    if (item != null) {
-//      item.setEnabled(false);  // don't you try that again
-//    }
-//    return false;
-//  }
-
-
-  void addToolItem(final Tool tool, Map<String, JMenuItem> toolItems) {
-    String title = tool.getMenuTitle();
-    final JMenuItem item = new JMenuItem(title);
-    item.addActionListener(new ActionListener() {
-
-      public void actionPerformed(ActionEvent e) {
-        try {
-          tool.run();
-
-        } catch (NoSuchMethodError nsme) {
-          statusError("\"" + tool.getMenuTitle() + "\" is not" +
-                      "compatible with this version of Processing");
-          //nsme.printStackTrace();
-          Messages.loge("Incompatible tool found during tool.run()", nsme);
-          item.setEnabled(false);
-
-        } catch (Exception ex) {
-          statusError("An error occurred inside \"" + tool.getMenuTitle() + "\"");
-          ex.printStackTrace();
-          item.setEnabled(false);
-        }
-      }
-    });
-    //menu.add(item);
-    toolItems.put(title, item);
-  }
-
-
-  protected void addTools(JMenu menu, List<ToolContribution> tools) {
-    Map<String, JMenuItem> toolItems = new HashMap<String, JMenuItem>();
-
-    for (final ToolContribution tool : tools) {
-      try {
-        tool.init(Editor.this);
-        // If init() fails, the item won't be added to the menu
-        addToolItem(tool, toolItems);
-
-        // With the exceptions, we can't call statusError because the window
-        // isn't completely set up yet. Also not gonna pop up a warning because
-        // people may still be running different versions of Processing.
-        // TODO Once the dust settles on 2.x, change this to Base.showError()
-        // and open the Tools folder instead of showing System.err.println().
-
-      } catch (VerifyError ve) {
-        System.err.println("\"" + tool.getMenuTitle() + "\" is not " +
-                           "compatible with this version of Processing");
-
-      } catch (NoSuchMethodError nsme) {
-        System.err.println("\"" + tool.getMenuTitle() + "\" is not " +
-                           "compatible with this version of Processing");
-        System.err.println("The " + nsme.getMessage() + " method no longer exists.");
-        Messages.loge("Incompatible Tool found during tool.init()", nsme);
-
-      } catch (NoClassDefFoundError ncdfe) {
-        System.err.println("\"" + tool.getMenuTitle() + "\" is not " +
-                           "compatible with this version of Processing");
-        System.err.println("The " + ncdfe.getMessage() + " class is no longer available.");
-        Messages.loge("Incompatible Tool found during tool.init()", ncdfe);
-
-      } catch (AbstractMethodError ame) {
-        System.err.println("\"" + tool.getMenuTitle() + "\" is not " +
-                           "compatible with this version of Processing");
-//        ame.printStackTrace();
-
-      } catch (Error err) {
-        System.err.println("An error occurred inside \"" + tool.getMenuTitle() + "\"");
-        err.printStackTrace();
-
-      } catch (Exception ex) {
-        System.err.println("An exception occurred inside \"" + tool.getMenuTitle() + "\"");
-        ex.printStackTrace();
-      }
-    }
-
-    ArrayList<String> toolList = new ArrayList<String>(toolItems.keySet());
-    if (toolList.size() > 0) {
-      menu.addSeparator();
-      Collections.sort(toolList);
-      for (String title : toolList) {
-        menu.add(toolItems.get(title));
-      }
-    }
+  /**
+   * Clears the Tool menu and runs the gc so that contributions can be updated
+   * without classes still being in use.
+   */
+  public void clearToolMenu() {
+    toolsMenu.removeAll();
+    System.gc();
   }
 
 
@@ -1326,6 +1096,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
   }
 
 
+  /*
   protected void addToolMenuItem(JMenu menu, String className) {
     try {
       Class<?> toolClass = Class.forName(className);
@@ -1341,22 +1112,14 @@ public abstract class Editor extends JFrame implements RunnerListener {
         }
       });
       menu.add(item);
-//      return item;
 
     } catch (Exception e) {
       e.printStackTrace();
-//      return null;
     }
   }
 
 
   protected JMenu addInternalTools(JMenu menu) {
-//    JMenuItem item;
-//    item = createToolMenuItem("processing.app.tools.AutoFormatTool");
-//    int modifiers = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
-//    item.setAccelerator(KeyStroke.getKeyStroke('T', modifiers));
-//    menu.add(item);
-
     addToolMenuItem(menu, "processing.app.tools.CreateFont");
     addToolMenuItem(menu, "processing.app.tools.ColorSelector");
     addToolMenuItem(menu, "processing.app.tools.Archiver");
@@ -1365,27 +1128,9 @@ public abstract class Editor extends JFrame implements RunnerListener {
       addToolMenuItem(menu, "processing.app.tools.InstallCommander");
     }
 
-    // I think this is no longer needed... It was Mac OS X specific,
-    // and they gave up on MacRoman a long time ago.
-//    addToolMenuItem(menu, "processing.app.tools.FixEncoding");
-
-    // currently commented out
-//    if (Base.DEBUG) {
-//      addToolMenuItem(menu, "processing.app.tools.ExportExamples");
-//    }
-
-//    // These are temporary entries while Android mode is being worked out.
-//    // The mode will not be in the tools menu, and won't involve a cmd-key
-//    if (!Base.RELEASE) {
-//      item = createToolMenuItem("processing.app.tools.android.AndroidTool");
-//      item.setAccelerator(KeyStroke.getKeyStroke('D', modifiers));
-//      menu.add(item);
-//      menu.add(createToolMenuItem("processing.app.tools.android.Permissions"));
-//      menu.add(createToolMenuItem("processing.app.tools.android.Reset"));
-//    }
-
     return menu;
   }
+  */
 
 
   /*
@@ -1769,7 +1514,9 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
 
   /**
-   * Replace the entire contents of the front-most tab.
+   * Replace the entire contents of the front-most tab. Note that this does
+   * a compound edit, so internal callers may want to use textarea.setText()
+   * if this is part of a larger compound edit.
    */
   public void setText(String what) {
     startCompoundEdit();
@@ -1785,24 +1532,6 @@ public abstract class Editor extends JFrame implements RunnerListener {
     textarea.setSelectedText(what);
     stopCompoundEdit();
   }
-
-
-  /**
-   * Called to update the text but not switch to a different set of code
-   * (which would affect the undo manager).
-   */
-//  public void setText2(String what, int start, int stop) {
-//    beginCompoundEdit();
-//    textarea.setText(what);
-//    endCompoundEdit();
-//
-//    // make sure that a tool isn't asking for a bad location
-//    start = Math.max(0, Math.min(start, textarea.getDocumentLength()));
-//    stop = Math.max(0, Math.min(start, textarea.getDocumentLength()));
-//    textarea.select(start, stop);
-//
-//    textarea.requestFocus();  // get the caret blinking
-//  }
 
 
   public String getSelectedText() {
@@ -1903,11 +1632,21 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
 
   /**
-   * Use before a manipulating text to group editing operations together as a
-   * single undo. Use stopCompoundEdit() once finished.
+   * Use before a manipulating text to group editing operations together
+   * as a single undo. Use stopCompoundEdit() once finished.
    */
   public void startCompoundEdit() {
-    stopCompoundEdit();
+    // Call endTextEditHistory() before starting a new CompoundEdit,
+    // because there's a timer that's possibly set off for 3 seconds after
+    // which endTextEditHistory() is called, which means that things get
+    // messed up. Hence, manually call this method so that auto-format gets
+    // undone in one fell swoop if the user calls auto-formats within 3
+    // seconds of typing in the last character. Then start a new compound
+    // edit so that the auto-format can be undone in one go.
+    // https://github.com/processing/processing/issues/3003
+    endTextEditHistory();  // also calls stopCompoundEdit()
+
+    //stopCompoundEdit();
     compoundEdit = new CompoundEdit();
     caretUndoStack.push(textarea.getCaretPosition());
     caretRedoStack.clear();
@@ -2026,6 +1765,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
     return endUndoEvent != null;
   }
 
+
   void startTimerEvent() {
     endUndoEvent = new TimerTask() {
       public void run() {
@@ -2037,6 +1777,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
     timer.purge();
   }
 
+
   void endTextEditHistory() {
     if (endUndoEvent != null) {
       endUndoEvent.cancel();
@@ -2044,6 +1785,13 @@ public abstract class Editor extends JFrame implements RunnerListener {
     }
     stopCompoundEdit();
   }
+
+
+  public void removeNotify() {
+    timer.cancel();
+    super.removeNotify();
+  }
+
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -2198,11 +1946,12 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
       if (formattedText.equals(source)) {
         statusNotice(Language.text("editor.status.autoformat.no_changes"));
-      } else {
-        // replace with new bootiful text
+
+      } else {  // replace with new bootiful text
+        startCompoundEdit();
         // selectionEnd hopefully at least in the neighborhood
         int scrollPos = textarea.getVerticalScrollPosition();
-        setText(formattedText);
+        textarea.setText(formattedText);
         setSelection(selectionEnd, selectionEnd);
 
         // Put the scrollbar position back, otherwise it jumps on each format.
@@ -2210,17 +1959,10 @@ public abstract class Editor extends JFrame implements RunnerListener {
         // a more complicated workaround here is fairly pointless.
         // http://code.google.com/p/processing/issues/detail?id=1533
         if (scrollPos != textarea.getVerticalScrollPosition()) {
-//          boolean wouldBeVisible =
-//            scrollPos >= textarea.getFirstLine() &&
-//            scrollPos < textarea.getLastLine();
-//
-//          // if it was visible, and now it's not, then allow the scroll
-//          if (!(wasVisible && !wouldBeVisible)) {
           textarea.setVerticalScrollPosition(scrollPos);
-//          }
         }
-        getSketch().setModified(true);
-        // mark as finished
+        stopCompoundEdit();
+        sketch.setModified(true);
         statusNotice(Language.text("editor.status.autoformat.finished"));
       }
 
@@ -2885,6 +2627,25 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
 
   abstract public void deactivateRun();
+
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
+  public ErrorTable getErrorTable() {
+    return errorTable;
+  }
+
+
+  /**
+   * Called by ErrorTable when a row is selected. Action taken is specific
+   * to each Mode, based on the object passed in.
+   */
+  public void errorTableClick(Object item) { }
+
+
+  public void errorTableDoubleClick(Object item) { }
+
 
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

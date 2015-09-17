@@ -1,37 +1,16 @@
-0243 core (3.0b5)
-X NullPointerException in selectFolder() on OS X
-X   https://github.com/processing/processing/issues/3661
-
-cleaning
-X How do images behave when pixelDensity(2) is set?
-X   https://github.com/processing/processing/issues/3364
-X retina sketches slow to start
-X   https://github.com/processing/processing/issues/2357
-X zero alpha values still a problem with retina renderer
-X   https://github.com/processing/processing/issues/2030
-
-jakub
-X keyTyped() not firing with P2D and P3D
-X   https://github.com/processing/processing/issues/3582
-X   https://github.com/processing/processing/pull/3652
-X rect() sizing in JavaFX
-X   https://github.com/processing/processing/pull/3656
-X FX - Proper sketch sizing
-X   https://github.com/processing/processing/pull/3658
+0245 core (3.0b7)
+X FX2D display is inverted in 3.0b6
+X   https://github.com/processing/processing/issues/3795
 
 
-known issues
-_ P2D and P3D windows behave strangely when larger than the screen size
-_   https://github.com/processing/processing/issues/3401
-
-
-docs
-_ note that full screen and present are now different
-_   on Export to Application, this has an impact
-_ update wiki/docs to say "don't override sketchXxxx() methods"
+andres
+X surface.setLocation() causing a freeze on Windows
+X   https://github.com/processing/processing/commit/4c0f9234c0a48f62363233cafc9c9951ee351d3e
 
 
 3.0 final
+_ P2D and P3D windows behave strangely when larger than the screen size
+_   https://github.com/processing/processing/issues/3401
 _ move blending calculations from PImage into PGraphics
 _   tricky because that means moving blend_resize() as well
 _   and should that live in PGraphics or be its own class or ??
@@ -46,17 +25,22 @@ _   use the BufferStrategy directly from the Frame object?
 _     might fix performance issues w/ Presentation mode
 _ sketch placement (window insets) not properly set on Linux
 _   https://github.com/processing/processing/issues/2063
-
+_ note in docs that full screen and present are now different
+_   on Export to Application, this has an impact
+_ update wiki/docs to say "don't override sketchXxxx() methods"
+_ SVG only exports last frame
+_   possibly because Java2D is disposing the Graphics2D in between?
+_   https://github.com/processing/processing/issues/3753
+_ selectInput/Output() is behind the drawing window (Windows)
+_   https://github.com/processing/processing/issues/3775
 
 javafx
+_ do we really need setTextFont/Size when we already have Impl? 
+_ need keyPressed() to do lower and upper case
 _ static mode sketches (draw once and halt w/o closing window)
 _ fix display handling, line up the device order with AWT
 _   https://docs.oracle.com/javafx/2/api/javafx/stage/Screen.html
 _ noLoop()
-_ keyChar and keyCode are super wonky and unlike AWT
-_   https://github.com/processing/processing/issues/3290
-_   what's the way to do this after the deprecation?
-_   if this is going to be the default renderer, has to be ironed out
 _ displayWidth, displayHeight, full screen, display number
 _ present mode not working at all
 _   stage in the center, clear the rest of the screen
@@ -72,9 +56,8 @@ _ get() and set()
 _ clip/noClip
 _   https://github.com/processing/processing/issues/3274
 _ getNative() in PImage problematic because it gives back a BufferedImage
-_   move loadImage() into PGraphics, with AWT version the default?
+_   move loadImage() into PGraphics, with AWT version the default
 _   or pass createImage() through to renderer?
-_ implement frameRate()
 _ implement external messages (moving the window)
 _ implement PSurfaceFX.setIcon()
 _ javafx not supported with ARM (so we're screwed on raspberry pi)
@@ -117,10 +100,6 @@ _   https://bugs.openjdk.java.net/browse/JDK-8027391
 _   test with JG's 13" retina laptop
 _ Ubuntu Unity prevents full screen from working properly
 _   https://github.com/processing/processing/issues/3158
-_ fullScreen(SPAN) reported not working (cannot reproduce)
-X   probably need to re-query for displays each time opening prefs
-X   what happens when a screen is added after p5 has started?
-_   https://github.com/processing/processing/issues/3381
 
 
 graphics
@@ -425,10 +404,6 @@ CORE / PImage
 _ TGA files writing strangely
 _   https://github.com/processing/processing/issues/2096
 
-_ don't grab pixels of java2d images unless asked
-_   this is the difference between a lot of loadPixels() and not
-_   so important to have it in before beta if that's the change
-_   https://github.com/processing/processing/issues/99
 _ loadPixels() implementation needs to be in PApplet, not PGraphics
 _ this is a tricky thing to implement because of how OpenGL is handled
 
@@ -554,8 +529,6 @@ _   -Xdock:icon=<path to icon file>
 
 CORE / Events
 
-_ Implement a way to disable automatic key repeat
-_   https://github.com/processing/processing/issues/1622
 _ touch events.. can't do MouseEvent et al with Android
 _   http://dvcs.w3.org/hg/webevents/raw-file/tip/touchevents.html
 _   http://www.html5rocks.com/en/mobile/touch.html
@@ -690,9 +663,6 @@ _     before rewriting all of createInput()
 
 LATER (post 2.0)
 
-_ handle repeat key events 
-_   and/or holding keys down and discerning repeats
-_   https://github.com/processing/processing/issues/1622
 _ fillMode(NONZERO) and fillMode(ODD) to replace solid(boolean)?
 _ create PVec2D and PVec3D as separate classes
 _ gui priorities
