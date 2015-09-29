@@ -92,11 +92,6 @@ public class ExamplesFrame extends JFrame {
       }
     });
 
-    setTree();
-  }
-
-
-  private void setTree() {
     JPanel examplesPanel = new JPanel();
     examplesPanel.setLayout(new BorderLayout());
     examplesPanel.setBackground(Color.WHITE);
@@ -113,7 +108,7 @@ public class ExamplesFrame extends JFrame {
     addExamplesButton.addActionListener(new ActionListener() {
       @Override
       public void actionPerformed(ActionEvent e) {
-        ContributionManager.openExampleManager(base.getActiveEditor());
+        ContributionManager.openExamples();
       }
     });
 
@@ -409,8 +404,6 @@ public class ExamplesFrame extends JFrame {
     return contribExamplesNode;
   }
 
-  public void refresh() {
-    setTree();
-  }
+
 
 }

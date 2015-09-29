@@ -69,8 +69,6 @@ import processing.core.PImage;
 import processing.core.PSurface;
 import processing.event.KeyEvent;
 import processing.event.MouseEvent;
-import processing.opengl.PGraphicsOpenGL;
-import processing.opengl.PGL;
 
 
 public class PSurfaceJOGL implements PSurface {
@@ -88,6 +86,8 @@ public class PSurfaceJOGL implements PSurface {
 
   protected int sketchX;
   protected int sketchY;
+  protected int sketchWidth0;
+  protected int sketchHeight0;
   protected int sketchWidth;
   protected int sketchHeight;
 
@@ -128,7 +128,7 @@ public class PSurfaceJOGL implements PSurface {
   public void initFrame(PApplet sketch) {
     this.sketch = sketch;
     initIcons();
-    initScreen();
+    initDisplay();
     initGL();
     initWindow();
     initListeners();
@@ -141,16 +141,16 @@ public class PSurfaceJOGL implements PSurface {
   }
 
 
-  protected void initScreen() {
-    display = NewtFactory.createDisplay(null);
-    display.addReference();
-    screen = NewtFactory.createScreen(display, 0);
-    screen.addReference();
+  protected void initDisplay() {
+    Display tmpDisplay = NewtFactory.createDisplay(null);
+    tmpDisplay.addReference();
+    Screen tmpScreen = NewtFactory.createScreen(tmpDisplay, 0);
+    tmpScreen.addReference();
 
     monitors = new ArrayList<MonitorDevice>();
     GraphicsEnvironment environment = GraphicsEnvironment.getLocalGraphicsEnvironment();
     GraphicsDevice[] awtDevices = environment.getScreenDevices();
-    List<MonitorDevice> newtDevices = screen.getMonitorDevices();
+    List<MonitorDevice> newtDevices = tmpScreen.getMonitorDevices();
 
     // AWT and NEWT name devices in different ways, depending on the platform,
     // and also appear to order them in different ways. The following code
@@ -210,7 +210,33 @@ public class PSurfaceJOGL implements PSurface {
         }
       }
     }
+
+    displayDevice = null;
+    int displayNum = sketch.sketchDisplay();
+    if (displayNum > 0) {  // if -1, use the default device
+      if (displayNum <= monitors.size()) {
+        displayDevice = monitors.get(displayNum - 1);
+      } else {
+        System.err.format("Display %d does not exist, " +
+          "using the default display instead.%n", displayNum);
+        for (int i = 0; i < monitors.size(); i++) {
+          System.err.format("Display %d is %s%n", i+1, monitors.get(i));
+        }
+      }
+    } else if (0 < monitors.size()) {
+      displayDevice = monitors.get(0);
+    }
+
+    if (displayDevice != null) {
+      screen = displayDevice.getScreen();
+      display = screen.getDisplay();
+    } else {
+      screen = tmpScreen;
+      display = tmpDisplay;
+      displayDevice = screen.getPrimaryMonitor();
+    }
   }
+
 
   protected void initGL() {
 //  System.out.println("*******************************");
@@ -268,22 +294,14 @@ public class PSurfaceJOGL implements PSurface {
 
   protected void initWindow() {
     window = GLWindow.create(screen, pgl.getCaps());
-    if (displayDevice == null) {
-      displayDevice = window.getMainMonitor();
-    }
 
-    int displayNum = sketch.sketchDisplay();
-    if (displayNum > 0) {  // if -1, use the default device
-      if (displayNum <= monitors.size()) {
-        displayDevice = monitors.get(displayNum - 1);
-      } else {
-        System.err.format("Display %d does not exist, " +
-          "using the default display instead.%n", displayNum);
-        for (int i = 0; i < monitors.size(); i++) {
-          System.err.format("Display %d is %s%n", i+1, monitors.get(i));
-        }
-      }
-    }
+//    if (displayDevice == null) {
+//
+//
+//    } else {
+//      window = GLWindow.create(displayDevice.getScreen(), pgl.getCaps());
+//    }
+
 
     boolean spanDisplays = sketch.sketchDisplay() == PConstants.SPAN;
     screenRect = spanDisplays ?
@@ -297,8 +315,31 @@ public class PSurfaceJOGL implements PSurface {
     sketch.displayWidth = screenRect.width;
     sketch.displayHeight = screenRect.height;
 
+    sketchWidth0 = sketch.sketchWidth();
+    sketchHeight0 = sketch.sketchHeight();
+
+    /*
+    // Trying to fix
+    // https://github.com/processing/processing/issues/3401
+    if (sketch.displayWidth < sketch.width ||
+      sketch.displayHeight < sketch.height) {
+      int w = sketch.width;
+      int h = sketch.height;
+      if (sketch.displayWidth < w) {
+        w = sketch.displayWidth;
+      }
+      if (sketch.displayHeight < h) {
+        h = sketch.displayHeight;
+      }
+//      sketch.setSize(w, h - 22 - 22);
+//      graphics.setSize(w, h - 22 - 22);
+      System.err.println("setting width/height to " + w + " "  + h);
+    }
+    */
+
     sketchWidth = sketch.sketchWidth();
     sketchHeight = sketch.sketchHeight();
+//    System.out.println("init: " + sketchWidth + " " + sketchHeight);
 
     boolean fullScreen = sketch.sketchFullScreen();
     // Removing the section below because sometimes people want to do the
@@ -363,7 +404,7 @@ public class PSurfaceJOGL implements PSurface {
 
 
   protected void initAnimator() {
-    animator = new FPSAnimator(window, 60);
+    animator = new FPSAnimator(window, 60, true);
     drawException = null;
     animator.setUncaughtExceptionHandler(new GLAnimatorControl.UncaughtExceptionHandler() {
       @Override
@@ -702,6 +743,10 @@ public class PSurfaceJOGL implements PSurface {
       }
 
       if (sketch.frameCount == 0) {
+        if (sketchWidth < sketchWidth0 || sketchHeight < sketchHeight0) {
+          PGraphics.showWarning("The sketch has been automatically resized to fit the screen resolution");
+        }
+//        System.out.println("display: " + window.getWidth() + " "+ window.getHeight() + " - " + sketchWidth + " " + sketchHeight);
         requestFocus();
       }
 
@@ -715,7 +760,11 @@ public class PSurfaceJOGL implements PSurface {
         pgl.endRender(sketch.sketchWindowColor());
       }
 
+      PGraphicsOpenGL.completeFinishedPixelTransfers();
+
       if (sketch.exitCalled()) {
+        PGraphicsOpenGL.completeAllPixelTransfers();
+
         sketch.dispose(); // calls stopThread(), which stops the animator.
         sketch.exitActual();
       }
@@ -895,8 +944,10 @@ public class PSurfaceJOGL implements PSurface {
 
     int peCount = 0;
     if (peAction == MouseEvent.WHEEL) {
-      peCount = nativeEvent.isShiftDown() ? (int)nativeEvent.getRotation()[0] :
-                                            (int)nativeEvent.getRotation()[1];
+      // Invert wheel rotation count so it matches JAVA2D's
+      // https://github.com/processing/processing/issues/3840
+      peCount = -(nativeEvent.isShiftDown() ? (int)nativeEvent.getRotation()[0]:
+                                              (int)nativeEvent.getRotation()[1]);
     } else {
       peCount = nativeEvent.getClickCount();
     }
@@ -944,12 +995,10 @@ public class PSurfaceJOGL implements PSurface {
       keyCode = mapToPConst(code);
       keyChar = PConstants.CODED;
     } else if (isHackyKey(code)) {
-      keyCode = code;
+      // we can return only one char for ENTER, let it be \n everywhere
+      keyCode = code == com.jogamp.newt.event.KeyEvent.VK_ENTER ?
+          PConstants.ENTER : code;
       keyChar = hackToChar(code, nativeEvent.getKeyChar());
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_ENTER) {
-      // we can return only one char, let it be \n everywhere
-      keyCode = 10;
-      keyChar = '\n';
     } else {
       keyCode = code;
       keyChar = nativeEvent.getKeyChar();
@@ -1003,38 +1052,54 @@ public class PSurfaceJOGL implements PSurface {
   // http://forum.jogamp.org/Newt-wrong-keycode-for-key-td4033690.html#a4033697
   // (I don't think this is a complete solution).
   private static int mapToPConst(short code) {
-    if (code == com.jogamp.newt.event.KeyEvent.VK_UP) {
-      return PConstants.UP;
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_DOWN) {
-      return PConstants.DOWN;
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_LEFT) {
-      return PConstants.LEFT;
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_RIGHT) {
-      return PConstants.RIGHT;
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_ALT) {
-      return PConstants.ALT;
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_CONTROL) {
-      return PConstants.CONTROL;
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_SHIFT) {
-      return PConstants.SHIFT;
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_WINDOWS) {
-      return java.awt.event.KeyEvent.VK_META;
+    switch (code) {
+      case com.jogamp.newt.event.KeyEvent.VK_UP:
+        return PConstants.UP;
+      case com.jogamp.newt.event.KeyEvent.VK_DOWN:
+        return PConstants.DOWN;
+      case com.jogamp.newt.event.KeyEvent.VK_LEFT:
+        return PConstants.LEFT;
+      case com.jogamp.newt.event.KeyEvent.VK_RIGHT:
+        return PConstants.RIGHT;
+      case com.jogamp.newt.event.KeyEvent.VK_ALT:
+        return PConstants.ALT;
+      case com.jogamp.newt.event.KeyEvent.VK_CONTROL:
+        return PConstants.CONTROL;
+      case com.jogamp.newt.event.KeyEvent.VK_SHIFT:
+        return PConstants.SHIFT;
+      case com.jogamp.newt.event.KeyEvent.VK_WINDOWS:
+        return java.awt.event.KeyEvent.VK_META;
+      default:
+        return code;
     }
-    return code;
   }
 
 
   private static boolean isHackyKey(short code) {
-    return code == com.jogamp.newt.event.KeyEvent.VK_BACK_SPACE ||
-           code == com.jogamp.newt.event.KeyEvent.VK_TAB;
+    switch (code) {
+      case com.jogamp.newt.event.KeyEvent.VK_BACK_SPACE:
+      case com.jogamp.newt.event.KeyEvent.VK_TAB:
+      case com.jogamp.newt.event.KeyEvent.VK_ENTER:
+      case com.jogamp.newt.event.KeyEvent.VK_ESCAPE:
+      case com.jogamp.newt.event.KeyEvent.VK_DELETE:
+        return true;
+    }
+    return false;
   }
 
 
   private static char hackToChar(short code, char def) {
-    if (code == com.jogamp.newt.event.KeyEvent.VK_BACK_SPACE) {
-      return '\b';
-    } else if (code == com.jogamp.newt.event.KeyEvent.VK_TAB) {
-      return '\t';
+    switch (code) {
+      case com.jogamp.newt.event.KeyEvent.VK_BACK_SPACE:
+        return PConstants.BACKSPACE;
+      case com.jogamp.newt.event.KeyEvent.VK_TAB:
+        return PConstants.TAB;
+      case com.jogamp.newt.event.KeyEvent.VK_ENTER:
+        return PConstants.ENTER;
+      case com.jogamp.newt.event.KeyEvent.VK_ESCAPE:
+        return PConstants.ESC;
+      case com.jogamp.newt.event.KeyEvent.VK_DELETE:
+        return PConstants.DELETE;
     }
     return def;
   }

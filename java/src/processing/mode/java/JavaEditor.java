@@ -31,6 +31,7 @@ import processing.app.ui.Toolkit;
 import processing.mode.java.debug.LineBreakpoint;
 import processing.mode.java.debug.LineHighlight;
 import processing.mode.java.debug.LineID;
+import processing.mode.java.pdex.ASTGenerator;
 import processing.mode.java.pdex.ErrorCheckerService;
 import processing.mode.java.pdex.LineMarker;
 import processing.mode.java.pdex.ErrorMessageSimplifier;
@@ -49,8 +50,9 @@ public class JavaEditor extends Editor {
   // Runner associated with this editor window
   private Runner runtime;
 
-  // Need to sort through the rest of these additions...
+  // Need to sort through the rest of these additions [fry]
 
+  // TODO these are all null, need to remove color support
   protected Color breakpointColor;
   protected Color currentLineColor;
   protected Color breakpointMarkerColor;
@@ -121,11 +123,11 @@ public class JavaEditor extends Editor {
 
     Toolkit.setMenuMnemonics(textarea.getRightClickPopup());
 
-    // load settings from theme.txt
-    breakpointColor = mode.getColor("breakpoint.bgcolor");
-    breakpointMarkerColor = mode.getColor("breakpoint.marker.color");
-    currentLineColor = mode.getColor("currentline.bgcolor");
-    currentLineMarkerColor = mode.getColor("currentline.marker.color");
+//    // load settings from theme.txt
+//    breakpointColor = mode.getColor("breakpoint.bgcolor");
+//    breakpointMarkerColor = mode.getColor("breakpoint.marker.color");
+//    currentLineColor = mode.getColor("currentline.bgcolor");
+//    currentLineMarkerColor = mode.getColor("currentline.marker.color");
 
     // set breakpoints from marker comments
     for (LineID lineID : stripBreakpointComments()) {
@@ -139,7 +141,7 @@ public class JavaEditor extends Editor {
     //initializeErrorChecker();
 
     errorCheckerService = new ErrorCheckerService(this);
-    new Thread(errorCheckerService).start();
+    errorCheckerService.start();
 
     // hack to add a JPanel to the right-hand side of the text area
     JPanel textAndError = new JPanel();
@@ -1306,7 +1308,7 @@ public class JavaEditor extends Editor {
     if (inspector != null) {
       inspector.dispose();
     }
-    errorCheckerService.stopThread();
+    errorCheckerService.stop();
     super.dispose();
   }
 
@@ -1730,39 +1732,6 @@ public class JavaEditor extends Editor {
 
   @Override
   public boolean handleSave(boolean immediately) {
-    //System.out.println("handleSave " + immediately);
-
-    //log("handleSave, viewing autosave? " + viewingAutosaveBackup);
-    /* If user wants to save a backup, the backup sketch should get
-     * copied to the main sketch directory, simply reload the main sketch.
-     */
-    if(viewingAutosaveBackup){
-          /*
-          File files[] = autosaver.getSketchBackupFolder().listFiles();
-          File src = autosaver.getSketchBackupFolder(), dst = autosaver
-              .getActualSketchFolder();
-          for (File f : files) {
-            log("Copying " + f.getAbsolutePath() + " to " + dst.getAbsolutePath());
-            try {
-              if (f.isFile()) {
-                f.delete();
-                Base.copyFile(f, new File(dst + File.separator + f.getName()));
-              } else {
-                Base.removeDir(f);
-                Base.copyDir(f, new File(dst + File.separator + f.getName()));
-              }
-            } catch (IOException e) {
-              e.printStackTrace();
-            }
-          }
-          File sk = autosaver.getActualSketchFolder();
-          Base.removeDir(autosaver.getAutoSaveDir());
-          //handleOpenInternal(sk.getAbsolutePath() + File.separator + sk.getName() + ".pde");
-          getBase().handleOpen(sk.getAbsolutePath() + File.separator + sk.getName() + ".pde");
-          //viewingAutosaveBackup = false;
-          */
-    }
-
     // note modified tabs
     final List<String> modified = new ArrayList<String>();
     for (int i = 0; i < getSketch().getCodeCount(); i++) {
@@ -1793,9 +1762,6 @@ public class JavaEditor extends Editor {
     // autosaver.reloadAutosaveDir();
     return saved;
   }
-
-
-  private boolean viewingAutosaveBackup;
 
 
   /**
@@ -1907,7 +1873,7 @@ public class JavaEditor extends Editor {
     autoSave();
     super.prepareRun();
     downloadImports();
-    errorCheckerService.quickErrorCheck();
+    errorCheckerService.cancel();
   }
 
 
@@ -1917,20 +1883,20 @@ public class JavaEditor extends Editor {
    * them.
    */
   protected void downloadImports() {
-    String importRegex = errorCheckerService.importRegexp;
-    String tabCode;
     for (SketchCode sc : sketch.getCode()) {
       if (sc.isExtension("pde")) {
-        tabCode = sc.getProgram();
+        String tabCode = sc.getProgram();
 
-        String[][] pieces = PApplet.matchAll(tabCode, importRegex);
+        String[][] pieces =
+          PApplet.matchAll(tabCode, ErrorCheckerService.IMPORT_REGEX);
 
         if (pieces != null) {
           ArrayList<String> importHeaders = new ArrayList<String>();
           for (String[] importStatement : pieces) {
             importHeaders.add(importStatement[2]);
           }
-          List<AvailableContribution> installLibsHeaders = getNotInstalledAvailableLibs(importHeaders);
+          List<AvailableContribution> installLibsHeaders =
+            getNotInstalledAvailableLibs(importHeaders);
           if (!installLibsHeaders.isEmpty()) {
             StringBuilder libList = new StringBuilder("Would you like to install them now?");
             for (AvailableContribution ac : installLibsHeaders) {
@@ -1942,8 +1908,7 @@ public class JavaEditor extends Editor {
                 libList.toString());
 
             if (option == JOptionPane.YES_OPTION) {
-              ContributionManager.downloadAndInstallOnImport(base,
-                  installLibsHeaders);
+              ContributionManager.downloadAndInstallOnImport(base, installLibsHeaders);
             }
           }
         }
@@ -1959,16 +1924,18 @@ public class JavaEditor extends Editor {
    * @param importHeaders
    */
   private List<AvailableContribution> getNotInstalledAvailableLibs(ArrayList<String> importHeadersList) {
-    Map<String, Contribution> importMap = ContributionListing.getInstance().librariesByImportHeader;
-    ArrayList<AvailableContribution> libList = new ArrayList<AvailableContribution>();
+    Map<String, Contribution> importMap =
+      ContributionListing.getInstance().getLibrariesByImportHeader();
+    List<AvailableContribution> libList = new ArrayList<AvailableContribution>();
     for (String importHeaders : importHeadersList) {
       int dot = importHeaders.lastIndexOf('.');
       String entry = (dot == -1) ? importHeaders : importHeaders.substring(0,
           dot);
 
-      if (entry.startsWith("java.") || entry.startsWith("javax.")
-          || entry.startsWith("processing.")) {
-        continue;// null;
+      if (entry.startsWith("java.") ||
+          entry.startsWith("javax.") ||
+          entry.startsWith("processing.")) {
+        continue;
       }
 
       Library library = null;
@@ -2223,7 +2190,7 @@ public class JavaEditor extends Editor {
     cursorToLineStart(line.lineIdx());
     // highlight line
     currentLine = new LineHighlight(line.lineIdx(), currentLineColor, this);
-    currentLine.setMarker(getJavaTextArea().currentLineMarker, currentLineMarkerColor);
+    currentLine.setMarker(JavaTextArea.STEP_MARKER, currentLineMarkerColor);
     currentLine.setPriority(10); // fixes current line being hidden by the breakpoint when moved down
   }
 
@@ -2252,7 +2219,7 @@ public class JavaEditor extends Editor {
    */
   public void addBreakpointedLine(LineID lineID) {
     LineHighlight hl = new LineHighlight(lineID, breakpointColor, this);
-    hl.setMarker(getJavaTextArea().breakpointMarker, breakpointMarkerColor);
+    hl.setMarker(JavaTextArea.BREAK_MARKER, breakpointMarkerColor);
     breakpointedLines.add(hl);
     // repaint current line if it's on this line
     if (currentLine != null && currentLine.getLineID().equals(lineID)) {
@@ -2357,6 +2324,7 @@ public class JavaEditor extends Editor {
    */
   @Override
   public void setCode(SketchCode code) {
+
     //System.out.println("tab switch: " + code.getFileName());
     // set the new document in the textarea, etc. need to do this first
     super.setCode(code);
@@ -2387,6 +2355,13 @@ public class JavaEditor extends Editor {
     }
     if (getDebugger() != null && getDebugger().isStarted()) {
       getDebugger().startTrackingLineChanges();
+    }
+    if (errorCheckerService != null) {
+      if (errorColumn != null) {
+        getErrorPoints().clear();
+        statusEmpty();
+      }
+      errorCheckerService.request();
     }
   }
 
@@ -2436,10 +2411,21 @@ public class JavaEditor extends Editor {
   }
 
 
-  public static final int STATUS_EMPTY = 100, STATUS_COMPILER_ERR = 200,
-    STATUS_WARNING = 300, STATUS_INFO = 400, STATUS_ERR = 500;
-  public int statusMessageType = STATUS_EMPTY;
-  public String statusMessage;
+  public void statusMessage(String message, int type) {
+    status.message(message, type);
+  }
+
+
+  /*
+  static final int STATUS_EMPTY = 100;
+  static final int STATUS_COMPILER_ERR = 200;
+  static final int STATUS_WARNING = 300;
+  static final int STATUS_INFO = 400;
+  static final int STATUS_ERR = 500;
+
+  int statusMessageType = STATUS_EMPTY;
+  String statusMessage;
+
   public void statusMessage(final String what, int type){
     // Don't re-display the old message again
     if (type != STATUS_EMPTY) {
@@ -2484,6 +2470,7 @@ public class JavaEditor extends Editor {
     statusMessageType = STATUS_EMPTY;
     super.statusEmpty();
   }
+  */
 
 
 //  /**
@@ -2511,6 +2498,25 @@ public class JavaEditor extends Editor {
 
   public List<LineMarker> getErrorPoints() {
     return errorColumn.getErrorPoints();
+  }
+
+
+  /**
+   * @return the LineMarker for the first error or warning on 'line'
+   */
+  public LineMarker findError(int line) {
+    List<LineMarker> errorPoints = getErrorPoints();
+    JavaTextArea textArea = getJavaTextArea();
+    for (LineMarker emarker : errorPoints) {
+      Problem p = emarker.getProblem();
+      int pStartLine = p.getLineNumber();
+      int pEndOffset = textArea.getLineStartOffset(pStartLine) + p.getPDELineStopOffset() + 1;
+      int pEndLine = textArea.getLineOfOffset(pEndOffset);
+      if (line >= pStartLine && line <= pEndLine) {
+        return emarker;
+      }
+    }
+    return null;
   }
 
 
@@ -2656,10 +2662,10 @@ public class JavaEditor extends Editor {
    * Handle whether the tiny red error indicator is shown near
    * the error button at the bottom of the PDE
    */
-  public void updateErrorToggle() {
+  public void updateErrorToggle(boolean hasErrors) {
     footer.setNotification(errorTable.getParent(),  //errorTableScrollPane,
                            JavaMode.errorCheckEnabled &&
-                           errorCheckerService.hasErrors());
+                           hasErrors);
 //    String title = Language.text("editor.footer.errors");
 //    if (JavaMode.errorCheckEnabled && errorCheckerService.hasErrors()) {
 //      title += "*";
@@ -2674,14 +2680,20 @@ public class JavaEditor extends Editor {
   /** Handle refactor operation */
   private void handleRefactor() {
     Messages.log("Caret at:" + textarea.getLineText(textarea.getCaretLine()));
-    errorCheckerService.getASTGenerator().handleRefactor();
+    ASTGenerator astGenerator = errorCheckerService.getASTGenerator();
+    synchronized (astGenerator) {
+      astGenerator.handleRefactor();
+    }
   }
 
 
   /** Handle show usage operation */
   private void handleShowUsage() {
     Messages.log("Caret at:" + textarea.getLineText(textarea.getCaretLine()));
-    errorCheckerService.getASTGenerator().handleShowUsage();
+    ASTGenerator astGenerator = errorCheckerService.getASTGenerator();
+    synchronized (astGenerator) {
+      astGenerator.handleShowUsage();
+    }
   }
 
 
@@ -2718,7 +2730,7 @@ public class JavaEditor extends Editor {
       jmode.loadPreferences();
       Messages.log("Applying prefs");
       // trigger it once to refresh UI
-      errorCheckerService.runManualErrorCheck();
+      errorCheckerService.request();
     }
   }
 

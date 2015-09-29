@@ -47,9 +47,15 @@ import processing.app.Platform;
 class StatusPanel extends JPanel {
   static final int BUTTON_WIDTH = 150;
 
+  static Icon foundationIcon;
+  static Icon installIcon;
+  static Icon updateIcon;
+  static Icon removeIcon;
+  static Font buttonFont;
+
   JTextPane label;
   JButton installButton;
-  JPanel progressBarPanel;
+  JPanel progressPanel;
   JLabel updateLabel;
   JButton updateButton;
   JButton removeButton;
@@ -60,11 +66,23 @@ class StatusPanel extends JPanel {
 
   private String bodyRule;
 
-  public StatusPanel(int width, final ContributionTab contributionTab) {
-    super();
-    setBackground(new Color(0xebebeb));
-//    setBorder(BorderFactory.createMatteBorder(2, 0, 0, 0, Color.BLACK));
+
+  /** Needed by ContributionListPanel */
+  public StatusPanel() { }
+
+
+  public StatusPanel(final ContributionTab contributionTab, int width) {
     this.contributionTab = contributionTab;
+
+    if (foundationIcon == null) {
+      foundationIcon = Toolkit.getLibIconX("icons/foundation", 32);
+      installIcon = Toolkit.getLibIconX("manager/install");
+      updateIcon = Toolkit.getLibIconX("manager/update");
+      removeIcon = Toolkit.getLibIconX("manager/remove");
+      buttonFont = Toolkit.getSansFont(14, Font.PLAIN);
+    }
+
+    setBackground(new Color(0xebebeb));
 
     iconLabel = new JLabel();
     iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
@@ -73,8 +91,8 @@ class StatusPanel extends JPanel {
     label.setEditable(false);
     label.setOpaque(false);
     label.setContentType("text/html");
-    bodyRule = "a, body { font-family: " + ContributionManagerDialog.myFont.getFamily() + "; " +
-            "font-size: " + ContributionManagerDialog.myFont.getSize() + "pt; color: black; text-decoration: none;}";
+    bodyRule = "a, body { font-family: " + buttonFont.getFamily() + "; " +
+            "font-size: " + buttonFont.getSize() + "pt; color: black; text-decoration: none;}";
     label.addHyperlinkListener(new HyperlinkListener() {
 
       @Override
@@ -86,64 +104,58 @@ class StatusPanel extends JPanel {
         }
       }
     });
-    installButton = new JButton("Install",
-                                Toolkit.getLibIcon("manager/install-" + ContributionManagerDialog.iconVer + "x.png"));
-    installButton.setFont(Toolkit.getSansFont(14, Font.PLAIN));
+    installButton = new JButton("Install", installIcon);
+    installButton.setDisabledIcon(installIcon);
+    installButton.setFont(buttonFont);
     installButton.setHorizontalAlignment(SwingConstants.LEFT);
-//    installButton.setContentAreaFilled(false);
-//    installButton.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.BLACK, 1),BorderFactory.createEmptyBorder(3, 0, 3, 0)));
     installButton.addActionListener(new ActionListener() {
-
       @Override
       public void actionPerformed(ActionEvent e) {
-        ContributionPanel currentPanel = contributionTab.contributionListPanel
-          .getSelectedPanel();
+        installButton.setEnabled(false);
+        DetailPanel currentPanel =
+          contributionTab.contributionListPanel.getSelectedPanel();
         currentPanel.install();
         StatusPanel.this.update(currentPanel);
       }
     });
-    progressBarPanel = new JPanel();
-    progressBarPanel.setLayout(new BorderLayout());
-    progressBarPanel.setOpaque(false);
-    updateLabel = new JLabel(" ");
-    updateLabel.setFont(Toolkit.getSansFont(14, Font.PLAIN));
-    updateLabel.setHorizontalAlignment(SwingConstants.CENTER);
-    updateButton = new JButton("Update",
-                               Toolkit.getLibIcon("manager/update-" + ContributionManagerDialog.iconVer + "x.png"));
-    updateButton.setFont(Toolkit.getSansFont(14, Font.PLAIN));
-    updateButton.setHorizontalAlignment(SwingConstants.LEFT);
-//    updateButton.setAlignmentX(SwingConstants.LEFT);
-//    updateButton.setContentAreaFilled(false);
-//    updateButton.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.BLACK, 1),BorderFactory.createEmptyBorder(3, 0, 3, 0)));
-    updateButton.addActionListener(new ActionListener() {
+    progressPanel = new JPanel();
+    progressPanel.setLayout(new BorderLayout());
+    progressPanel.setOpaque(false);
 
-      @Override
+    updateLabel = new JLabel(" ");
+    updateLabel.setFont(buttonFont);
+    updateLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+    updateButton = new JButton("Update", updateIcon);
+    updateButton.setDisabledIcon(updateIcon);
+    updateButton.setFont(buttonFont);
+    updateButton.setHorizontalAlignment(SwingConstants.LEFT);
+    updateButton.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        ContributionPanel currentPanel = contributionTab.contributionListPanel
-          .getSelectedPanel();
+        updateButton.setEnabled(false);
+        DetailPanel currentPanel =
+          contributionTab.contributionListPanel.getSelectedPanel();
         currentPanel.update();
         StatusPanel.this.update(currentPanel);
       }
     });
 
-    removeButton = new JButton("Remove",
-                               Toolkit.getLibIcon("manager/remove-" + ContributionManagerDialog.iconVer + "x.png"));
-    removeButton.setFont(Toolkit.getSansFont(14, Font.BOLD));
+    removeButton = new JButton("Remove", removeIcon);
+    removeButton.setDisabledIcon(removeIcon);
+    removeButton.setFont(buttonFont);
     removeButton.setHorizontalAlignment(SwingConstants.LEFT);
-//    removeButton.setContentAreaFilled(false);
-//    removeButton.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.BLACK, 1),BorderFactory.createEmptyBorder(3, 0, 3, 0)));
     removeButton.addActionListener(new ActionListener() {
-
-      @Override
       public void actionPerformed(ActionEvent e) {
-        ContributionPanel currentPanel = contributionTab.contributionListPanel
-          .getSelectedPanel();
+        removeButton.setEnabled(false);
+        DetailPanel currentPanel =
+          contributionTab.contributionListPanel.getSelectedPanel();
         currentPanel.remove();
         StatusPanel.this.update(currentPanel);
       }
     });
 
-    int labelWidth = width != 0 ? width * 3 / 4 : GroupLayout.PREFERRED_SIZE;
+    int labelWidth = (width != 0) ?
+      (3 * width / 4) : GroupLayout.PREFERRED_SIZE;
     layout = new GroupLayout(this);
     this.setLayout(layout);
 
@@ -153,18 +165,23 @@ class StatusPanel extends JPanel {
     layout.setHorizontalGroup(layout
       .createSequentialGroup()
       .addGap(0)
-      .addComponent(iconLabel, ContributionManagerDialog.STATUS_WIDTH, ContributionManagerDialog.STATUS_WIDTH, ContributionManagerDialog.STATUS_WIDTH)
+      .addComponent(iconLabel,
+                    ManagerFrame.STATUS_WIDTH,
+                    ManagerFrame.STATUS_WIDTH,
+                    ManagerFrame.STATUS_WIDTH)
       .addGap(0)
       .addComponent(label, labelWidth, labelWidth, labelWidth)
       .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED,
                        GroupLayout.PREFERRED_SIZE, Short.MAX_VALUE)
       .addGroup(layout.createParallelGroup(GroupLayout.Alignment.CENTER)
-                  .addComponent(installButton, BUTTON_WIDTH, BUTTON_WIDTH,
-                                BUTTON_WIDTH)
-                  .addComponent(progressBarPanel)
-                  .addComponent(updateLabel, BUTTON_WIDTH, BUTTON_WIDTH, BUTTON_WIDTH)
+                  .addComponent(installButton,
+                                BUTTON_WIDTH, BUTTON_WIDTH, BUTTON_WIDTH)
+                  .addComponent(progressPanel)
+                  .addComponent(updateLabel,
+                                BUTTON_WIDTH, BUTTON_WIDTH, BUTTON_WIDTH)
                   .addComponent(updateButton)
-                  .addComponent(removeButton)));
+                  .addComponent(removeButton))
+      .addGap(12));  // make buttons line up relative to the scrollbar
 
     layout.setVerticalGroup(layout
       .createParallelGroup(GroupLayout.Alignment.LEADING)
@@ -173,14 +190,14 @@ class StatusPanel extends JPanel {
       .addGroup(layout.createSequentialGroup()
                   .addComponent(installButton)
                   .addGroup(layout.createParallelGroup()
-                              .addComponent(progressBarPanel)
+                              .addComponent(progressPanel)
                               .addComponent(updateLabel))
                   .addComponent(updateButton).addComponent(removeButton)));
 
-    layout.linkSize(SwingConstants.HORIZONTAL, installButton, progressBarPanel,
-                    updateButton, removeButton);
+    layout.linkSize(SwingConstants.HORIZONTAL,
+                    installButton, progressPanel, updateButton, removeButton);
 
-    progressBarPanel.setVisible(false);
+    progressPanel.setVisible(false);
     updateLabel.setVisible(false);
 
     installButton.setEnabled(false);
@@ -188,15 +205,12 @@ class StatusPanel extends JPanel {
     removeButton.setEnabled(false);
     updateLabel.setVisible(true);
 
-    layout.setHonorsVisibility(updateLabel, false); // Makes the label take up space even though not visible
+    // Makes the label take up space even though not visible
+    layout.setHonorsVisibility(updateLabel, false);
 
     validate();
-
   }
 
-  public StatusPanel() {
-    // TODO Auto-generated constructor stub
-  }
 
   void setMessage(String message) {
     if (label != null) {
@@ -205,6 +219,7 @@ class StatusPanel extends JPanel {
     }
   }
 
+
   void setErrorMessage(String message) {
     if (label != null) {
       label.setText(message);
@@ -212,27 +227,26 @@ class StatusPanel extends JPanel {
     }
   }
 
-  void clear() {
+
+  void clearMessage() {
     if (label != null) {
       label.setText(null);
       label.repaint();
     }
   }
 
-  public void update(ContributionPanel panel) {
-    progressBarPanel.removeAll();
 
-    Icon icon = null;
-    if (panel.getContrib().isSpecial()) {
-      icon = Toolkit.getLibIcon("icons/foundation-32.png");  // was 48?
-    }
-    iconLabel.setIcon(icon);
-    label.setText(panel.description.toString());
+  public void update(DetailPanel panel) {
+    progressPanel.removeAll();
+
+    iconLabel.setIcon(panel.getContrib().isSpecial() ? foundationIcon : null);
+    label.setText(panel.description);
     ((HTMLDocument)label.getDocument()).getStyleSheet().addRule(bodyRule);
 
-    updateButton.setEnabled(contributionListing.hasDownloadedLatestList()
-      && (contributionListing.hasUpdates(panel.getContrib()) && !panel
-        .getContrib().isUpdateFlagged()));
+    updateButton.setEnabled(contributionListing.hasDownloadedLatestList() &&
+                            (contributionListing.hasUpdates(panel.getContrib()) &&
+                             !panel.getContrib().isUpdateFlagged()) &&
+                            !panel.updateInProgress);
 
     String latestVersion =
       contributionListing.getLatestVersion(panel.getContrib());
@@ -240,7 +254,8 @@ class StatusPanel extends JPanel {
 
     installButton.setEnabled(!panel.getContrib().isInstalled()
                              && contributionListing.hasDownloadedLatestList()
-                             && panel.getContrib().isCompatible(Base.getRevision()));
+                             && panel.getContrib().isCompatible(Base.getRevision())
+                             && !panel.installInProgress);
 
     if (installButton.isEnabled()) {
       updateLabel.setText(latestVersion + " available");
@@ -264,72 +279,15 @@ class StatusPanel extends JPanel {
       updateButton.setText("Update");
     }
 
-
-    removeButton.setEnabled(panel.getContrib().isInstalled());
-    progressBarPanel.add(panel.installProgressBar);
-    progressBarPanel.setVisible(false);
+    removeButton.setEnabled(panel.getContrib().isInstalled()
+                            && !panel.removeInProgress);
+    progressPanel.add(panel.installProgressBar);
+    progressPanel.setVisible(false);
     updateLabel.setVisible(true);
-    if (panel.isUpdateInProgress || panel.isInstallInProgress || panel.isRemoveInProgress) {
-      progressBarPanel.setVisible(true);
+    if (panel.updateInProgress || panel.installInProgress || panel.removeInProgress) {
+      progressPanel.setVisible(true);
       updateLabel.setVisible(false);
-      progressBarPanel.repaint();
+      progressPanel.repaint();
     }
   }
 }
-/*
-interface ErrorWidget {
-  void setErrorMessage(String msg);
-}
-
-class StatusPanel extends JPanel implements ErrorWidget {
-  String errorMessage;
-
-  StatusPanel() {
-    addMouseListener(new MouseAdapter() {
-      public void mousePressed(MouseEvent e) {
-        clearErrorMessage();
-      }
-    });
-  }
-
-  @Override
-  protected void paintComponent(Graphics g) {
-    super.paintComponent(g);
-
-    g.setFont(new Font("SansSerif", Font.PLAIN, 10));
-    int baseline = (getSize().height + g.getFontMetrics().getAscent()) / 2;
-
-    if (contribListing.isDownloadingListing()) {
-      g.setColor(Color.black);
-      g.drawString("Downloading software listing...", 2, baseline);
-      setVisible(true);
-    } else if (errorMessage != null) {
-      g.setColor(Color.red);
-      g.drawString(errorMessage, 2, baseline);
-      setVisible(true);
-    } else {
-      setVisible(false);
-    }
-  }
-
-  public void setErrorMessage(String message) {
-    errorMessage = message;
-    setVisible(true);
-
-    JPanel placeholder = getPlaceholder();
-    Dimension d = getPreferredSize();
-    if (Base.isWindows()) {
-      d.height += 5;
-      placeholder.setPreferredSize(d);
-    }
-    placeholder.setVisible(true);
-  }
-
-  void clearErrorMessage() {
-    errorMessage = null;
-    repaint();
-
-    getPlaceholder().setVisible(false);
-  }
-}
-*/

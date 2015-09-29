@@ -44,6 +44,7 @@ import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GL2ES2;
 import com.jogamp.opengl.GL2ES3;
 import com.jogamp.opengl.GL2GL3;
+import com.jogamp.opengl.GL3ES3;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLCapabilitiesImmutable;
@@ -56,6 +57,7 @@ import com.jogamp.opengl.glu.GLUtessellatorCallbackAdapter;
 
 import processing.core.PApplet;
 import processing.core.PGraphics;
+import processing.core.PMatrix3D;
 import processing.core.PSurface;
 
 
@@ -108,6 +110,9 @@ public class PJOGL extends PGL {
   /** GL2 desktop functionality (blit framebuffer, map buffer range,
    * multisampled renderbuffers) */
   protected GL2 gl2x;
+
+  /** GL3ES3 interface */
+  protected GL3ES3 gl3es3;
 
   /** Stores exceptions that ocurred during drawing */
   protected Exception drawException;
@@ -233,6 +238,7 @@ public class PJOGL extends PGL {
     this.gl2 = pjogl.gl2;
     this.gl2x = pjogl.gl2x;
     this.gl3 = pjogl.gl3;
+    this.gl3es3 = pjogl.gl3es3;
   }
 
 
@@ -252,6 +258,11 @@ public class PJOGL extends PGL {
       gl3 = gl.getGL2GL3();
     } catch (com.jogamp.opengl.GLException e) {
       gl3 = null;
+    }
+    try {
+      gl3es3 = gl.getGL3ES3();
+    } catch (com.jogamp.opengl.GLException e) {
+      gl3es3 = null;
     }
   }
 
@@ -316,49 +327,51 @@ public class PJOGL extends PGL {
 
   @Override
   protected void beginGL() {
+    PMatrix3D proj = graphics.projection;
+    PMatrix3D mdl = graphics.modelview;
     if (gl2x != null) {
       if (projMatrix == null) {
         projMatrix = new float[16];
       }
       gl2x.glMatrixMode(GLMatrixFunc.GL_PROJECTION);
-      projMatrix[ 0] = graphics.projection.m00;
-      projMatrix[ 1] = graphics.projection.m10;
-      projMatrix[ 2] = graphics.projection.m20;
-      projMatrix[ 3] = graphics.projection.m30;
-      projMatrix[ 4] = graphics.projection.m01;
-      projMatrix[ 5] = graphics.projection.m11;
-      projMatrix[ 6] = graphics.projection.m21;
-      projMatrix[ 7] = graphics.projection.m31;
-      projMatrix[ 8] = graphics.projection.m02;
-      projMatrix[ 9] = graphics.projection.m12;
-      projMatrix[10] = graphics.projection.m22;
-      projMatrix[11] = graphics.projection.m32;
-      projMatrix[12] = graphics.projection.m03;
-      projMatrix[13] = graphics.projection.m13;
-      projMatrix[14] = graphics.projection.m23;
-      projMatrix[15] = graphics.projection.m33;
+      projMatrix[ 0] = proj.m00;
+      projMatrix[ 1] = proj.m10;
+      projMatrix[ 2] = proj.m20;
+      projMatrix[ 3] = proj.m30;
+      projMatrix[ 4] = proj.m01;
+      projMatrix[ 5] = proj.m11;
+      projMatrix[ 6] = proj.m21;
+      projMatrix[ 7] = proj.m31;
+      projMatrix[ 8] = proj.m02;
+      projMatrix[ 9] = proj.m12;
+      projMatrix[10] = proj.m22;
+      projMatrix[11] = proj.m32;
+      projMatrix[12] = proj.m03;
+      projMatrix[13] = proj.m13;
+      projMatrix[14] = proj.m23;
+      projMatrix[15] = proj.m33;
       gl2x.glLoadMatrixf(projMatrix, 0);
 
       if (mvMatrix == null) {
         mvMatrix = new float[16];
       }
       gl2x.glMatrixMode(GLMatrixFunc.GL_MODELVIEW);
-      mvMatrix[ 0] = graphics.modelview.m00;
-      mvMatrix[ 1] = graphics.modelview.m10;
-      mvMatrix[ 2] = graphics.modelview.m20;
-      mvMatrix[ 3] = graphics.modelview.m30;
-      mvMatrix[ 4] = graphics.modelview.m01;
-      mvMatrix[ 5] = graphics.modelview.m11;
-      mvMatrix[ 6] = graphics.modelview.m21;
-      mvMatrix[ 7] = graphics.modelview.m31;
-      mvMatrix[ 8] = graphics.modelview.m02;
-      mvMatrix[ 9] = graphics.modelview.m12;
-      mvMatrix[10] = graphics.modelview.m22;
-      mvMatrix[11] = graphics.modelview.m32;
-      mvMatrix[12] = graphics.modelview.m03;
-      mvMatrix[13] = graphics.modelview.m13;
-      mvMatrix[14] = graphics.modelview.m23;
-      mvMatrix[15] = graphics.modelview.m33;
+      mvMatrix[ 0] = mdl.m00;
+      mvMatrix[ 1] = mdl.m10;
+      mvMatrix[ 2] = mdl.m20;
+      mvMatrix[ 3] = mdl.m30;
+      mvMatrix[ 4] = mdl.m01;
+      mvMatrix[ 5] = mdl.m11;
+      mvMatrix[ 6] = mdl.m21;
+      mvMatrix[ 7] = mdl.m31;
+      mvMatrix[ 8] = mdl.m02;
+      mvMatrix[ 9] = mdl.m12;
+      mvMatrix[10] = mdl.m22;
+      mvMatrix[11] = mdl.m32;
+      mvMatrix[12] = mdl.m03;
+      mvMatrix[13] = mdl.m13;
+      mvMatrix[14] = mdl.m23;
+      mvMatrix[15] = mdl.m33;
       gl2x.glLoadMatrixf(mvMatrix, 0);
     }
   }
@@ -736,12 +749,14 @@ public class PJOGL extends PGL {
 
     ARRAY_BUFFER         = GL.GL_ARRAY_BUFFER;
     ELEMENT_ARRAY_BUFFER = GL.GL_ELEMENT_ARRAY_BUFFER;
+    PIXEL_PACK_BUFFER    = GL2ES3.GL_PIXEL_PACK_BUFFER;
 
     MAX_VERTEX_ATTRIBS  = GL2ES2.GL_MAX_VERTEX_ATTRIBS;
 
     STATIC_DRAW  = GL.GL_STATIC_DRAW;
     DYNAMIC_DRAW = GL.GL_DYNAMIC_DRAW;
     STREAM_DRAW  = GL2ES2.GL_STREAM_DRAW;
+    STREAM_READ  = GL2ES3.GL_STREAM_READ;
 
     BUFFER_SIZE  = GL.GL_BUFFER_SIZE;
     BUFFER_USAGE = GL.GL_BUFFER_USAGE;
@@ -956,6 +971,10 @@ public class PJOGL extends PGL {
     MULTISAMPLE    = GL.GL_MULTISAMPLE;
     LINE_SMOOTH    = GL.GL_LINE_SMOOTH;
     POLYGON_SMOOTH = GL2GL3.GL_POLYGON_SMOOTH;
+
+    SYNC_GPU_COMMANDS_COMPLETE = GL3ES3.GL_SYNC_GPU_COMMANDS_COMPLETE;
+    ALREADY_SIGNALED           = GL3ES3.GL_ALREADY_SIGNALED;
+    CONDITION_SATISFIED        = GL3ES3.GL_CONDITION_SATISFIED;
   }
 
   ///////////////////////////////////////////////////////////
@@ -1114,6 +1133,37 @@ public class PJOGL extends PGL {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  // Synchronization
+
+  @Override
+  public long fenceSync(int condition, int flags) {
+    if (gl3es3 != null) {
+      return gl3es3.glFenceSync(condition, flags);
+    } else {
+      throw new RuntimeException(String.format(MISSING_GLFUNC_ERROR, "fenceSync()"));
+    }
+  }
+
+  @Override
+  public void deleteSync(long sync) {
+    if (gl3es3 != null) {
+      gl3es3.glDeleteSync(sync);
+    } else {
+      throw new RuntimeException(String.format(MISSING_GLFUNC_ERROR, "deleteSync()"));
+    }
+  }
+
+  @Override
+  public int clientWaitSync(long sync, int flags, long timeout) {
+    if (gl3es3 != null) {
+      return gl3es3.glClientWaitSync(sync, flags, timeout);
+    } else {
+      throw new RuntimeException(String.format(MISSING_GLFUNC_ERROR, "clientWaitSync()"));
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   // Viewport and Clipping
 
   @Override
@@ -1139,6 +1189,11 @@ public class PJOGL extends PGL {
   @Override
   protected void readPixelsImpl(int x, int y, int width, int height, int format, int type, Buffer buffer) {
     gl.glReadPixels(x, y, width, height, format, type, buffer);
+  }
+
+  @Override
+  protected void readPixelsImpl(int x, int y, int width, int height, int format, int type, long offset) {
+    gl.glReadPixels(x, y, width, height, format, type, 0);
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -21,10 +21,11 @@
 */
 package processing.app.contrib;
 
+import java.awt.EventQueue;
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.net.*;
 import java.util.*;
-import java.util.zip.GZIPOutputStream;
 
 import javax.swing.SwingWorker;
 
@@ -59,7 +60,6 @@ public class ContributionManager {
                           File dest, ContribProgressMonitor progress) {
     boolean success = false;
     try {
-
       HttpURLConnection conn = (HttpURLConnection) source.openConnection();
       HttpURLConnection.setFollowRedirects(true);
       conn.setConnectTimeout(15 * 1000);
@@ -70,7 +70,7 @@ public class ContributionManager {
         conn.connect();
 
       } else {
-        post = gzipEncode(post);
+        post = Util.gzipEncode(post);
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
         conn.setRequestProperty("Content-Encoding", "gzip");
@@ -130,15 +130,6 @@ public class ContributionManager {
   }
 
 
-  static private byte[] gzipEncode(byte[] what) throws IOException {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    GZIPOutputStream output = new GZIPOutputStream(baos);
-    PApplet.saveStream(output, new ByteArrayInputStream(what));
-    output.close();
-    return baos.toByteArray();
-  }
-
-
   /**
    * Non-blocking call to download and install a contribution in a new thread.
    *
@@ -156,7 +147,7 @@ public class ContributionManager {
                                  final ContribProgressBar downloadProgress,
                                  final ContribProgressBar installProgress,
                                  final StatusPanel status) {
-
+    // TODO: replace with SwingWorker [jv]
     new Thread(new Runnable() {
       public void run() {
         String filename = url.getFile();
@@ -170,11 +161,23 @@ public class ContributionManager {
 
             if (!downloadProgress.isCanceled() && !downloadProgress.isError()) {
               installProgress.startTask(Language.text("contrib.progress.installing"), ContribProgressMonitor.UNKNOWN);
-              LocalContribution contribution =
+              final LocalContribution contribution =
                 ad.install(editor.getBase(), contribZip, false, status);
 
               if (contribution != null) {
-                listing.replaceContribution(ad, contribution);
+                try {
+                  // TODO: run this in SwingWorker done() [jv]
+                  EventQueue.invokeAndWait(new Runnable() {
+                    @Override
+                    public void run() {
+                      listing.replaceContribution(ad, contribution);
+                    }
+                  });
+                } catch (InterruptedException e) {
+                  e.printStackTrace();
+                } catch (InvocationTargetException e) {
+                  throw (Exception) e.getCause();
+                }
                 /*
                 if (contribution.getType() == ContributionType.MODE) {
                   List<ModeContribution> contribModes = editor.getBase().getModeContribs();
@@ -238,14 +241,12 @@ public class ContributionManager {
    * procedure is not of importance, such as if a contribution has to be
    * installed at startup time.
    *
-   * @param url
-   *          Direct link to the contribution.
-   * @param ad
-   *          The AvailableContribution to be downloaded and installed.
+   * @param url Direct link to the contribution.
+   * @param ad The AvailableContribution to be downloaded and installed.
    */
   static void downloadAndInstallOnStartup(final Base base, final URL url,
                                           final AvailableContribution ad) {
-
+    // TODO: replace with SwingWorker [jv]
     new Thread(new Runnable() {
       public void run() {
         String filename = url.getFile();
@@ -257,30 +258,35 @@ public class ContributionManager {
           try {
             download(url, null, contribZip, null);
 
-            LocalContribution contribution = ad.install(base, contribZip,
+            final LocalContribution contribution = ad.install(base, contribZip,
                                                         false, null);
 
             if (contribution != null) {
-              listing.replaceContribution(ad, contribution);
-//              if (contribution.getType() == ContributionType.MODE) {
-//                List<ModeContribution> contribModes = base.getModeContribs();
-//                if (contribModes != null && !contribModes.contains(contribution)) {
-//                  contribModes.add((ModeContribution) contribution);
-//                }
-//              }
-//              if (base.getActiveEditor() != null) {
-//                refreshInstalled(base.getActiveEditor());
-//              }
-              base.refreshContribs(contribution.getType());
+              try {
+                // TODO: run this in SwingWorker done() [jv]
+                EventQueue.invokeAndWait(new Runnable() {
+                  @Override
+                  public void run() {
+                    listing.replaceContribution(ad, contribution);
+                    base.refreshContribs(contribution.getType());
+                  }
+                });
+              } catch (InterruptedException e) {
+                e.printStackTrace();
+              } catch (InvocationTargetException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof RuntimeException) {
+                  throw (RuntimeException) cause;
+                } else {
+                  cause.printStackTrace();
+                }
+              }
             }
 
             contribZip.delete();
-
             handleUpdateFailedMarkers(ad, filename.substring(0, filename.lastIndexOf('.')));
 
           } catch (Exception e) {
-//            Chuck the stack trace. The user might have no idea why it is appearing, or what (s)he did wrong...
-//            e.printStackTrace();
             String arg = "contrib.startup.errors.download_install";
             System.err.println(Language.interpolate(arg, ad.getName()));
           }
@@ -293,42 +299,47 @@ public class ContributionManager {
   }
 
 
-/**
- * After install, this function checks whether everything went properly or not.
- * If not, it adds a marker file so that the next time Processing is started, installPreviouslyFailed()
- * can install the contribution.
- * @param ac
- * The contribution just installed.
- * @param filename
- * The name of the folder in which the contribution is supposed to be stored.
- */
-  static private void handleUpdateFailedMarkers(final AvailableContribution ac, String filename) {
+  /**
+   * After install, this function checks whether everything went properly.
+   * If not, it adds a marker file so that the next time Processing is started,
+   * installPreviouslyFailed() can install the contribution.
+   * @param c the contribution just installed
+   * @param filename name of the folder for the contribution
+   */
+  static private void handleUpdateFailedMarkers(final AvailableContribution c,
+                                                String filename) {
+    File typeFolder = c.getType().getSketchbookFolder();
 
-    File contribLocn = ac.getType().getSketchbookFolder();
-
-    for (File contribDir : contribLocn.listFiles())
+    for (File contribDir : typeFolder.listFiles()) {
       if (contribDir.isDirectory()) {
+        /*
         File[] contents = contribDir.listFiles(new FilenameFilter() {
 
           @Override
           public boolean accept(File dir, String file) {
-            return file.equals(ac.getType() + ".properties");
+            return file.equals(c.getType() + ".properties");
           }
         });
-        if (contents.length > 0 && Util.readSettings(contents[0]).get("name").equals(ac.getName())) {
+        if (contents.length > 0 && Util.readSettings(contents[0]).get("name").equals(c.getName())) {
           return;
         }
+        */
+        File propsFile = new File(contribDir, c.getType() + ".properties");
+        if (propsFile.exists()) {
+          StringDict props = Util.readSettings(propsFile);
+          if (c.getName().equals(props.get("name"))) {
+            return;
+          }
+        }
       }
-
-    try {
-      new File(contribLocn, ac.getName()).createNewFile();
-    } catch (IOException e) {
-//      Again, forget about the stack trace. The user ain't done wrong
-//      e.printStackTrace();
-      String arg = "contrib.startup.errors.new_marker";
-      System.err.println(Language.interpolate(arg, ac.getName()));
     }
 
+    try {
+      new File(typeFolder, c.getName()).createNewFile();
+    } catch (IOException e) {
+      String arg = "contrib.startup.errors.new_marker";
+      System.err.println(Language.interpolate(arg, c.getName()));
+    }
   }
 
 
@@ -338,29 +349,28 @@ public class ContributionManager {
    * anything and providing feedback via the console status area, such as when
    * the user tries to run a sketch that imports uninstaled libraries.
    *
-   * @param aList
-   *          The list of AvailableContributions to be downloaded and installed.
+   * @param list The list of AvailableContributions to be downloaded and installed.
    */
-  public static void downloadAndInstallOnImport(final Base base,
-                                                final List<AvailableContribution> aList) {
-
-    // To avoid the user from modifying stuff, since this function is only called
-    // during pre-processing
-    base.getActiveEditor().getTextArea().setEditable(false);
+  static public void downloadAndInstallOnImport(final Base base,
+                                                final List<AvailableContribution> list) {
+    // To avoid the user from modifying stuff, since this function is only
+    // called during pre-processing
+    Editor editor = base.getActiveEditor();
+    editor.getTextArea().setEditable(false);
 //    base.getActiveEditor().getConsole().clear();
 
-    ArrayList<String> installedLibList = new ArrayList<String>();
+    List<String> installedLibList = new ArrayList<String>();
 
     // boolean variable to check if previous lib was installed successfully,
     // to give the user an idea about progress being made.
     boolean isPrevDone = false;
 
-    for (AvailableContribution ad : aList) {
-      if (ad.getType() != ContributionType.LIBRARY) {
+    for (AvailableContribution contrib : list) {
+      if (contrib.getType() != ContributionType.LIBRARY) {
         continue;
       }
       try {
-        URL url = new URL(ad.link);
+        URL url = new URL(contrib.link);
         String filename = url.getFile();
         filename = filename.substring(filename.lastIndexOf('/') + 1);
         try {
@@ -373,16 +383,15 @@ public class ContributionManager {
             // The slightly complex if-else is required to let the user know when
             // one install is completed and the next download has begun without
             // interfering with other status messages that may arise in the meanwhile
-            String statusMsg = base.getActiveEditor().getStatusMessage();
+            String statusMsg = editor.getStatusMessage();
             if (isPrevDone) {
               String status = statusMsg + " "
-                + Language.interpolate("contrib.import.progress.download", ad.name);
-              base.getActiveEditor().statusNotice(status);
-            }
-            else {
+                + Language.interpolate("contrib.import.progress.download", contrib.name);
+              editor.statusNotice(status);
+            } else {
               String arg = "contrib.import.progress.download";
-              String status = Language.interpolate(arg, ad.name);
-              base.getActiveEditor().statusNotice(status);
+              String status = Language.interpolate(arg, contrib.name);
+              editor.statusNotice(status);
             }
 
             isPrevDone = false;
@@ -390,41 +399,38 @@ public class ContributionManager {
             download(url, null, contribZip, null);
 
             String arg = "contrib.import.progress.install";
-            base.getActiveEditor().statusNotice(Language.interpolate(arg,ad.name));
+            editor.statusNotice(Language.interpolate(arg,contrib.name));
             LocalContribution contribution =
-              ad.install(base, contribZip, false, null);
+              contrib.install(base, contribZip, false, null);
 
             if (contribution != null) {
-              listing.replaceContribution(ad, contribution);
-//              if (base.getActiveEditor() != null) {
-//                refreshInstalled(base.getActiveEditor());
-//              }
+              listing.replaceContribution(contrib, contribution);
               base.refreshContribs(contribution.getType());
             }
 
             contribZip.delete();
 
-            installedLibList.add(ad.name);
+            installedLibList.add(contrib.name);
             isPrevDone = true;
 
             arg = "contrib.import.progress.done";
-            base.getActiveEditor().statusNotice(Language.interpolate(arg,ad.name));
+            editor.statusNotice(Language.interpolate(arg,contrib.name));
 
           } catch (Exception e) {
             String arg = "contrib.startup.errors.download_install";
-            System.err.println(Language.interpolate(arg, ad.getName()));
+            System.err.println(Language.interpolate(arg, contrib.getName()));
           }
         } catch (IOException e) {
           String arg = "contrib.startup.errors.temp_dir";
-          System.err.println(Language.interpolate(arg,ad.getName()));
+          System.err.println(Language.interpolate(arg,contrib.getName()));
         }
       } catch (MalformedURLException e1) {
         System.err.println(Language.interpolate("contrib.import.errors.link",
-                                                ad.getName()));
+                                                contrib.getName()));
       }
     }
-    base.getActiveEditor().getTextArea().setEditable(true);
-    base.getActiveEditor().statusEmpty();
+    editor.getTextArea().setEditable(true);
+    editor.statusEmpty();
     System.out.println(Language.text("contrib.import.progress.final_list"));
     for (String l : installedLibList) {
       System.out.println("  * " + l);
@@ -500,7 +506,7 @@ public class ContributionManager {
    * and remove any "requires restart" flags.
    * Also updates all entries previously marked for update.
    */
-  static public void cleanup(final Base base) throws Exception {
+  static private void cleanup(final Base base) throws Exception {
     deleteTemp(Base.getSketchbookModesFolder());
     deleteTemp(Base.getSketchbookToolsFolder());
 
@@ -518,7 +524,7 @@ public class ContributionManager {
       @Override
       protected Void doInBackground() throws Exception {
         try {
-          Thread.sleep(1 * 1000);
+          Thread.sleep(1000);
           installPreviouslyFailed(base, Base.getSketchbookToolsFolder());
         } catch (InterruptedException e) {
           e.printStackTrace();
@@ -569,10 +575,6 @@ public class ContributionManager {
   /**
    * Installs all the modes/tools whose installation failed during an
    * auto-update the previous time Processing was started up.
-   *
-   * @param base
-   * @param root
-   * @throws Exception
    */
   static private void installPreviouslyFailed(Base base, File root) throws Exception {
     File[] installList = root.listFiles(new FileFilter() {
@@ -595,10 +597,6 @@ public class ContributionManager {
 
   /**
    * Updates all the flagged modes/tools.
-   *
-   * @param base
-   * @param root
-   * @throws Exception
    */
   static private void updateFlagged(Base base, File root) throws Exception {
     File[] markedForUpdate = root.listFiles(new FileFilter() {
@@ -676,43 +674,71 @@ public class ContributionManager {
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 
-  static ContributionManagerDialog contributionManagerFrame =
-    new ContributionManagerDialog();
+  static ManagerFrame managerDialog;
 
 
-  /**
-   * Show the library installer window.
-   */
-  static public void openLibraryManager(Editor editor) {
-    contributionManagerFrame.showFrame(editor, ContributionType.LIBRARY);
+  static public void init(Base base) throws Exception {
+    managerDialog = new ManagerFrame(base);
+    cleanup(base);
   }
 
 
   /**
-   * Show the tool installer window.
+   * Show the Library installer window.
    */
-  static public void openToolManager(Editor editor) {
-    contributionManagerFrame.showFrame(editor, ContributionType.TOOL);
+  static public void openLibraries() {
+    managerDialog.showFrame(ContributionType.LIBRARY);
   }
 
 
   /**
-   * Show the mode installer window.
+   * Show the Mode installer window.
    */
-  static public void openModeManager(Editor editor) {
-    contributionManagerFrame.showFrame(editor, ContributionType.MODE);
+  static public void openModes() {
+    managerDialog.showFrame(ContributionType.MODE);
   }
 
 
   /**
-   * Show the examples installer window.
+   * Show the Tool installer window.
    */
-  static public void openExampleManager(Editor editor) {
-    contributionManagerFrame.showFrame(editor, ContributionType.EXAMPLES);
+  static public void openTools() {
+    managerDialog.showFrame(ContributionType.TOOL);
   }
 
 
-  static public void openUpdates(Editor editor) {
-    contributionManagerFrame.showFrame(editor, null);
+  /**
+   * Show the Examples installer window.
+   */
+  static public void openExamples() {
+    managerDialog.showFrame(ContributionType.EXAMPLES);
+  }
+
+
+  /**
+   * Open the updates panel.
+   */
+  static public void openUpdates() {
+    managerDialog.showFrame(null);
+  }
+
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
+  static int getTypeIndex(ContributionType contributionType) {
+    int index;
+    if (contributionType == ContributionType.LIBRARY) {
+      index = 0;
+    } else if (contributionType == ContributionType.MODE) {
+      index = 1;
+    } else if (contributionType == ContributionType.TOOL) {
+      index = 2;
+    } else if (contributionType == ContributionType.EXAMPLES) {
+      index = 3;
+    } else {
+      index = 4;
+    }
+    return index;
   }
 }

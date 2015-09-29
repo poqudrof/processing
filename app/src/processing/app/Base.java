@@ -55,9 +55,9 @@ import processing.data.StringList;
 public class Base {
   // Added accessors for 0218 because the UpdateCheck class was not properly
   // updating the values, due to javac inlining the static final values.
-  static private final int REVISION = 245;
+  static private final int REVISION = 246;
   /** This might be replaced by main() if there's a lib/version.txt file. */
-  static private String VERSION_NAME = "0245"; //$NON-NLS-1$
+  static private String VERSION_NAME = "0246"; //$NON-NLS-1$
   /** Set true if this a proper release rather than a numbered revision. */
 
   /** True if heavy debugging error/log messages are enabled */
@@ -212,8 +212,8 @@ public class Base {
                 new Welcome(base, prompt);
               } catch (IOException e) {
                 Messages.showTrace("Unwelcoming",
-                                          "Please report this error to\n" +
-                                          "https://github.com/processing/processing/issues", e, false);
+                                   "Please report this error to\n" +
+                                   "https://github.com/processing/processing/issues", e, false);
               }
             }
           });
@@ -227,7 +227,7 @@ public class Base {
           t = t.getCause();
         }
         Messages.showTrace("We're off on the wrong foot",
-                                  "An error occurred during startup.", t, true);
+                           "An error occurred during startup.", t, true);
       }
       Messages.log("done creating base..."); //$NON-NLS-1$
     }
@@ -268,7 +268,8 @@ public class Base {
 
 
   public Base(String[] args) throws Exception {
-    ContributionManager.cleanup(this);
+    ContributionManager.init(this);
+
     buildCoreModes();
     rebuildContribModes();
     rebuildContribExamples();
@@ -470,10 +471,13 @@ public class Base {
   }
 
 
-  // Because of variations in native windowing systems, no guarantees about
-  // changes to the focused and active Windows can be made. Developers must
-  // never assume that this Window is the focused or active Window until this
-  // Window receives a WINDOW_GAINED_FOCUS or WINDOW_ACTIVATED event.
+  /**
+   * Called when a window is activated. Because of variations in native
+   * windowing systems, no guarantees about changes to the focused and active
+   * Windows can be made. Never assume that this Window is the focused or
+   * active Window until this Window actually receives a WINDOW_GAINED_FOCUS
+   * or WINDOW_ACTIVATED event.
+   */
   public void handleActivated(Editor whichEditor) {
     activeEditor = whichEditor;
 
@@ -493,7 +497,6 @@ public class Base {
     if (ct == ContributionType.LIBRARY) {
       for (Mode m : getModeList()) {
         m.rebuildImportMenu();
-        m.refreshExampleFrame();
       }
 
     } else if (ct == ContributionType.MODE) {
@@ -511,7 +514,7 @@ public class Base {
     } else if (ct == ContributionType.EXAMPLES) {
       rebuildContribExamples();
       for (Mode m : getModeList()) {
-        m.refreshExampleFrame();
+        m.rebuildExamplesFrame();
       }
     }
   }
@@ -558,7 +561,7 @@ public class Base {
     if (coreTools == null) {
       coreTools = ToolContribution.loadAll(Base.getToolsFolder());
       for (Tool tool : coreTools) {
-        tool.init(activeEditor);
+        tool.init(this);
       }
     }
 
@@ -566,7 +569,7 @@ public class Base {
     contribTools = ToolContribution.loadAll(Base.getSketchbookToolsFolder());
     for (Tool tool : contribTools) {
       try {
-        tool.init(activeEditor);
+        tool.init(this);
 
         // With the exceptions, we can't call statusError because the window
         // isn't completely set up yet. Also not gonna pop up a warning because
@@ -610,7 +613,7 @@ public class Base {
       Class<?> toolClass = Class.forName(className);
       final Tool tool = (Tool) toolClass.newInstance();
 
-      tool.init(activeEditor);
+      tool.init(this);
       internalTools.add(tool);
 
     } catch (Exception e) {
@@ -661,7 +664,7 @@ public class Base {
 //        return o1.getMenuTitle().compareTo(o2.getMenuTitle());
 //      }
 //    });
-
+    toolsMenu.removeAll();
     for (Tool tool : internalTools) {
       toolsMenu.add(createToolItem(tool));
     }
@@ -684,7 +687,7 @@ public class Base {
     JMenuItem item = new JMenuItem(Language.text("menu.tools.add_tool"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        ContributionManager.openToolManager(getActiveEditor());
+        ContributionManager.openTools();
       }
     });
     toolsMenu.add(item);
@@ -940,15 +943,15 @@ public class Base {
     }
     if (possibleModes.size() == 0) {
       if (preferredMode == null) {
-        Messages.showWarning("Modeless Dialog",
-                             "I don't know how to open a sketch with the \""
-                         + extension
-                         + "\"\nfile extension. You'll have to install a different"
-                         + "\nProcessing mode for that.");
+        final String msg =
+          "I don't know how to open a sketch with the \"" + extension + "\"\n" +
+          "file extension. You'll have to install a different\n" +
+          "Mode for that.";
+        Messages.showWarning("Modeless Dialog", msg);
       } else {
         Messages.showWarning("Modeless Dialog",
-                             "You'll have to install "
-          + preferredMode.title + " Mode " + "\nin order to open that sketch.");
+                             "Install " + preferredMode.title + " Mode " +
+                             "to open this sketch.");
       }
       return null;
     }
@@ -1236,13 +1239,13 @@ public class Base {
       } catch (Throwable t) {
         if (nextMode.equals(getDefaultMode())) {
           Messages.showTrace("Serious Problem",
-                                    "An unexpected, unknown, and unrecoverable error occurred\n" +
-                                    "while opening a new editor window. Please report this.", t, true);
+                             "An unexpected, unknown, and unrecoverable error occurred\n" +
+                             "while opening a new editor window. Please report this.", t, true);
         } else {
           Messages.showTrace("Mode Problems",
-                                    "A nasty error occurred while trying to use " + nextMode.getTitle() + ".\n" +
-                                    "It may not be compatible with this version of Processing.\n" +
-                                    "Try updating the Mode or contact its author for a new version.", t, false);
+                             "A nasty error occurred while trying to use " + nextMode.getTitle() + ".\n" +
+                             "It may not be compatible with this version of Processing.\n" +
+                             "Try updating the Mode or contact its author for a new version.", t, false);
         }
       }
       /*
@@ -1264,9 +1267,9 @@ public class Base {
 
     } catch (Throwable t) {
       Messages.showTrace("Terrible News",
-                                "A serious error occurred while " +
-                                "trying to create a new editor window.", t,
-                                nextMode == getDefaultMode());  // quit if default
+                         "A serious error occurred while " +
+                         "trying to create a new editor window.", t,
+                         nextMode == getDefaultMode());  // quit if default
       nextMode = getDefaultMode();
     }
     return null;
@@ -1724,18 +1727,19 @@ public class Base {
 
     try {
       settingsFolder = Platform.getSettingsFolder();
+
+      // create the folder if it doesn't exist already
+      if (!settingsFolder.exists()) {
+        if (!settingsFolder.mkdirs()) {
+          Messages.showError("Settings issues",
+                             "Processing cannot run because it could not\n" +
+                             "create a folder to store your settings.\n" +
+                             settingsFolder.getAbsolutePath(), null);
+        }
+      }
     } catch (Exception e) {
       Messages.showError("Problem getting the settings folder",
                          "Error getting the Processing the settings folder.", e);
-    }
-
-    // create the folder if it doesn't exist already
-    if (!settingsFolder.exists()) {
-      if (!settingsFolder.mkdirs()) {
-        Messages.showError("Settings issues",
-                           "Processing cannot run because it could not\n" +
-                           "create a folder to store your settings.", null);
-      }
     }
     return settingsFolder;
   }

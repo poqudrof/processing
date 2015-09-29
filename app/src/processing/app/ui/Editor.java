@@ -300,6 +300,8 @@ public abstract class Editor extends JFrame implements RunnerListener {
       }
     });
 
+    textarea.addKeyListener(toolbar);
+
     contentPain.setTransferHandler(new FileDropHandler());
 
     // Finish preparing Editor (formerly found in Base)
@@ -499,7 +501,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
     JMenuItem addLib = new JMenuItem(Language.text("toolbar.add_mode"));
     addLib.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        ContributionManager.openModeManager(Editor.this);
+        ContributionManager.openModes();
       }
     });
     modePopup.add(addLib);
@@ -2523,7 +2525,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
     statusNotice(Language.text("editor.status.saving"));
     try {
       if (sketch.saveAs()) {
-        // statusNotice("Done Saving.");
+        //statusNotice(Language.text("editor.status.saving.done"));
         // status is now printed from Sketch so that "Done Saving."
         // is only printed after Save As when progress bar is shown.
       } else {
@@ -2536,6 +2538,29 @@ public abstract class Editor extends JFrame implements RunnerListener {
     }
     return true;
   }
+
+
+  /*
+  public void handleSaveAs() {
+    statusNotice(Language.text("editor.status.saving"));
+    sketch.saveAs();
+  }
+
+
+  public void handleSaveAsSuccess() {
+    statusNotice(Language.text("editor.status.saving.done"));
+  }
+
+
+  public void handleSaveAsCanceled() {
+    statusNotice(Language.text("editor.status.saving.canceled"));
+  }
+
+
+  public void handleSaveAsError(Exception e) {
+    statusError(e);
+  }
+  */
 
 
   /**
@@ -2754,12 +2779,12 @@ public abstract class Editor extends JFrame implements RunnerListener {
   }
 
 
-  /**
-   * Returns the current mode of the editor status bar: NOTICE, ERR or EDIT.
-   */
-  public int getStatusMode() {
-    return status.mode;
-  }
+//  /**
+//   * Returns the current mode of the editor status bar: NOTICE, ERR or EDIT.
+//   */
+//  public int getStatusMode() {
+//    return status.mode;
+//  }
 
 
   /**

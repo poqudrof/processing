@@ -43,6 +43,7 @@ import java.awt.font.FontRenderContext;
 import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
+import java.awt.image.ImageObserver;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -479,6 +480,53 @@ public class Toolkit {
       return null;
     }
     return new ImageIcon(file.getAbsolutePath());
+  }
+
+
+  /**
+   * Get an image icon with hi-dpi support. Pulls 1x or 2x versions of the
+   * file depending on the display type, but sizes them based on 1x.
+   */
+  static public ImageIcon getLibIconX(String base) {
+    return getLibIconX(base, 0);
+  }
+
+
+  /**
+   * Get an icon of the format base-NN.png where NN is the size, but if it's
+   * a hidpi display, get the NN*2 version automatically, sized at NN
+   */
+  static public ImageIcon getLibIconX(String base, int size) {
+    final int scale = Toolkit.highResDisplay() ? 2 : 1;
+    String filename = (size == 0) ?
+      (base + "-" + scale + "x.png") :
+      (base + "-" + (size*scale) + ".png");
+    File file = Platform.getContentFile("lib/" + filename);
+    if (!file.exists()) {
+//      System.err.println("does not exist: " + file);
+      return null;
+    }
+    ImageIcon outgoing = new ImageIcon(file.getAbsolutePath()) {
+      @Override
+      public int getIconWidth() {
+        return super.getIconWidth() / scale;
+      }
+
+      @Override
+      public int getIconHeight() {
+        return super.getIconHeight() / scale;
+      }
+
+      @Override
+      public synchronized void paintIcon(Component c, Graphics g, int x, int y) {
+        ImageObserver imageObserver = getImageObserver();
+        if (imageObserver == null) {
+          imageObserver = c;
+        }
+        g.drawImage(getImage(), x, y, getIconWidth(), getIconHeight(), imageObserver);
+      }
+    };
+    return outgoing;
   }
 
 
@@ -936,7 +984,7 @@ public class Toolkit {
    * Synthesized replacement for FontMetrics.getAscent(), which is dreadfully
    * inaccurate and inconsistent across platforms.
    */
-  static double getAscent(Graphics g) { //, Font font) {
+  static public double getAscent(Graphics g) {
     Graphics2D g2 = (Graphics2D) g;
     FontRenderContext frc = g2.getFontRenderContext();
     //return new TextLayout("H", font, frc).getBounds().getHeight();
@@ -944,18 +992,18 @@ public class Toolkit {
   }
 
 
-  /** Do not use or rely upon presence of this method: not approved as final API. */
-  static public void debugOpacity(Component comp) {
-    //Component parent = comp.getParent();
-    while (comp != null) {
-      //EditorConsole.systemOut.println("parent is " + parent + " " + parent.isOpaque());
-      //EditorConsole.systemOut.println(parent.getClass().getName() + " " + (parent.isOpaque() ? "OPAQUE" : ""));
-      System.out.println(comp.getClass().getName() + " " + (comp.isOpaque() ? "OPAQUE" : ""));
-      comp = comp.getParent();
-    }
-    //EditorConsole.systemOut.println();
-    System.out.println();
-  }
+//  /** Do not use or rely upon presence of this method: not approved as final API. */
+//  static public void debugOpacity(Component comp) {
+//    //Component parent = comp.getParent();
+//    while (comp != null) {
+//      //EditorConsole.systemOut.println("parent is " + parent + " " + parent.isOpaque());
+//      //EditorConsole.systemOut.println(parent.getClass().getName() + " " + (parent.isOpaque() ? "OPAQUE" : ""));
+//      System.out.println(comp.getClass().getName() + " " + (comp.isOpaque() ? "OPAQUE" : ""));
+//      comp = comp.getParent();
+//    }
+//    //EditorConsole.systemOut.println();
+//    System.out.println();
+//  }
 
 
   static public int getMenuItemIndex(JMenu menu, JMenuItem item) {

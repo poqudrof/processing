@@ -341,11 +341,21 @@ public class Util {
 
 
   /**
+   * Function to return the length of the file, or entire directory, including
+   * the component files and sub-folders if passed.
+   * @param file The file or folder to calculate
+   */
+  static public long calcSize(File file) {
+    return file.isFile() ? file.length() : Util.calcFolderSize(file);
+  }
+
+
+  /**
    * Calculate the size of the contents of a folder.
    * Used to determine whether sketches are empty or not.
    * Note that the function calls itself recursively.
    */
-  static public int calcFolderSize(File folder) {
+  static public long calcFolderSize(File folder) {
     int size = 0;
 
     String files[] = folder.list();
@@ -644,5 +654,14 @@ public class Util {
     }
     out.flush();
     out.close();
+  }
+
+
+  static public byte[] gzipEncode(byte[] what) throws IOException {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    GZIPOutputStream output = new GZIPOutputStream(baos);
+    PApplet.saveStream(output, new ByteArrayInputStream(what));
+    output.close();
+    return baos.toByteArray();
   }
 }

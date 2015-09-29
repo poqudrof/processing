@@ -1,24 +1,39 @@
-0245 core (3.0b7)
-X FX2D display is inverted in 3.0b6
-X   https://github.com/processing/processing/issues/3795
+0246 the papal visit
+X implement high-performance/async image saving
+X   Use PBOs for async texture copy
+X   https://github.com/processing/processing/issues/3569
+X   https://github.com/processing/processing/pull/3863
+X   https://github.com/processing/processing/pull/3869
+X Textures disappearing in beta 7 (might be WeakReference regression)
+X   https://github.com/processing/processing/issues/3858
+X   https://github.com/processing/processing/pull/3874
+X   https://github.com/processing/processing/pull/3875
+X Convert all documented hacky keys in OpenGL
+X   https://github.com/processing/processing/pull/3888
+X Frame size displays incorrectly if surface.setResizable(true)
+X   https://github.com/processing/processing/issues/3868
+X   https://github.com/processing/processing/pull/3880
+
+cleaning
+o move AWT image loading into PImageAWT
+o   look into how GL and FX will handle from there
+o run only the necessary pieces on the EDT
+o   in part because FX doesn't even use the EDT
+o   re-check the Linux frame visibility stuff
+X   cleaned most of this as far as we can go
 
 
-andres
-X surface.setLocation() causing a freeze on Windows
-X   https://github.com/processing/processing/commit/4c0f9234c0a48f62363233cafc9c9951ee351d3e
+known
+_ window must close when using file dialogs with OpenGL on Windows
+_   https://github.com/processing/processing/issues/3831
+_ P2D and P3D windows behave strangely when larger than the screen size
+_   https://github.com/processing/processing/issues/3401
 
 
 3.0 final
-_ P2D and P3D windows behave strangely when larger than the screen size
-_   https://github.com/processing/processing/issues/3401
 _ move blending calculations from PImage into PGraphics
 _   tricky because that means moving blend_resize() as well
 _   and should that live in PGraphics or be its own class or ??
-_ move AWT image loading into PImageAWT
-_   look into how GL and FX will handle from there
-_ run only the necessary pieces on the EDT
-_   in part because FX doesn't even use the EDT
-_   re-check the Linux frame visibility stuff
 _ try using Frame instead of JFrame
 _   default sketch location using insets incorrectly
 _   use the BufferStrategy directly from the Frame object?
@@ -31,8 +46,6 @@ _ update wiki/docs to say "don't override sketchXxxx() methods"
 _ SVG only exports last frame
 _   possibly because Java2D is disposing the Graphics2D in between?
 _   https://github.com/processing/processing/issues/3753
-_ selectInput/Output() is behind the drawing window (Windows)
-_   https://github.com/processing/processing/issues/3775
 
 javafx
 _ do we really need setTextFont/Size when we already have Impl? 
