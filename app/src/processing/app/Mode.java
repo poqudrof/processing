@@ -416,7 +416,7 @@ public abstract class Mode {
     item = new JMenuItem(Language.text("examples.add_examples"));
     item.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        ContributionManager.openExampleManager(base.getActiveEditor());
+        ContributionManager.openExamples();
       }
     });
     toolbarMenu.add(item);
@@ -492,7 +492,7 @@ public abstract class Mode {
     JMenuItem addLib = new JMenuItem(Language.text("menu.library.add_library"));
     addLib.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        ContributionManager.openLibraryManager(base.getActiveEditor());
+        ContributionManager.openLibraries();
       }
     });
     importMenu.add(addLib);
@@ -589,12 +589,6 @@ public abstract class Mode {
     }
   }
 
-  public void refreshExampleFrame() {
-    if (examplesFrame != null) {
-      examplesFrame.refresh();
-    }
-  }
-
 
   public void showExamplesFrame() {
     if (examplesFrame == null) {
@@ -670,6 +664,12 @@ public abstract class Mode {
       return icon.getImage();
     }
     return null;
+  }
+
+
+  public Image loadImageX(String filename) {
+    final int res = Toolkit.highResDisplay() ? 2 : 1;
+    return loadImage(filename + "-" + res +  "x.png");
   }
 
 

@@ -28,18 +28,14 @@ import java.io.UnsupportedEncodingException;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
-import com.sun.jna.platform.win32.Kernel32Util;
-import com.sun.jna.platform.win32.Shell32;
+import com.sun.jna.platform.win32.Shell32Util;
 import com.sun.jna.platform.win32.ShlObj;
-import com.sun.jna.platform.win32.WinDef;
-import com.sun.jna.platform.win32.WinError;
-import com.sun.jna.platform.win32.WinNT.HRESULT;
 
 import processing.app.Base;
 import processing.app.Messages;
 import processing.app.Preferences;
-import processing.app.platform.DefaultPlatform;
 import processing.app.platform.WindowsRegistry.REGISTRY_ROOT_KEY;
+
 import processing.core.PApplet;
 
 
@@ -259,57 +255,58 @@ public class WindowsPlatform extends DefaultPlatform {
 
   // looking for Documents and Settings/blah/Application Data/Processing
   public File getSettingsFolder() throws Exception {
-    String appData = getAppDataPath();
-    if (appData != null) {
-      return new File(appData, APP_NAME);
+    String appDataRoaming = getAppDataPath();
+    if (appDataRoaming != null) {
+      File settingsFolder = new File(appDataRoaming, APP_NAME);
+      if (settingsFolder.exists() || settingsFolder.mkdirs()) {
+        return settingsFolder;
+      }
     }
-    throw new IOException("Could not get the Application Data folder");
+
+    String appDataLocal = getLocalAppDataPath();
+    if (appDataLocal != null) {
+      File settingsFolder = new File(appDataLocal, APP_NAME);
+      if (settingsFolder.exists() || settingsFolder.mkdirs()) {
+        return settingsFolder;
+      }
+    }
+
+    if (appDataRoaming == null && appDataLocal == null) {
+      throw new IOException("Could not get the AppData folder");
+    }
+
+    // https://github.com/processing/processing/issues/3838
+    throw new IOException("Please fix permissions for either " +
+                          appDataRoaming + " or " + appDataLocal);
   }
 
 
+  /*
+    What's happening internally with JNA https://github.com/java-native-access/jna/blob/master/contrib/platform/src/com/sun/jna/platform/win32/Shell32.java
+
+    Some goodies here: https://github.com/java-native-access/jna/blob/master/contrib/platform/src/com/sun/jna/platform/win32/Shell32Util.java
+    http://twall.github.io/jna/4.1.0/com/sun/jna/platform/win32/Shell32Util.html#getSpecialFolderPath(int, boolean)
+
+    SHGetKnownFolderPath function https://msdn.microsoft.com/en-us/library/windows/desktop/bb762188(v=vs.85).aspx
+    SHGetSpecialFolderPath https://msdn.microsoft.com/en-us/library/windows/desktop/bb762204(v=vs.85).aspx
+
+    http://blogs.msdn.com/b/patricka/archive/2010/03/18/where-should-i-store-my-data-and-configuration-files-if-i-target-multiple-os-versions.aspx
+   */
+
+
+  /** Get the Users\name\AppData\Roaming path to write settings files. */
   static private String getAppDataPath() throws Exception {
-    // Trying to deal with JNA problems on Windows 10
-    // https://github.com/processing/processing/issues/3800
-    // Try to load JNA and set its temporary directory
-    getLibC();
-
-    // HKEY_CURRENT_USER\Software\Microsoft
-    //   \Windows\CurrentVersion\Explorer\Shell Folders
-    // Value Name: AppData
-    // Value Type: REG_SZ
-    // Value Data: path
-
-    //String keyPath =
-    //  "Software\\Microsoft\\Windows\\CurrentVersion" +
-    // "\\Explorer\\Shell Folders";
-    //String appDataPath =
-    //  Registry.getStringValue(REGISTRY_ROOT_KEY.CURRENT_USER, keyPath, "AppData");
-
-    // Fix for Issue 410
-    // Java 1.6 doesn't provide a good workaround (http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6519127)
-    // Using JNA and SHGetFolderPath instead.
-
-    // this will be contain the path if SHGetFolderPath is successful
-    char[] pszPath = new char[WinDef.MAX_PATH];
-    HRESULT hResult =
-      Shell32.INSTANCE.SHGetFolderPath(null, ShlObj.CSIDL_APPDATA,
-                                       null, ShlObj.SHGFP_TYPE_CURRENT,
-                                       pszPath);
-
-    if (!hResult.equals(WinError.S_OK)) {
-      System.err.println(Kernel32Util.formatMessageFromHR(hResult));
-      throw new Exception("Problem city, population: your computer.");
-    }
-
-    String appDataPath = new String(pszPath);
-    int len = appDataPath.indexOf("\0");
-//    appDataPath = appDataPath.substring(0, len);
-//    return new File(appDataPath, "Processing");
-    return appDataPath.substring(0, len);
+    return Shell32Util.getSpecialFolderPath(ShlObj.CSIDL_APPDATA, true);
   }
 
 
-  // looking for Documents and Settings/blah/My Documents/Processing
+  /** Get the Users\name\AppData\Local path as a settings fallback. */
+  static private String getLocalAppDataPath() throws Exception {
+    return Shell32Util.getSpecialFolderPath(ShlObj.CSIDL_LOCAL_APPDATA, true);
+  }
+
+
+  /** Get the Documents and Settings\name\My Documents\Processing folder. */
   public File getDefaultSketchbookFolder() throws Exception {
     String documentsPath = getDocumentsPath();
     if (documentsPath != null) {
@@ -320,6 +317,15 @@ public class WindowsPlatform extends DefaultPlatform {
 
 
   static private String getDocumentsPath() throws Exception {
+    return Shell32Util.getSpecialFolderPath(ShlObj.CSIDL_MYDOCUMENTS, true);
+  }
+
+
+  /*
+  static private String getDocumentsPath() throws Exception {
+    // heh, this is a little too cheeky
+    //new JFileChooser().getFileSystemView().getDefaultDirectory().toString();
+
     // http://support.microsoft.com/?kbid=221837&sd=RMVP
     // http://support.microsoft.com/kb/242557/en-us
 
@@ -347,16 +353,14 @@ public class WindowsPlatform extends DefaultPlatform {
     HRESULT hResult = Shell32.INSTANCE.SHGetFolderPath(null, ShlObj.CSIDL_PERSONAL, null, ShlObj.SHGFP_TYPE_CURRENT, pszPath);
 
     if (!hResult.equals(WinError.S_OK)) {
-      System.err.println(Kernel32Util.formatMessageFromHR(hResult));
-      throw new Exception("Problem city, population: your computer.");
+      throw new Exception(Kernel32Util.formatMessageFromHR(hResult));
     }
 
     String personalPath = new String(pszPath);
     int len = personalPath.indexOf("\0");
-//    personalPath = personalPath.substring(0, len);
-//    return new File(personalPath, "Processing");
     return personalPath.substring(0, len);
   }
+  */
 
 
 //  @Override
@@ -503,17 +507,24 @@ public class WindowsPlatform extends DefaultPlatform {
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 
-  // Code partially thanks to Richard Quirk from:
+  // getenv/setenv code partially thanks to Richard Quirk from:
   // http://quirkygba.blogspot.com/2009/11/setting-environment-variables-in-java.html
 
   static WinLibC clib;
 
 
+  // moved to a getter so that we could handle errors in a single location
+  // and at a time when it was useful/possible (rather than a static block)
   static WinLibC getLibC() {
     if (clib == null) {
       try {
         clib = (WinLibC) Native.loadLibrary("msvcrt", WinLibC.class);
       } catch (UnsatisfiedLinkError ule) {
+        Messages.showTrace("JNA Error",
+                           "JNA could not be loaded. Please report here:\n" +
+                           "http://github.com/processing/processing/issues/new", ule, true);
+
+        /*
         // Might be a problem with file encoding, use a default directory
         // https://github.com/processing/processing/issues/3624
         File ctmp = new File("C:\\TEMP");  // kick it old school
@@ -541,6 +552,7 @@ public class WindowsPlatform extends DefaultPlatform {
                              "JNA could not be loaded into C:\\TEMP. Please report:\n" +
                              "http://github.com/processing/processing/issues/new", null);
         }
+        */
       }
     }
     return clib;

@@ -1,25 +1,30 @@
-0245 (3.0b7)
-X add jar files from 'code' folder to the library path
-X   Code editor wrongly detects errors for libraries in code folder
-X   https://github.com/processing/processing/issues/3732
-o dim out the Run button if there are compile errors detected
-o   the AST checker has better error message handling for those cases
-o   and hitting Run replaces the useful error with something weird
-X   https://github.com/processing/processing/issues/3408
-X   not great because the error checker runs more slowly than your typing
+0246 the holy land
+X does the "Saving" message never clear on "Save As"? 
+X   https://github.com/processing/processing/issues/3861
+X error checker/suggestions fixes
+X   https://github.com/processing/processing/pull/3871
+X   https://github.com/processing/processing/pull/3879
+X contributions filter is ignored after clicking Install
+X   https://github.com/processing/processing/issues/3826
+X   https://github.com/processing/processing/pull/3872
+X   https://github.com/processing/processing/pull/3883
+X Exception in thread "Contribution List Downloader"
+X   https://github.com/processing/processing/issues/3882
+X   https://github.com/processing/processing/pull/3884
+X Hide useless error in error checker
+X   https://github.com/processing/processing/pull/3887
 
-manager
-X CM: Clicking item in Libraries list throws exception
-X   https://github.com/processing/processing/issues/3667
-X CM: Libraries missing descriptions and PFoundation credit
-X   https://github.com/processing/processing/issues/3688
-X use real version of bold font, rather than the fake version
-X remove the "v" from the version numbers in the updates tab
+gui
+X distinguish errors and warnings
+X   https://github.com/processing/processing/issues/3406
+X make breakpoints more prominent
+X   https://github.com/processing/processing/issues/3307 (comp is set)
 
-watcher
-X prevent re-prompting users when they say "no" to "sketch modified" message
-X add more preferences for editor.watcher
-X cleaning up the logic in the watcher
+earlier
+X list with contrib types separated is really wonky
+o   do we keep the list?
+o   does it even work for different contrib types?
+X   cleaned this up in the last release
 
 
 known issues
@@ -32,75 +37,52 @@ _   http://www.excelsiorjet.com/kb/35/howto-create-a-single-exe-from-your-java-a
 _ mouse events (i.e. toggle breakpoint) seem to be firing twice
 
 
+beta 7
+_ remove the dated releases from download.processing.org
+_ new Android release (EditorButton constructor changed)
+
+
 3.0 final
 _ https://github.com/processing/processing/milestones/3.0%20final
-_ Hitting enter on code completion completes and then creates a new line
-_   https://github.com/processing/processing/issues/3741
-_   can't seem to get completion working at all on my machine
-_ ctrl-space first inserts space, then deletes it, with completion
-_ Live error checking throws error when calling color() on a PGraphics
-_   https://github.com/processing/processing/issues/3762
-_ "color type detected! this shouldn't be happening! please report"
-_   happens when user does 'new color' instead of 'color'
-_   https://github.com/processing/processing/issues/3739
-_ change Tool API because it's not one Editor per Tool anymore?
-_   or just change the documentation?
-_ Contributions Manager UI design
-_   https://github.com/processing/processing/issues/3482
-_ items still show up in "Recent" if they no longer exist (on startup)
-_ replace about screen (1x and 2x versions)
+X clean up statusMessage() inside JavaEditor
+_   do we want to bring back the delays?
+_ JavaEditor has several null colors, remove color support
+_   once the design is complete and we for sure do not need color
+
+
+gui / James
+_ Fix placement and visual design when showing error on hover
+_   https://github.com/processing/processing/issues/3173
+_ import suggestions box needs design review
+_   https://github.com/processing/processing/issues/3407
+_ replace startup/about screen (1x and 2x versions)
 _   change 'alpha' to correct name
 _   also change the revision in the "about processing" dialog
 _   https://github.com/processing/processing/issues/3665
-_ UnsatisfiedLinkError on startup "Access is denied" on Windows 10
-_   https://github.com/processing/processing/issues/3800
-_   administrator, but using Microsoft account to log in
-_ JNA errors on startup when run from an account w/ non-ASCII characters
-_   https://github.com/processing/processing/issues/3624
-_   set jna.tmpdir (or java.io.tmpdir) to another location
-_   https://github.com/twall/jna/issues/124
-_   https://github.com/twall/jna/issues/238
-_   Sun says they won't fix: user locale and system locale probably different:
-_   https://bugs.openjdk.java.net/browse/JDK-8017274
-_   https://bugs.openjdk.java.net/browse/JDK-4958170
-_   https://github.com/twall/jna/blob/master/test/com/sun/jna/JNALoadTest.java
-_   http://happygiraffe.net/blog/2009/09/24/java-platform-encoding/
-_   fix: get sun.jnu.encoding and make sure the user name is supported in it?
-_     and if not, put up a warning for the user?
-_   http://www.oracle.com/us/technologies/java/locale-140624.html
-_ Red error underline is sometimes at wrong location
-_   https://github.com/processing/processing/issues/3759
+_ different design of squiggly line
+_   easy to do inside JavaTextAreaPainter.paintSquiggle()
 
 
-sketch modified externally (3.0 final)
-X sketch modified externally with FAT32 volumes on OS X
-X   https://github.com/processing/processing/issues/3387
-_   might have this fixed with the larger time window
-_   need to check if "save as" thing is causing trouble
-X "Your sketch has been modified externally" with encrypted OS X volumes
-X   https://github.com/processing/processing/issues/3650
-o add this to the preferences?
-o use watcher service after all? 
-o   https://docs.oracle.com/javase/tutorial/essential/io/notification.html
-
-
-gui
-_ different design of squiggly line?
-_ build custom scroll bar since the OS versions are so ugly?
-_ error/warning location is awkward when no scroll bar is in use
-_ show hover text when the mouse is over the 'debug' button
+manager / 3.0 final
+_ bring back the # of updates on the update tab
+_   use this instead of the 'icon' stuff?
+_   or in addition, since only the 'updates' tab has it
+_   https://github.com/processing/processing/issues/3855
 _ show number of updates available in the footer
 _   https://github.com/processing/processing/issues/3518
-_ make breakpoints more prominent
-_   https://github.com/processing/processing/issues/3307
-_ import suggestions box needs design review
-_   https://github.com/processing/processing/issues/3407
-_ Fix placement and visual design when showing error on hover
-_   https://github.com/processing/processing/issues/3173
-_ distinguish errors and warnings
-_   https://github.com/processing/processing/issues/3406
-_ finish the gui
-_   https://github.com/processing/processing/issues/3072
+_   and have it be clickable so to open the manager
+_   total number of updates available is not correct? (may be fixed)
+_ ugly white gap at the top of scroll bar
+_   the table header doesn't extend far enough
+_ scrolling "past" top/bottom causes the screen to jiggle (OS X and Trackpad)
+_   looks like ContributionListing.getScrollableUnitIncrement() returns early
+
+
+gui / post 3.0
+_ build custom scroll bar since the OS versions are so ugly
+_ error/warning location is awkward when no scroll bar is in use
+_   when only one screen-full, show ticks at exact location
+_   simpler/less confusing to not show at all? 
 _ see notes in the 'dialogs' section below, implement our own option panes?
 _ tiny trail of dots when moving the selection bar up/down on retina
 _ need 'actively pressed' version of 'play' and 'stop'
@@ -108,7 +90,6 @@ _   could do rollover as well, but do other apps use them?
 _   iTunes has no rollover state but has a 'down' state
 _     swaps to stop after release
 _ deactivate step, continue, stop when not running?
-_ update EditorButton rollover label when pressing shift or alt
 _ disable the debug toggle menu while running
 _   otherwise could run in one mode, then try to stop in another
 _ recent menu gets huge with other p5 versions on osx
@@ -118,18 +99,20 @@ _   rather than post-compile
 _   https://github.com/processing/processing/issues/136
 
 
+manager / post 3.0
+_ Examples window closes and re-opens during library install/remove
+_   https://github.com/processing/processing/issues/3304
+_ ArrayIndexOutOfBoundsException freak out when clicking the header line
+_   think this was on name, with libraries, but not sure
+_ CM - Icon instead of an "X" for the "could not connect" message
+_   https://github.com/processing/processing/issues/3706
+
+
 gui/low
 _ welcome screen tweaks
 _   click "show this welcome" text to check/uncheck the box
 _   submit the form (as if 'get started' clicked) when closing the window
 _     whether hitting ESC or the close box on the window
-
-
-manager
-_ fonts are fake-bolded version rather than the real bold
-_ scrolling "past" top/bottom causes the screen to jiggle
-_ number of updates available is not correct
-_ retina icons show at twice the size and just crop at top/bottom
 
 
 fonts
@@ -165,7 +148,8 @@ _ pass through the source to update licenses
 _   add Processing Foundation as 2012-15
 _   update license info to state gplv2 not v3
 _   run through that online license checker
-
+_ save() and saveAs() need to be refactored
+_   https://github.com/processing/processing/issues/3843
 
 
 breakage
@@ -216,6 +200,8 @@ _   https://github.com/processing/processing/pull/3178
 
 
 help me
+_ Horizontal scrollbar does not scroll textarea all the way
+_   https://github.com/processing/processing/issues/3591
 _ "String index out of range" error
 _   https://github.com/processing/processing/issues/1940
 _ problems with non-US keyboards and some shortcuts
@@ -480,6 +466,8 @@ _   http://i.msdn.microsoft.com/Aa511273.Confirmations03(en-us,MSDN.10).png
 PDE / Compiler & Preprocessor
 
 medium (bugs/features)
+_ preprocessor throws error when calling color() on a PGraphics
+_   https://github.com/processing/processing/issues/3762
 _ incorporate new preproc
 _   https://github.com/fjenett/processing-preprocessor-antlr4
 _   https://github.com/processing/processing/issues/3055
@@ -885,6 +873,10 @@ _   this may already work with SingleInstance stuff
 
 DIST / Mac OS X
 
+
+_ client properties 
+_   https://developer.apple.com/library/mac/technotes/tn2007/tn2196.html
+_ built-in images: http://nadeausoftware.com/articles/2008/12/mac_java_tip_how_access_mac_specific_nsimage_icons
 _ replace appbundler with the Java 8 packager
 _   https://github.com/processing/processing/issues/3071
 _ fix appbundler problems due to rollback

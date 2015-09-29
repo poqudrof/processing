@@ -3,7 +3,7 @@
 /*
   Part of the Processing project - http://processing.org
 
-  Copyright (c) 2013 The Processing Foundation
+  Copyright (c) 2013-15 The Processing Foundation
   Copyright (c) 2011-12 Ben Fry and Casey Reas
 
   This program is free software; you can redistribute it and/or modify
@@ -42,53 +42,65 @@ import processing.app.ui.Toolkit;
 // necessary in the first place, however; seems like odd behavior.
 // It also allows the description text in the panels to wrap properly.
 
-public class ContributionListPanel extends JPanel implements Scrollable, ContributionChangeListener {
+public class ListPanel extends JPanel
+implements Scrollable, ContributionListing.ChangeListener {
   ContributionTab contributionTab;
-  TreeMap<Contribution, ContributionPanel> panelByContribution;
+  TreeMap<Contribution, DetailPanel> panelByContribution = new TreeMap<Contribution, DetailPanel>(ContributionListing.COMPARATOR);
+  Set<Contribution> visibleContributions = new TreeSet<Contribution>(ContributionListing.COMPARATOR);
 
-  private ContributionPanel selectedPanel;
-  protected ContributionFilter filter;
+  private DetailPanel selectedPanel;
+  protected Contribution.Filter filter;
   protected ContributionListing contribListing = ContributionListing.getInstance();
   protected JTable table;
   DefaultTableModel model;
   JScrollPane scrollPane;
-  Font myFont;
+
+  static Icon upToDateIcon;
+  static Icon updateAvailableIcon;
+  static Icon incompatibleIcon;
+  static Icon foundationIcon;
+
+  static Font plainFont;
+  static Font boldFont;
+  static Font headerFont;
+
+  // Should this be in theme.txt? Of course! Is it? No.
+  static final Color HEADER_BGCOLOR = new Color(0xffEBEBEB);
 
 
-  public ContributionListPanel() { }
+  public ListPanel() {
+    if (upToDateIcon == null) {
+      upToDateIcon = Toolkit.getLibIconX("manager/up-to-date");
+      updateAvailableIcon = Toolkit.getLibIconX("manager/update-available");
+      incompatibleIcon = Toolkit.getLibIconX("manager/incompatible");
+      foundationIcon = Toolkit.getLibIconX("icons/foundation", 16);
+
+      plainFont = Toolkit.getSansFont(14, Font.PLAIN);
+      boldFont = Toolkit.getSansFont(14, Font.BOLD);
+      headerFont = Toolkit.getSansFont(12, Font.PLAIN);
+    }
+  }
 
 
-  public ContributionListPanel(final ContributionTab contributionTab,
-                               ContributionFilter filter) {
-    super();
+  public ListPanel(final ContributionTab contributionTab,
+                   Contribution.Filter filter) {
     this.contributionTab = contributionTab;
     this.filter = filter;
-
-//    contribListing = ContributionListing.getInstance();
 
     setLayout(new GridBagLayout());
     setOpaque(true);
     setBackground(Color.WHITE);
-
-    panelByContribution = new TreeMap<Contribution, ContributionPanel>(contribListing.getComparator());
-
-//    statusPlaceholder = new JPanel();
-//    statusPlaceholder.setVisible(false);
-//    status = new StatusPanel(null);
-
-
     model = new ContribTableModel();
-    table = new JTable(model){
+    table = new JTable(model) {
       @Override
-      public Component prepareRenderer(
-              TableCellRenderer renderer, int row, int column) {
-          Component c = super.prepareRenderer(renderer, row, column);
-          if (isRowSelected(row)) {
-              c.setBackground(new Color(0xe0fffd));
-          } else {
-              c.setBackground(Color.white);
-          }
-          return c;
+      public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+        Component c = super.prepareRenderer(renderer, row, column);
+        if (isRowSelected(row)) {
+          c.setBackground(new Color(0xe0fffd));
+        } else {
+          c.setBackground(Color.white);
+        }
+        return c;
       }
     };
 
@@ -97,16 +109,16 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
     model.setColumnIdentifiers(colName);
     scrollPane = new JScrollPane(table);
     scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+    scrollPane.setBorder(BorderFactory.createEmptyBorder());
     table.setFillsViewportHeight(true);
-//    table.setBorder();
     table.setDefaultRenderer(Contribution.class, new ContribStatusRenderer());
-    table.setFont(Toolkit.getSansFont(14, Font.PLAIN));
+    table.setFont(plainFont);
     table.setRowHeight(28);
     table.setRowMargin(6);
     table.getColumnModel().setColumnMargin(0);
-    table.getColumnModel().getColumn(0).setMaxWidth(ContributionManagerDialog.STATUS_WIDTH);
-    table.getColumnModel().getColumn(2).setMinWidth(ContributionManagerDialog.AUTHOR_WIDTH);
-    table.getColumnModel().getColumn(2).setMaxWidth(ContributionManagerDialog.AUTHOR_WIDTH);
+    table.getColumnModel().getColumn(0).setMaxWidth(ManagerFrame.STATUS_WIDTH);
+    table.getColumnModel().getColumn(2).setMinWidth(ManagerFrame.AUTHOR_WIDTH);
+    table.getColumnModel().getColumn(2).setMaxWidth(ManagerFrame.AUTHOR_WIDTH);
     table.setShowGrid(false);
     table.setColumnSelectionAllowed(false);
     table.setCellSelectionEnabled(false);
@@ -131,7 +143,7 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
 
     TableRowSorter<TableModel> sorter = new TableRowSorter<TableModel>(table.getModel());
     table.setRowSorter(sorter);
-    sorter.setComparator(1, contribListing.getComparator());
+    sorter.setComparator(1, ContributionListing.COMPARATOR);
     sorter.setComparator(2, new Comparator<Contribution>() {
 
       @Override
@@ -212,16 +224,19 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
             boolean isSelected, boolean hasFocus, int row, int column) {
       super.getTableCellRendererComponent(table, value,
               isSelected, hasFocus, row, column);
+
       JTableHeader tableHeader = table.getTableHeader();
       if (tableHeader != null) {
         setForeground(tableHeader.getForeground());
       }
-      setIcon(getIcon(table, column));
-      if (column % 2 == 0) {
-        setBackground(new Color(0xdfdfdf));
-      } else {
-        setBackground(new Color(0xebebeb));
-      }
+      setFont(headerFont);
+      setIcon(getSortIcon(table, column));
+      setBackground(HEADER_BGCOLOR);
+//      if (column % 2 == 0) {
+//        setBackground(new Color(0xdfdfdf));
+//      } else {
+//        setBackground(new Color(0xebebeb));
+//      }
       setBorder(null);
       return this;
     }
@@ -234,7 +249,7 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
      * @param column the column index.
      * @return the sort icon, or null if the column is unsorted.
      */
-    protected Icon getIcon(JTable table, int column) {
+    protected Icon getSortIcon(JTable table, int column) {
       SortKey sortKey = getSortKey(table, column);
       if (sortKey != null && table.convertColumnIndexToView(sortKey.getColumn()) == column) {
         switch (sortKey.getSortOrder()) {
@@ -291,14 +306,14 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
       }
       if (column == 0) {
         Icon icon = null;
-        label.setFont(Toolkit.getSansFont(14, Font.PLAIN));
+        label.setFont(plainFont);
         if (contribution.isInstalled()) {
-          icon = Toolkit.getLibIcon("manager/up-to-date-" + ContributionManagerDialog.iconVer + "x.png");
+          icon = upToDateIcon;
           if (contribListing.hasUpdates(contribution)) {
-            icon = Toolkit.getLibIcon("manager/update-available-" + ContributionManagerDialog.iconVer + "x.png");
+            icon = updateAvailableIcon;
           }
           if (!contribution.isCompatible(Base.getRevision())) {
-            icon = Toolkit.getLibIcon("manager/incompatible-" + ContributionManagerDialog.iconVer + "x.png");
+            icon = incompatibleIcon;
           }
         }
         label.setIcon(icon);
@@ -308,9 +323,9 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
         }
         label.setOpaque(true);
 //        return table.getDefaultRenderer(Icon.class).getTableCellRendererComponent(table, icon, isSelected, false, row, column);
+
       } else if (column == 1) {
         // Generating ellipses based on fontMetrics
-        Font boldFont = Toolkit.getSansFont(14, Font.BOLD);
         String fontFace = "<font face=\"" + boldFont.getName() + "\">";
         FontMetrics fontMetrics = table.getFontMetrics(boldFont); //table.getFont());
         int colSize = table.getColumnModel().getColumn(1).getWidth();
@@ -345,11 +360,11 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
         if (table.isRowSelected(row)) {
           label.setBackground(new Color(0xe0fffd));
         }
-        label.setFont(ContributionManagerDialog.myFont);
+        label.setFont(plainFont);
         label.setOpaque(true);
       } else {
         if (contribution.isSpecial()) {
-          label = new JLabel(Toolkit.getLibIcon("icons/foundation-16.png"));
+          label = new JLabel(foundationIcon);
         } else {
           label = new JLabel();
         }
@@ -373,12 +388,7 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
   }
 
 
-  private class ContribTableModel extends DefaultTableModel {
-
-    ContribTableModel() {
-      super(0, 0);
-    }
-
+  static private class ContribTableModel extends DefaultTableModel {
     @Override
     public boolean isCellEditable(int row, int column) {
       return false;
@@ -416,32 +426,38 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
   void updatePanelOrdering(Set<Contribution> contributionsSet) {
     model.getDataVector().removeAllElements();
     model.fireTableDataChanged();
-
     int rowCount = 0;
-    for (Contribution entry : contributionsSet) {
-      model.addRow(new Object[] { entry, entry, entry });
-      if (selectedPanel != null &&
-          entry.getName().equals(selectedPanel.getContrib().getName())) {
-        table.setRowSelectionInterval(rowCount, rowCount);
+    synchronized (contributionsSet) {
+      for (Contribution entry : contributionsSet) {
+        model.addRow(new Object[]{entry, entry, entry});
+        if (selectedPanel != null &&
+            entry.getName().equals(selectedPanel.getContrib().getName())) {
+          table.setRowSelectionInterval(rowCount, rowCount);
+        }
+        rowCount++;
       }
-      rowCount++;
     }
   }
 
 
   public void contributionAdded(final Contribution contribution) {
     if (filter.matches(contribution)) {
+      // TODO: this should already be on EDT, check it [jv]
       EventQueue.invokeLater(new Runnable() {
         public void run() {
           if (!panelByContribution.containsKey(contribution)) {
-            ContributionPanel newPanel = new ContributionPanel(ContributionListPanel.this);
+            DetailPanel newPanel =
+              new DetailPanel(ListPanel.this);
             synchronized (panelByContribution) {
               panelByContribution.put(contribution, newPanel);
+            }
+            synchronized (visibleContributions) {
+              visibleContributions.add(contribution);
             }
             if (newPanel != null) {
               newPanel.setContribution(contribution);
               add(newPanel);
-              updatePanelOrdering(panelByContribution.keySet());
+              updatePanelOrdering(visibleContributions);
               updateColors();  // XXX this is the place
             }
           }
@@ -452,16 +468,20 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
 
 
   public void contributionRemoved(final Contribution contribution) {
+    // TODO: this should already be on EDT, check it [jv]
     EventQueue.invokeLater(new Runnable() {
       public void run() {
         synchronized (panelByContribution) {
-          ContributionPanel panel = panelByContribution.get(contribution);
+          DetailPanel panel = panelByContribution.get(contribution);
           if (panel != null) {
             remove(panel);
             panelByContribution.remove(contribution);
           }
         }
-        updatePanelOrdering(panelByContribution.keySet());
+        synchronized (visibleContributions) {
+          visibleContributions.remove(contribution);
+        }
+        updatePanelOrdering(visibleContributions);
         updateColors();
         updateUI();
       }
@@ -471,18 +491,25 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
 
   public void contributionChanged(final Contribution oldContrib,
                                   final Contribution newContrib) {
+    // TODO: this should already be on EDT, check it [jv]
     EventQueue.invokeLater(new Runnable() {
       public void run() {
         synchronized (panelByContribution) {
-          ContributionPanel panel = panelByContribution.get(oldContrib);
+          DetailPanel panel = panelByContribution.get(oldContrib);
           if (panel == null) {
             contributionAdded(newContrib);
           } else {
             panelByContribution.remove(oldContrib);
             panel.setContribution(newContrib);
             panelByContribution.put(newContrib, panel);
-            updatePanelOrdering(panelByContribution.keySet());
           }
+        }
+        synchronized (visibleContributions) {
+          if (visibleContributions.contains(oldContrib)) {
+            visibleContributions.remove(oldContrib);
+            visibleContributions.add(newContrib);
+          }
+          updatePanelOrdering(visibleContributions);
         }
       }
     });
@@ -490,44 +517,26 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
 
 
   public void filterLibraries(List<Contribution> filteredContributions) {
-    synchronized (panelByContribution) {
-      /*Set<Contribution> hiddenPanels =
-        new TreeSet<Contribution>(contribListing.getComparator());
-      hiddenPanels.addAll(panelByContribution.keySet());
-
-      for (Contribution info : filteredContributions) {
-        ContributionPanel panel = panelByContribution.get(info);
-        if (panel != null) {
-          panel.setVisible(true);
-          hiddenPanels.remove(info);
-        }
-      }
-
-      for (Contribution info : hiddenPanels) {
-        ContributionPanel panel = panelByContribution.get(info);
-        if (panel != null) {
-          panel.setVisible(false);
-        }
-      }*/
-      TreeSet<Contribution> panelInThisTab = new TreeSet<Contribution>(contribListing.getComparator());
+    synchronized (visibleContributions) {
+      visibleContributions.clear();
       for (Contribution contribution : filteredContributions) {
-        if(contribution.getType() == this.contributionTab.contributionType){
-          panelInThisTab.add(contribution);
+        if (contribution.getType() == contributionTab.contribType) {
+          visibleContributions.add(contribution);
         }
       }
-      updatePanelOrdering(panelInThisTab);
+      updatePanelOrdering(visibleContributions);
     }
   }
 
 
-  protected void setSelectedPanel(ContributionPanel contributionPanel) {
+  protected void setSelectedPanel(DetailPanel contributionPanel) {
     contributionTab.updateStatusPanel(contributionPanel);
+
     if (selectedPanel == contributionPanel) {
       selectedPanel.setSelected(true);
 
     } else {
-
-      ContributionPanel lastSelected = selectedPanel;
+      DetailPanel lastSelected = selectedPanel;
       selectedPanel = contributionPanel;
 
       if (lastSelected != null) {
@@ -541,7 +550,7 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
   }
 
 
-  protected ContributionPanel getSelectedPanel() {
+  protected DetailPanel getSelectedPanel() {
     return selectedPanel;
   }
 
@@ -552,8 +561,8 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
   protected void updateColors() {
     int count = 0;
     synchronized (panelByContribution) {
-      for (Entry<Contribution, ContributionPanel> entry : panelByContribution.entrySet()) {
-        ContributionPanel panel = entry.getValue();
+      for (Entry<Contribution, DetailPanel> entry : panelByContribution.entrySet()) {
+        DetailPanel panel = entry.getValue();
 
         if (panel.isVisible() && panel.isSelected()) {
           panel.setBackground(UIManager.getColor("List.selectionBackground"));
@@ -591,6 +600,7 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
   }
 
 
+  @Override
   public Dimension getPreferredScrollableViewportSize() {
     return getPreferredSize();
   }
@@ -599,7 +609,9 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
   /**
    * Amount to scroll to reveal a new page of items
    */
-  public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+  @Override
+  public int getScrollableBlockIncrement(Rectangle visibleRect,
+                                         int orientation, int direction) {
     if (orientation == SwingConstants.VERTICAL) {
       int blockAmount = visibleRect.height;
       if (direction > 0) {
@@ -608,7 +620,8 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
         visibleRect.y -= blockAmount;
       }
 
-      blockAmount += getScrollableUnitIncrement(visibleRect, orientation, direction);
+      blockAmount +=
+        getScrollableUnitIncrement(visibleRect, orientation, direction);
       return blockAmount;
     }
     return 0;
@@ -618,6 +631,7 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
   /**
    * Amount to scroll to reveal the rest of something we are on or a new item
    */
+  @Override
   public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
     if (orientation == SwingConstants.VERTICAL) {
       int lastHeight = 0, height = 0;
@@ -625,7 +639,7 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
 
       for (Component c : getComponents()) {
         if (c.isVisible()) {
-          if (c instanceof ContributionPanel) {
+          if (c instanceof DetailPanel) {
             Dimension d = c.getPreferredSize();
 
             int nextHeight = height + d.height;
@@ -656,17 +670,19 @@ public class ContributionListPanel extends JPanel implements Scrollable, Contrib
   }
 
 
+  @Override
   public boolean getScrollableTracksViewportHeight() {
     return false;
   }
 
 
+  @Override
   public boolean getScrollableTracksViewportWidth() {
     return true;
   }
 
 
-  public int getNoOfRows() {
+  public int getRowCount() {
     return panelByContribution.size();
   }
 }

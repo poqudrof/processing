@@ -125,7 +125,12 @@ public abstract class PGL {
    * order to make sure the lines are always on top of the fill geometry */
   protected static float STROKE_DISPLACEMENT = 0.999f;
 
-  protected static boolean DOUBLE_BUFFERED = true;
+  // ........................................................
+
+  // Variables to handle single-buffered situations (i.e.: Android)
+
+  protected IntBuffer firstFrame;
+  protected static boolean SINGLE_BUFFERED = false;
 
   // ........................................................
 
@@ -698,6 +703,10 @@ public abstract class PGL {
     pclearColor = clearColor;
     clearColor = false;
 
+    if (SINGLE_BUFFERED && sketch.frameCount == 1) {
+      restoreFirstFrame();
+    }
+
     if (fboLayerEnabledReq) {
       fboLayerEnabled = true;
       fboLayerEnabledReq = false;
@@ -708,7 +717,7 @@ public abstract class PGL {
         destroyFBOLayer();
         fbolayerResetReq = false;
       }
-      if (!fboLayerCreated && DOUBLE_BUFFERED) {
+      if (!fboLayerCreated) {
         createFBOLayer();
       }
 
@@ -724,11 +733,11 @@ public abstract class PGL {
       if (sketch.frameCount == 0) {
         // No need to draw back color buffer because we are in the first frame.
         int argb = graphics.backgroundColor;
-        float a = ((argb >> 24) & 0xff) / 255.0f;
-        float r = ((argb >> 16) & 0xff) / 255.0f;
-        float g = ((argb >> 8) & 0xff) / 255.0f;
-        float b = ((argb) & 0xff) / 255.0f;
-        clearColor(r, g, b, a);
+        float ba = ((argb >> 24) & 0xff) / 255.0f;
+        float br = ((argb >> 16) & 0xff) / 255.0f;
+        float bg = ((argb >> 8) & 0xff) / 255.0f;
+        float bb = ((argb) & 0xff) / 255.0f;
+        clearColor(br, bg, bb, ba);
         clear(COLOR_BUFFER_BIT);
       } else if (!pclearColor || !sketch.isLooping()) {
         // Render previous back texture (now is the front) as background,
@@ -757,13 +766,12 @@ public abstract class PGL {
       bindFramebufferImpl(FRAMEBUFFER, 0);
 
       if (presentMode) {
-        int argb = windowColor;
-        float a = ((argb >> 24) & 0xff)  / 255.0f;
-        float r = ((argb >> 16) & 0xff) / 255.0f;
-        float g = ((argb >> 8) & 0xff) / 255.0f;
-        float b = (argb & 0xff) / 255.0f;
+        float wa = ((windowColor >> 24) & 0xff)  / 255.0f;
+        float wr = ((windowColor >> 16) & 0xff) / 255.0f;
+        float wg = ((windowColor >> 8) & 0xff) / 255.0f;
+        float wb = (windowColor & 0xff) / 255.0f;
         clearDepth(1);
-        clearColor(r, g, b, a);
+        clearColor(wr, wg, wb, wa);
         clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
 
         if (closeBtnTex == null) {
@@ -813,12 +821,17 @@ public abstract class PGL {
         fboLayerEnabled = false;
         fboLayerDisableReq = false;
       }
-    } else if (!clearColor && 0 < sketch.frameCount || !sketch.isLooping()) {
-      enableFBOLayer();
-    }
+    } else {
+      if (SINGLE_BUFFERED && sketch.frameCount == 0) {
+        saveFirstFrame();
+      }
 
-    if (fboLayerEnabledReq && !fboLayerCreated && !DOUBLE_BUFFERED) {
-      createFBOLayer();
+      if (!clearColor && 0 < sketch.frameCount || !sketch.isLooping()) {
+        enableFBOLayer();
+        if (SINGLE_BUFFERED) {
+          createFBOLayer();
+        }
+      }
     }
   }
 
@@ -928,11 +941,11 @@ public abstract class PGL {
     clearDepth(1);
     clearStencil(0);
     int argb = graphics.backgroundColor;
-    float a = ((argb >> 24) & 0xff) / 255.0f;
-    float r = ((argb >> 16) & 0xff) / 255.0f;
-    float g = ((argb >> 8) & 0xff) / 255.0f;
-    float b = ((argb) & 0xff) / 255.0f;
-    clearColor(r, g, b, a);
+    float ba = ((argb >> 24) & 0xff) / 255.0f;
+    float br = ((argb >> 16) & 0xff) / 255.0f;
+    float bg = ((argb >> 8) & 0xff) / 255.0f;
+    float bb = ((argb) & 0xff) / 255.0f;
+    clearColor(br, bg, bb, ba);
     clear(DEPTH_BUFFER_BIT | STENCIL_BUFFER_BIT | COLOR_BUFFER_BIT);
 
     bindFramebufferImpl(FRAMEBUFFER, 0);
@@ -942,6 +955,46 @@ public abstract class PGL {
   }
 
   protected abstract void initFBOLayer();
+
+
+  protected void saveFirstFrame() {
+    firstFrame = allocateDirectIntBuffer(graphics.width * graphics.height);
+    readBuffer(BACK);
+    readPixelsImpl(0, 0, graphics.width, graphics.height, RGBA, UNSIGNED_BYTE, firstFrame);
+  }
+
+
+  protected void restoreFirstFrame() {
+    IntBuffer tex = allocateIntBuffer(1);
+    genTextures(1, tex);
+
+    int w, h;
+    float scale = getPixelScale();
+    if (hasNpotTexSupport()) {
+      w = (int)(scale * graphics.width);
+      h = (int)(scale * graphics.height);
+    } else {
+      w = nextPowerOfTwo((int)(scale * graphics.width));
+      h = nextPowerOfTwo((int)(scale * graphics.height));
+    }
+
+    bindTexture(TEXTURE_2D, tex.get(0));
+    texParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST);
+    texParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST);
+    texParameteri(TEXTURE_2D, TEXTURE_WRAP_S, CLAMP_TO_EDGE);
+    texParameteri(TEXTURE_2D, TEXTURE_WRAP_T, CLAMP_TO_EDGE);
+    texImage2D(TEXTURE_2D, 0, RGBA, w, h, 0, RGBA, UNSIGNED_BYTE, null);
+    texSubImage2D(TEXTURE_2D, 0, 0, 0, graphics.width, graphics.height, RGBA, UNSIGNED_BYTE, firstFrame);
+
+    drawTexture(TEXTURE_2D, tex.get(0), w, h,
+                0, 0, graphics.width, graphics.height,
+                0, 0, (int)(scale * graphics.width), (int)(scale * graphics.height),
+                0, 0, graphics.width, graphics.height);
+
+    deleteTextures(1, tex);
+    firstFrame.clear();
+    firstFrame = null;
+  }
 
   protected void destroyFBOLayer() {
     if (threadIsCurrent() && fboLayerCreated) {
@@ -1510,12 +1563,10 @@ public abstract class PGL {
    */
   protected static int nativeToJavaARGB(int color) {
     if (BIG_ENDIAN) { // RGBA to ARGB
-      return (color >>> 8) | ((color << 24) & 0xFF000000);
-      // equivalent to
-      // ((color >> 8) & 0x00FFFFFF) | ((color << 24) & 0xFF000000)
+      return (color >>> 8) | (color << 24);
     } else { // ABGR to ARGB
-      return ((color & 0xFF) << 16) | ((color & 0xFF0000) >> 16) |
-             (color & 0xFF00FF00);
+      int rb = color & 0x00FF00FF;
+      return (color & 0xFF00FF00) | (rb << 16) | (rb >> 16);
     }
   }
 
@@ -1534,13 +1585,13 @@ public abstract class PGL {
         int pixy = pixels[yindex];
         int pixi = pixels[index];
         if (BIG_ENDIAN) { // RGBA to ARGB
-          pixels[index] = (pixy >>> 8) | ((pixy << 24) & 0xFF000000);
-          pixels[yindex] = (pixi >>> 8) | ((pixi << 24) & 0xFF000000);
+          pixels[index] = (pixy >>> 8) | (pixy << 24);
+          pixels[yindex] = (pixi >>> 8) | (pixi << 24);
         } else { // ABGR to ARGB
-          pixels[index] = ((pixy & 0xFF) << 16) | ((pixy & 0xFF0000) >> 16) |
-                          (pixy & 0xFF00FF00);
-          pixels[yindex] = ((pixi & 0xFF) << 16) | ((pixi & 0xFF0000) >> 16) |
-                           (pixi & 0xFF00FF00);
+          int rbi = pixi & 0x00FF00FF;
+          int rby = pixy & 0x00FF00FF;
+          pixels[index] = (pixy & 0xFF00FF00) | (rby << 16) | (rby >> 16);
+          pixels[yindex] = (pixi & 0xFF00FF00) | (rbi << 16) | (rbi >> 16);
         }
         index++;
         yindex++;
@@ -1553,10 +1604,10 @@ public abstract class PGL {
       for (int x = 0; x < width; x++) {
         int pixi = pixels[index];
         if (BIG_ENDIAN) { // RGBA to ARGB
-          pixels[index] = (pixi >>> 8) | ((pixi << 24) & 0xFF000000);
+          pixels[index] = (pixi >>> 8) | (pixi << 24);
         } else { // ABGR to ARGB
-          pixels[index] = ((pixi & 0xFF) << 16) | ((pixi & 0xFF0000) >> 16) |
-                          (pixi & 0xFF00FF00);
+          int rbi = pixi & 0x00FF00FF;
+          pixels[index] = (pixi & 0xFF00FF00) | (rbi << 16) | (rbi >> 16);
         }
         index++;
       }
@@ -1573,8 +1624,9 @@ public abstract class PGL {
     if (BIG_ENDIAN) { // RGBA to ARGB
       return (color >>> 8) | 0xFF000000;
     } else { // ABGR to ARGB
-      return ((color & 0xFF) << 16) | ((color & 0xFF0000) >> 16) |
-             (color & 0xFF00FF00) | 0xFF000000;
+      int rb = color & 0x00FF00FF;
+      return 0xFF000000 | (rb << 16) |
+             (color & 0x0000FF00) | (rb >> 16);
     }
   }
 
@@ -1597,10 +1649,12 @@ public abstract class PGL {
           pixels[index] = (pixy >>> 8) | 0xFF000000;
           pixels[yindex] = (pixi >>> 8) | 0xFF000000;
         } else { // ABGR to ARGB
-          pixels[index] = ((pixy & 0xFF) << 16) | ((pixy & 0xFF0000) >> 16) |
-                          (pixy & 0xFF00FF00) | 0xFF000000;
-          pixels[yindex] = ((pixi & 0xFF) << 16) | ((pixi & 0xFF0000) >> 16) |
-                           (pixi & 0xFF00FF00) | 0xFF000000;
+          int rbi = pixi & 0x00FF00FF;
+          int rby = pixy & 0x00FF00FF;
+          pixels[index] = 0xFF000000 | (rby << 16) |
+                          (pixy & 0x0000FF00) | (rby >> 16);
+          pixels[yindex] = 0xFF000000 | (rbi << 16) |
+                           (pixi & 0x0000FF00) | (rbi >> 16);
         }
         index++;
         yindex++;
@@ -1615,8 +1669,9 @@ public abstract class PGL {
         if (BIG_ENDIAN) { // RGBA to ARGB
           pixels[index] = (pixi >>> 8) | 0xFF000000;
         } else { // ABGR to ARGB
-          pixels[index] = ((pixi & 0xFF) << 16) | ((pixi & 0xFF0000) >> 16) |
-                          (pixi & 0xFF00FF00) | 0xFF000000;
+          int rbi = pixi & 0x00FF00FF;
+          pixels[index] = 0xFF000000 | (rbi << 16) |
+                          (pixi & 0x000FF00) | (rbi >> 16);
         }
         index++;
       }
@@ -1630,10 +1685,10 @@ public abstract class PGL {
    */
   protected static int javaToNativeARGB(int color) {
     if (BIG_ENDIAN) { // ARGB to RGBA
-      return ((color >> 24) & 0xFF) | ((color << 8) & 0xFFFFFF00);
+      return (color >>> 24) | (color << 8);
     } else { // ARGB to ABGR
-      return (color & 0xFF000000) | ((color << 16) & 0xFF0000) |
-             (color & 0xFF00) | ((color >> 16) & 0xFF);
+      int rb = color & 0x00FF00FF;
+      return (color & 0xFF00FF00) | (rb << 16) | (rb >> 16);
     }
   }
 
@@ -1652,13 +1707,13 @@ public abstract class PGL {
         int pixy = pixels[yindex];
         int pixi = pixels[index];
         if (BIG_ENDIAN) { // ARGB to RGBA
-          pixels[index] = ((pixy >> 24) & 0xFF) | ((pixy << 8) & 0xFFFFFF00);
-          pixels[yindex] = ((pixi >> 24) & 0xFF) | ((pixi << 8) & 0xFFFFFF00);
+          pixels[index] = (pixy >>> 24) | (pixy << 8);
+          pixels[yindex] = (pixi >>> 24) | (pixi << 8);
         } else { // ARGB to ABGR
-          pixels[index] = (pixy & 0xFF000000) | ((pixy << 16) & 0xFF0000) |
-                          (pixy & 0xFF00) | ((pixy >> 16) & 0xFF);
-          pixels[yindex] = (pixi & 0xFF000000) | ((pixi << 16) & 0xFF0000) |
-                           (pixi & 0xFF00) | ((pixi >> 16) & 0xFF);
+          int rbi = pixi & 0x00FF00FF;
+          int rby = pixy & 0x00FF00FF;
+          pixels[index] = (pixy & 0xFF00FF00) | (rby << 16) | (rby >> 16);
+          pixels[yindex] = (pixi & 0xFF00FF00) | (rbi << 16) | (rbi >> 16);
         }
         index++;
         yindex++;
@@ -1671,10 +1726,10 @@ public abstract class PGL {
       for (int x = 0; x < width; x++) {
         int pixi = pixels[index];
         if (BIG_ENDIAN) { // ARGB to RGBA
-          pixels[index] = ((pixi >> 24) & 0xFF) | ((pixi << 8) & 0xFFFFFF00);
+          pixels[index] = (pixi >>> 24) | (pixi << 8);
         } else { // ARGB to ABGR
-          pixels[index] = (pixi & 0xFF000000) | ((pixi << 16) & 0xFF0000) |
-                          (pixi & 0xFF00) | ((pixi >> 16) & 0xFF);
+          int rbi = pixi & 0x00FF00FF;
+          pixels[index] = (pixi & 0xFF00FF00) | (rbi << 16) | (rbi >> 16);
         }
         index++;
       }
@@ -1688,10 +1743,10 @@ public abstract class PGL {
    */
   protected static int javaToNativeRGB(int color) {
     if (BIG_ENDIAN) { // ARGB to RGB
-      return 0xFF | ((color << 8) & 0xFFFFFF00);
+      return 0xFF | (color << 8);
     } else { // ARGB to BGR
-      return 0xFF000000 | ((color << 16) & 0xFF0000) |
-             (color & 0xFF00) | ((color >> 16) & 0xFF);
+      int rb = color & 0x00FF00FF;
+      return 0xFF000000 | (rb << 16) | (color & 0x0000FF00) | (rb >> 16);
     }
   }
 
@@ -1711,13 +1766,15 @@ public abstract class PGL {
         int pixy = pixels[yindex];
         int pixi = pixels[index];
         if (BIG_ENDIAN) { // ARGB to RGB
-          pixels[index] = 0xFF | ((pixy << 8) & 0xFFFFFF00);
-          pixels[yindex] = 0xFF | ((pixi << 8) & 0xFFFFFF00);
+          pixels[index] = 0xFF | (pixy << 8);
+          pixels[yindex] = 0xFF | (pixi << 8);
         } else { // ARGB to BGR
-          pixels[index] = 0xFF000000 | ((pixy << 16) & 0xFF0000) |
-                          (pixy & 0xFF00) | ((pixy >> 16) & 0xFF);
-          pixels[yindex] = 0xFF000000 | ((pixi << 16) & 0xFF0000) |
-                           (pixi & 0xFF00) | ((pixi >> 16) & 0xFF);
+          int rbi = pixi & 0x00FF00FF;
+          int rby = pixy & 0x00FF00FF;
+          pixels[index] = 0xFF000000 | (rby << 16) |
+                          (pixy & 0x0000FF00) | (rby >> 16);
+          pixels[yindex] = 0xFF000000 | (rbi << 16) |
+                           (pixi & 0x0000FF00) | (rbi >> 16);
         }
         index++;
         yindex++;
@@ -1730,10 +1787,11 @@ public abstract class PGL {
       for (int x = 0; x < width; x++) {
         int pixi = pixels[index];
         if (BIG_ENDIAN) { // ARGB to RGB
-          pixels[index] = 0xFF | ((pixi << 8) & 0xFFFFFF00);
+          pixels[index] = 0xFF | (pixi << 8);
         } else { // ARGB to BGR
-          pixels[index] = 0xFF000000 | ((pixi << 16) & 0xFF0000) |
-                          (pixi & 0xFF00) | ((pixi >> 16) & 0xFF);
+          int rbi = pixi & 0x00FF00FF;
+          pixels[index] = 0xFF000000 | (rbi << 16) |
+                          (pixi & 0x0000FF00) | (rbi >> 16);
         }
         index++;
       }
@@ -1987,9 +2045,19 @@ public abstract class PGL {
     return false;
   }
 
+  protected boolean isES() {
+    return getString(VERSION).trim().toLowerCase().contains("opengl es");
+  }
 
   protected int[] getGLVersion() {
-    String version = getString(VERSION).trim();
+    String version = getString(VERSION).trim().toLowerCase();
+
+    String ES = "opengl es";
+    int esPosition = version.indexOf(ES);
+    if (esPosition >= 0) {
+      version = version.substring(esPosition + ES.length()).trim();
+    }
+
     int[] res = {0, 0, 0};
     String[] parts = version.split(" ");
     for (int i = 0; i < parts.length; i++) {
@@ -2099,6 +2167,24 @@ public abstract class PGL {
     } else {
       return true;
     }
+  }
+
+
+  protected boolean hasSynchronization() {
+    int[] version = getGLVersion();
+    if (isES()) {
+      return version[0] >= 3;
+    }
+    return (version[0] > 3) || (version[0] == 3 && version[1] >= 2);
+  }
+
+
+  protected boolean hasPBOs() {
+    int[] version = getGLVersion();
+    if (isES()) {
+      return version[0] >= 3;
+    }
+    return (version[0] > 2) || (version[0] == 2 && version[1] >= 1);
   }
 
 
@@ -2651,12 +2737,14 @@ public abstract class PGL {
 
   public static int ARRAY_BUFFER;
   public static int ELEMENT_ARRAY_BUFFER;
+  public static int PIXEL_PACK_BUFFER;
 
   public static int MAX_VERTEX_ATTRIBS;
 
   public static int STATIC_DRAW;
   public static int DYNAMIC_DRAW;
   public static int STREAM_DRAW;
+  public static int STREAM_READ;
 
   public static int BUFFER_SIZE;
   public static int BUFFER_USAGE;
@@ -2871,6 +2959,10 @@ public abstract class PGL {
   public static int LINE_SMOOTH;
   public static int POLYGON_SMOOTH;
 
+  public static int SYNC_GPU_COMMANDS_COMPLETE;
+  public static int ALREADY_SIGNALED;
+  public static int CONDITION_SATISFIED;
+
   ///////////////////////////////////////////////////////////
 
   // Special Functions
@@ -2915,6 +3007,14 @@ public abstract class PGL {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  // Synchronization
+
+  public abstract long fenceSync(int condition, int flags);
+  public abstract void deleteSync(long sync);
+  public abstract int clientWaitSync(long sync, int flags, long timeout);
+
+  //////////////////////////////////////////////////////////////////////////////
+
   // Viewport and Clipping
 
   public abstract void depthRangef(float n, float f);
@@ -2944,7 +3044,23 @@ public abstract class PGL {
     graphics.endReadPixels();
   }
 
+  public void readPixels(int x, int y, int width, int height, int format, int type, long offset){
+    boolean multisampled = isMultisampled() || graphics.offscreenMultisample;
+    boolean depthReadingEnabled = graphics.getHint(PConstants.ENABLE_BUFFER_READING);
+    boolean depthRequested = format == STENCIL_INDEX || format == DEPTH_COMPONENT || format == DEPTH_STENCIL;
+
+    if (multisampled && depthRequested && !depthReadingEnabled) {
+      PGraphics.showWarning(DEPTH_READING_NOT_ENABLED_ERROR);
+      return;
+    }
+
+    graphics.beginReadPixels();
+    readPixelsImpl(x, y, width, height, format, type, offset);
+    graphics.endReadPixels();
+  }
+
   protected abstract void readPixelsImpl(int x, int y, int width, int height, int format, int type, Buffer buffer);
+  protected abstract void readPixelsImpl(int x, int y, int width, int height, int format, int type, long offset);
 
   //////////////////////////////////////////////////////////////////////////////
 

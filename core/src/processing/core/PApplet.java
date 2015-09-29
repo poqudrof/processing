@@ -5825,12 +5825,19 @@ public class PApplet implements PConstants {
     return saveXML(xml, filename, null);
   }
 
-
+  /**
+   * @nowebref
+   */
   public boolean saveXML(XML xml, String filename, String options) {
     return xml.save(saveFile(filename), options);
   }
 
-
+  /**
+   * @webref input:files
+   * @param input String to parse as a JSONObject
+   * @see PApplet#loadJSONObject(String)
+   * @see PApplet#saveJSONObject(JSONObject, String)
+   */
   public JSONObject parseJSONObject(String input) {
     return new JSONObject(new StringReader(input));
   }
@@ -5867,12 +5874,20 @@ public class PApplet implements PConstants {
     return saveJSONObject(json, filename, null);
   }
 
-
+  /**
+   * @nowebref
+   */
   public boolean saveJSONObject(JSONObject json, String filename, String options) {
     return json.save(saveFile(filename), options);
   }
 
-
+/**
+   * @webref input:files
+   * @param input String to parse as a JSONArray
+   * @see JSONObject
+   * @see PApplet#loadJSONObject(String)
+   * @see PApplet#saveJSONObject(JSONObject, String)
+   */
   public JSONArray parseJSONArray(String input) {
     return new JSONArray(new StringReader(input));
   }
@@ -5881,7 +5896,6 @@ public class PApplet implements PConstants {
   /**
    * @webref input:files
    * @param filename name of a file in the data folder or a URL
-   * @see JSONObject
    * @see JSONArray
    * @see PApplet#loadJSONObject(String)
    * @see PApplet#saveJSONObject(JSONObject, String)
@@ -6219,13 +6233,20 @@ public class PApplet implements PConstants {
 
   public void selectInput(String prompt, String callback,
                           File file, Object callbackObject) {
-    selectInput(prompt, callback, file, callbackObject, null);  //selectFrame());
+    selectInput(prompt, callback, file, callbackObject, null, this);  //selectFrame());
+  }
+
+
+  static public void selectInput(String prompt, String callbackMethod,
+                                 File file, Object callbackObject, Frame parent,
+                                 PApplet sketch) {
+    selectImpl(prompt, callbackMethod, file, callbackObject, parent, FileDialog.LOAD, sketch);
   }
 
 
   static public void selectInput(String prompt, String callbackMethod,
                                  File file, Object callbackObject, Frame parent) {
-    selectImpl(prompt, callbackMethod, file, callbackObject, parent, FileDialog.LOAD);
+    selectImpl(prompt, callbackMethod, file, callbackObject, parent, FileDialog.LOAD, null);
   }
 
 
@@ -6240,6 +6261,7 @@ public class PApplet implements PConstants {
     selectOutput(prompt, callback, null);
   }
 
+
   public void selectOutput(String prompt, String callback, File file) {
     selectOutput(prompt, callback, file, this);
   }
@@ -6247,25 +6269,39 @@ public class PApplet implements PConstants {
 
   public void selectOutput(String prompt, String callback,
                            File file, Object callbackObject) {
-    selectOutput(prompt, callback, file, callbackObject, null); //selectFrame());
+    selectOutput(prompt, callback, file, callbackObject, null, this); //selectFrame());
   }
 
 
   static public void selectOutput(String prompt, String callbackMethod,
                                   File file, Object callbackObject, Frame parent) {
-    selectImpl(prompt, callbackMethod, file, callbackObject, parent, FileDialog.SAVE);
+    selectImpl(prompt, callbackMethod, file, callbackObject, parent, FileDialog.SAVE, null);
   }
 
 
+  static public void selectOutput(String prompt, String callbackMethod,
+                                  File file, Object callbackObject, Frame parent,
+                                  PApplet sketch) {
+    selectImpl(prompt, callbackMethod, file, callbackObject, parent, FileDialog.SAVE, sketch);
+  }
+
+
+  // Will remove the 'sketch' parameter once we get an upstream JOGL fix
+  // https://github.com/processing/processing/issues/3831
   static protected void selectImpl(final String prompt,
                                    final String callbackMethod,
                                    final File defaultSelection,
                                    final Object callbackObject,
                                    final Frame parentFrame,
-                                   final int mode) {
+                                   final int mode,
+                                   final PApplet sketch) {
     EventQueue.invokeLater(new Runnable() {
       public void run() {
         File selectedFile = null;
+
+        boolean hide = (sketch != null) &&
+          (sketch.g instanceof PGraphicsOpenGL) && (platform == WINDOWS);
+        if (hide) sketch.surface.setVisible(false);
 
         if (useNativeSelect) {
           FileDialog dialog = new FileDialog(parentFrame, prompt, mode);
@@ -6273,6 +6309,7 @@ public class PApplet implements PConstants {
             dialog.setDirectory(defaultSelection.getParent());
             dialog.setFile(defaultSelection.getName());
           }
+
           dialog.setVisible(true);
           String directory = dialog.getDirectory();
           String filename = dialog.getFile();
@@ -6297,6 +6334,8 @@ public class PApplet implements PConstants {
             selectedFile = chooser.getSelectedFile();
           }
         }
+
+        if (hide) sketch.surface.setVisible(true);
         selectCallback(selectedFile, callbackMethod, callbackObject);
       }
     });
@@ -6322,7 +6361,7 @@ public class PApplet implements PConstants {
 
   public void selectFolder(String prompt, String callback,
                            File file, Object callbackObject) {
-    selectFolder(prompt, callback, file, callbackObject, null); //selectFrame());
+    selectFolder(prompt, callback, file, callbackObject, null, this); //selectFrame());
   }
 
 
@@ -6331,9 +6370,25 @@ public class PApplet implements PConstants {
                                   final File defaultSelection,
                                   final Object callbackObject,
                                   final Frame parentFrame) {
+    selectFolder(prompt, callbackMethod, defaultSelection, callbackObject, parentFrame, null);
+  }
+
+
+  // Will remove the 'sketch' parameter once we get an upstream JOGL fix
+  // https://github.com/processing/processing/issues/3831
+  static public void selectFolder(final String prompt,
+                                  final String callbackMethod,
+                                  final File defaultSelection,
+                                  final Object callbackObject,
+                                  final Frame parentFrame,
+                                  final PApplet sketch) {
     EventQueue.invokeLater(new Runnable() {
       public void run() {
         File selectedFile = null;
+
+        boolean hide = (sketch != null) &&
+          (sketch.g instanceof PGraphicsOpenGL) && (platform == WINDOWS);
+        if (hide) sketch.surface.setVisible(false);
 
         if (platform == MACOSX && useNativeSelect != false) {
           FileDialog fileDialog =
@@ -6361,6 +6416,8 @@ public class PApplet implements PConstants {
             selectedFile = fileChooser.getSelectedFile();
           }
         }
+
+        if (hide) sketch.surface.setVisible(true);
         selectCallback(selectedFile, callbackMethod, callbackObject);
       }
     });
@@ -8564,26 +8621,22 @@ public class PApplet implements PConstants {
   }
 
 
-  static protected HashMap<String, Pattern> matchPatterns;
+  static protected LinkedHashMap<String, Pattern> matchPatterns;
 
   static Pattern matchPattern(String regexp) {
     Pattern p = null;
     if (matchPatterns == null) {
-      matchPatterns = new HashMap<String, Pattern>();
+      matchPatterns = new LinkedHashMap<String, Pattern>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Pattern> eldest) {
+          // Limit the number of match patterns at 10 most recently used
+          return size() == 10;
+        }
+      };
     } else {
       p = matchPatterns.get(regexp);
     }
     if (p == null) {
-      if (matchPatterns.size() == 10) {
-        // Just clear out the match patterns here if more than 10 are being
-        // used. It's not terribly efficient, but changes that you have >10
-        // different match patterns are very slim, unless you're doing
-        // something really tricky (like custom match() methods), in which
-        // case match() won't be efficient anyway. (And you should just be
-        // using your own Java code.) The alternative is using a queue here,
-        // but that's a silly amount of work for negligible benefit.
-        matchPatterns.clear();
-      }
       p = Pattern.compile(regexp, Pattern.MULTILINE | Pattern.DOTALL);
       matchPatterns.put(regexp, p);
     }
@@ -12774,7 +12827,6 @@ public class PApplet implements PConstants {
   /**
    * <h3>Advanced</h3>
    * Rotate about a vector in space. Same as the glRotatef() function.
-   * @nowebref
    * @param x
    * @param y
    * @param z

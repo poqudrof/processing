@@ -38,8 +38,8 @@ import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.geom.GeneralPath;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.text.BadLocationException;
@@ -74,25 +74,8 @@ public class JavaTextAreaPainter extends TextAreaPainter
   protected Color gutterTextColor;
   protected Color gutterLineHighlightColor;
 
-  public static class ErrorLineCoord {
-    public int xStart;
-    public int xEnd;
-    public int yStart;
-    public int yEnd;
-    public Problem problem;
 
-    public ErrorLineCoord(int xStart, int xEnd, int yStart, int yEnd, Problem problem) {
-      this.xStart = xStart;
-      this.xEnd = xEnd;
-      this.yStart = yStart;
-      this.yEnd = yEnd;
-      this.problem = problem;
-    }
-  }
-  public List<ErrorLineCoord> errorLineCoords = new ArrayList<>();
-
-
-  public JavaTextAreaPainter(JavaTextArea textArea, TextAreaDefaults defaults) {
+  public JavaTextAreaPainter(final JavaTextArea textArea, TextAreaDefaults defaults) {
     super(textArea, defaults);
 
     addMouseListener(new MouseAdapter() {
@@ -134,11 +117,28 @@ public class JavaTextAreaPainter extends TextAreaPainter
     addMouseMotionListener(new MouseMotionAdapter() {
       @Override
       public void mouseMoved(final MouseEvent evt) {
-        for (ErrorLineCoord coord : errorLineCoords) {
-          if (evt.getX() >= coord.xStart && evt.getX() <= coord.xEnd &&
-              evt.getY() >= coord.yStart && evt.getY() <= coord.yEnd + 2) {
-            setToolTipText(coord.problem.getMessage());
-            break;
+        int line = textArea.yToLine(evt.getY());
+        int x = evt.getX();
+
+        LineMarker marker = getJavaEditor().findError(line);
+        if (marker != null) {
+          Problem problem = marker.getProblem();
+
+          int lineOffset = textArea.getLineStartOffset(problem.getLineNumber());
+
+          int lineStart = textArea.getLineStartOffset(line);
+          int lineEnd = textArea.getLineStopOffset(line);
+
+          int errorStart = lineOffset + problem.getPDELineStartOffset();
+          int errorEnd = lineOffset + problem.getPDELineStopOffset() + 1;
+
+          int startOffset = Math.max(errorStart, lineStart) - lineStart;
+          int stopOffset = Math.min(errorEnd, lineEnd) - lineStart;
+
+          if (x >= getTextArea().offsetToX(line, startOffset) &&
+              x <= getTextArea().offsetToX(line, stopOffset)) {
+            setToolTipText(problem.getMessage());
+            evt.consume();
           }
         }
       }
@@ -207,7 +207,10 @@ public class JavaTextAreaPainter extends TextAreaPainter
         return;
 
       Messages.log(getJavaEditor().getErrorChecker().mainClassOffset + line + "|" + line + "| offset " + xLS + word + " <= \n");
-      getJavaEditor().getErrorChecker().getASTGenerator().scrollToDeclaration(line, word, xLS);
+      ASTGenerator astGenerator = getJavaEditor().getErrorChecker().getASTGenerator();
+      synchronized (astGenerator) {
+        astGenerator.scrollToDeclaration(line, word, xLS);
+      }
     }
   }
 
@@ -266,24 +269,56 @@ public class JavaTextAreaPainter extends TextAreaPainter
     if (getJavaEditor().isDebuggerEnabled()) {
       text = getTextArea().getGutterText(line);
     }
-    // if no special text for a breakpoint, just show the line number
-    if (text == null) {
+
+    gfx.setColor(gutterTextColor);
+    int textRight = Editor.LEFT_GUTTER - Editor.GUTTER_MARGIN;
+    int textBaseline = textArea.lineToY(line) + fm.getHeight();
+
+    if (text != null) {
+      if (text.equals(JavaTextArea.BREAK_MARKER)) {
+        drawDiamond(gfx, textRight - 8, textBaseline - 8, 8, 8);
+
+      } else if (text.equals(JavaTextArea.STEP_MARKER)) {
+        //drawRightArrow(gfx, textRight - 7, textBaseline - 7, 7, 6);
+        drawRightArrow(gfx, textRight - 7, textBaseline - 7.5f, 7, 7);
+      }
+    } else {
+      // if no special text for a breakpoint, just show the line number
       text = String.valueOf(line + 1);
       //text = makeOSF(String.valueOf(line + 1));
-    }
-    char[] txt = text.toCharArray();
 
-    //gfx.setFont(getFont());
-    gfx.setFont(gutterTextFont);
-    // Right-align the text
-    int tx = Editor.LEFT_GUTTER - Editor.GUTTER_MARGIN -
-      gfx.getFontMetrics().charsWidth(txt, 0, txt.length);
-    gfx.setColor(gutterTextColor);
-    // Using 'fm' here because it's relative to the editor text size,
-    // not the numbers in the gutter
-    int ty = textArea.lineToY(line) + fm.getHeight();
-    Utilities.drawTabbedText(new Segment(txt, 0, text.length()),
-                             tx, ty, gfx, this, 0);
+      gfx.setFont(gutterTextFont);
+      // Right-align the text
+      char[] txt = text.toCharArray();
+      int tx = textRight - gfx.getFontMetrics().charsWidth(txt, 0, txt.length);
+      // Using 'fm' here because it's relative to the editor text size,
+      // not the numbers in the gutter
+      Utilities.drawTabbedText(new Segment(txt, 0, text.length()),
+                               tx, textBaseline, gfx, this, 0);
+    }
+  }
+
+
+  private void drawDiamond(Graphics g, float x, float y, float w, float h) {
+    Graphics2D g2 = (Graphics2D) g;
+    GeneralPath path = new GeneralPath();
+    path.moveTo(x + w/2, y);
+    path.lineTo(x + w, y + h/2);
+    path.lineTo(x + w/2, y + h);
+    path.lineTo(x, y + h/2);
+    path.closePath();
+    g2.fill(path);
+  }
+
+
+  private void drawRightArrow(Graphics g, float x, float y, float w, float h) {
+    Graphics2D g2 = (Graphics2D) g;
+    GeneralPath path = new GeneralPath();
+    path.moveTo(x, y);
+    path.lineTo(x + w, y + h/2);
+    path.lineTo(x, y + h);
+    path.closePath();
+    g2.fill(path);
   }
 
 
@@ -323,6 +358,18 @@ public class JavaTextAreaPainter extends TextAreaPainter
 
 
   /**
+   * Remove all trailing whitespace from a line
+   */
+  static private String trimRight(String str) {
+    int i = str.length() - 1;
+    while (i >= 0 && Character.isWhitespace(str.charAt(i))) {
+      i--;
+    }
+    return str.substring(0, i+1);
+  }
+
+
+  /**
    * Paints the underline for an error/warning line
    *
    * @param gfx
@@ -334,127 +381,80 @@ public class JavaTextAreaPainter extends TextAreaPainter
    */
   protected void paintErrorLine(Graphics gfx, int line, int x) {
     ErrorCheckerService ecs = getJavaEditor().getErrorChecker();
-    if (ecs == null || ecs.problemsList == null) {
+    if (ecs == null || ecs.lastCodeCheckResult.problems.isEmpty()) {
       return;
     }
 
-    boolean notFound = true;
-    boolean isWarning = false;
-    Problem problem = null;
+    LineMarker marker = getJavaEditor().findError(line);
+    if (marker != null) {
+      Problem problem = marker.getProblem();
 
-    errorLineCoords.clear();
-    // Check if current line contains an error. If it does, find if it's an
-    // error or warning
-    List<LineMarker> errorPoints = getJavaEditor().getErrorPoints();
-    synchronized (errorPoints) {
-      for (LineMarker emarker : errorPoints) {
-        if (emarker.getProblem().getLineNumber() == line) {
-          notFound = false;
-          if (emarker.getType() == LineMarker.WARNING) {
-            isWarning = true;
-          }
-          problem = emarker.getProblem();
-          //log(problem.toString());
-          break;
-        }
-      }
-    }
+      int offset = textArea.getLineStartOffset(problem.getLineNumber());
 
-    if (notFound) {
-      return;
-    }
+      int startOffset = offset + problem.getPDELineStartOffset();
+      int stopOffset = offset + problem.getPDELineStopOffset() + 1;
 
-    // Determine co-ordinates
-    // log("Hoff " + ta.getHorizontalOffset() + ", " +
-    // horizontalAdjustment);
-    int y = textArea.lineToY(line);
-    y += fm.getLeading() + fm.getMaxDescent();
-//    int height = fm.getHeight();
-    int start = textArea.getLineStartOffset(line) + problem.getPDELineStartOffset();
-    int pLength = problem.getPDELineStopOffset() + 1 - problem.getPDELineStartOffset();
+      int lineOffset = textArea.getLineStartOffset(line);
 
-    try {
-      String badCode = null;
-      String goodCode = null;
+      int wiggleStart = Math.max(startOffset, lineOffset);
+      int wiggleStop = Math.min(stopOffset, textArea.getLineStopOffset(line));
+
+      int y = textArea.lineToY(line) + fm.getLeading() + fm.getMaxDescent();
+
       try {
-        SyntaxDocument doc = textArea.getDocument();
-        badCode = doc.getText(start, pLength);
-        goodCode = doc.getText(textArea.getLineStartOffset(line), problem.getPDELineStartOffset());
-        //log("paintErrorLine() LineText GC: " + goodCode);
-        //log("paintErrorLine() LineText BC: " + badCode);
-      } catch (BadLocationException bl) {
-        // Error in the import statements or end of code.
-        // System.out.print("BL caught. " + ta.getLineCount() + " ,"
-        // + line + " ,");
-        // log((ta.getLineStopOffset(line) - start - 1));
-        return;
+        String badCode = null;
+        String goodCode = null;
+        try {
+          SyntaxDocument doc = textArea.getDocument();
+          badCode = doc.getText(wiggleStart, wiggleStop - wiggleStart);
+          goodCode = doc.getText(lineOffset, wiggleStart - lineOffset);
+          //log("paintErrorLine() LineText GC: " + goodCode);
+          //log("paintErrorLine() LineText BC: " + badCode);
+        } catch (BadLocationException bl) {
+          // Error in the import statements or end of code.
+          // System.out.print("BL caught. " + ta.getLineCount() + " ,"
+          // + line + " ,");
+          // log((ta.getLineStopOffset(line) - start - 1));
+          return;
+        }
+
+        // Take care of offsets
+        int aw = fm.stringWidth(trimRight(badCode)) + textArea.getHorizontalOffset();
+        // to the left of line + text
+        // width
+        int rw = fm.stringWidth(badCode.trim()); // real width
+        int x1 = fm.stringWidth(goodCode) + (aw - rw);
+        int y1 = y + fm.getHeight() - 2, x2 = x1 + rw;
+
+        if (line != problem.getLineNumber()) {
+          x1 = 0; // on the following lines, wiggle extends to the left border
+        }
+        // Adding offsets for the gutter
+        x1 += Editor.LEFT_GUTTER;
+        x2 += Editor.LEFT_GUTTER;
+
+        gfx.setColor(errorUnderlineColor);
+        if (marker.getType() == LineMarker.WARNING) {
+          gfx.setColor(warningUnderlineColor);
+        }
+        paintSquiggle(gfx, y1, x1, x2);
+
+      } catch (Exception e) {
+        e.printStackTrace();
       }
-
-      // Take care of offsets
-      int aw = fm.stringWidth(trimRight(badCode)) + textArea.getHorizontalOffset(); // apparent width. Whitespaces
-      // to the left of line + text
-      // width
-      int rw = fm.stringWidth(badCode.trim()); // real width
-      int x1 = fm.stringWidth(goodCode) + (aw - rw), y1 = y + fm.getHeight()
-          - 2, x2 = x1 + rw;
-      // Adding offsets for the gutter
-      x1 += Editor.LEFT_GUTTER;
-      x2 += Editor.LEFT_GUTTER;
-
-      errorLineCoords.add(new ErrorLineCoord(x1,  x2, y, y1, problem));
-
-      // gfx.fillRect(x1, y, rw, height);
-
-      // Let the painting begin!
-
-      // Little rect at starting of a line containing errors - disabling it for now
-//      gfx.setColor(errorMarkerColor);
-//      if (isWarning) {
-//        gfx.setColor(warningMarkerColor);
-//      }
-//      gfx.fillRect(1, y + 2, 3, height - 2);
-
-      gfx.setColor(errorUnderlineColor);
-      if (isWarning) {
-        gfx.setColor(warningUnderlineColor);
-      }
-      int xx = x1;
-
-      // Draw the jagged lines
-      while (xx < x2) {
-        gfx.drawLine(xx, y1, xx + 2, y1 + 1);
-        xx += 2;
-        gfx.drawLine(xx, y1 + 1, xx + 2, y1);
-        xx += 2;
-      }
-    } catch (Exception e) {
-      System.out
-          .println("Looks like I messed up! XQTextAreaPainter.paintLine() : "
-              + e);
-      //e.printStackTrace();
     }
-
-    // Won't highlight the line. Select the text instead.
-    // gfx.setColor(Color.RED);
-    // gfx.fillRect(2, y, 3, height);
   }
 
 
-  /**
-   * Trims out trailing whitespaces (to the right)
-   *
-   * @param string
-   * @return - String
-   */
-  static private String trimRight(String string) {
-    String newString = "";
-    for (int i = 0; i < string.length(); i++) {
-      if (string.charAt(i) != ' ') {
-        newString = string.substring(0, i) + string.trim();
-        break;
-      }
+  static private void paintSquiggle(Graphics g, int y, int x1, int x2) {
+    int xx = x1;
+
+    while (xx < x2) {
+      g.drawLine(xx, y, xx + 2, y + 1);
+      xx += 2;
+      g.drawLine(xx, y + 1, xx + 2, y);
+      xx += 2;
     }
-    return newString;
   }
 
 
@@ -464,8 +464,6 @@ public class JavaTextAreaPainter extends TextAreaPainter
   public void setMode(Mode mode) {
     errorUnderlineColor = mode.getColor("editor.error.underline.color");
     warningUnderlineColor = mode.getColor("editor.warning.underline.color");
-//    errorMarkerColor = mode.getColor("editor.errormarkercolor");
-//    warningMarkerColor = mode.getColor("editor.warningmarkercolor");
 
     gutterTextFont = mode.getFont("editor.gutter.text.font");
     gutterTextColor = mode.getColor("editor.gutter.text.color");
@@ -507,7 +505,8 @@ public class JavaTextAreaPainter extends TextAreaPainter
           return super.getToolTipText(event);
         }
         if (!(Character.isLetterOrDigit(s.charAt(x)) ||
-            s.charAt(x) == '_' || s.charAt(x) == '$')) {
+            s.charAt(x) == '_' || s.charAt(x) == '$' || s.charAt(x) == '{' ||
+            s.charAt(x) == '}')) {
           setToolTipText(null);
           return super.getToolTipText(event);
         }
@@ -545,12 +544,14 @@ public class JavaTextAreaPainter extends TextAreaPainter
           return super.getToolTipText(event);
         }
         ASTGenerator ast = getJavaEditor().getErrorChecker().getASTGenerator();
-        String tooltipText = ast.getLabelForASTNode(line, word, xLS);
+        synchronized (ast) {
+          String tooltipText = ast.getLabelForASTNode(line, word, xLS);
 
-        //      log(errorCheckerService.mainClassOffset + " MCO "
-        //      + "|" + line + "| offset " + xLS + word + " <= offf: "+off+ "\n");
-        if (tooltipText != null) {
-          return tooltipText;
+          //      log(errorCheckerService.mainClassOffset + " MCO "
+          //      + "|" + line + "| offset " + xLS + word + " <= offf: "+off+ "\n");
+          if (tooltipText != null) {
+            return tooltipText;
+          }
         }
       }
     }
@@ -863,6 +864,13 @@ public class JavaTextAreaPainter extends TextAreaPainter
 
 
 	// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
+	@Override
+	public int getScrollWidth() {
+	  // https://github.com/processing/processing/issues/3591
+	  return super.getWidth() - Editor.LEFT_GUTTER;
+	}
 
 
   public Editor getEditor() {
