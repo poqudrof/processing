@@ -22,9 +22,20 @@
 
 package processing.core;
 
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Base64.Decoder;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.nio.charset.StandardCharsets;
+import javax.xml.bind.DatatypeConverter;
 
+
+        
 import processing.core.PApplet;
 
 
@@ -106,6 +117,7 @@ public class PShape implements PConstants {
 
   /** Texture or image data associated with this shape. */
   protected PImage image;
+  protected String imagePath = null;
 
   public static final String OUTSIDE_BEGIN_END_ERROR =
     "%1$s can only be called between beginShape() and endShape()";
@@ -1645,6 +1657,10 @@ public class PShape implements PConstants {
              params[6], params[7]);
 
     } else if (kind == RECT) {
+        
+      if (imagePath != null){
+          loadImage(g);
+      }
       if (image != null) {
         int oldMode = g.imageMode;
         g.imageMode(CORNER);
@@ -1878,7 +1894,65 @@ public class PShape implements PConstants {
     }
     g.endShape(close ? CLOSE : OPEN);
   }
+  
+  private void loadImage(PGraphics g){
+      
+      System.out.println("Loading image... " + this.imagePath);
+      if(this.imagePath.startsWith("data:image")){
+          loadBase64Image(g);
+      } 
+      
+      if(this.imagePath.startsWith("file://")){
+          imagePath = imagePath.substring(7);
+          setTexture(g.parent.loadImage(imagePath));
+      }
 
+      this.imagePath = null;
+  }
+
+ private void loadBase64Image(PGraphics g){
+    String[] parts = this.imagePath.split(";base64,");
+    String extension = parts[0].substring(11);
+    String encodedData = parts[1];
+
+//    byte[] decodedBytes = null;
+    
+    byte[] decodedBytes = DatatypeConverter.parseBase64Binary(encodedData);
+    
+//    decodedBytes = java.util.Base64.getDecoder().decode(encodedData.getBytes(StandardCharsets.UTF_8));
+    if(decodedBytes == null){
+       System.out.println("Decode Error" + imagePath);// todo: error
+    }
+
+    // "Random" name generation for temporary file
+    String tmpFileName = Long.toHexString(Double.doubleToLongBits(Math.random()));
+    tmpFileName = tmpFileName +  "." + extension;
+
+    String tmpPath;
+    
+    // try to make things faster on linux supporting files in /dev/shm (ram). 
+    if(Files.exists(Paths.get("/dev/shm/"))){
+        tmpPath = "/dev/shm/" + tmpFileName;
+    } else {
+       tmpPath = g.parent.sketchPath() + "/" + tmpFileName;
+    }
+    
+    try {
+        // Save to disk
+        Files.write(Paths.get(tmpPath), decodedBytes);
+        
+        // load with Processing
+        setTexture(g.parent.loadImage(tmpPath));
+
+        // Remove from disk
+        Files.delete(Paths.get(tmpPath));
+        
+    } catch (IOException ex) {
+        System.out.println("IOException impossiblet to write ? "  + ex);
+//            Logger.getLogger(PShapeSVG.class.getName()).log(Level.SEVERE, null, ex);
+    }
+        
+  }
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 

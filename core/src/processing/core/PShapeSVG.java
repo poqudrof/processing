@@ -329,6 +329,10 @@ public class PShapeSVG extends PShape {
     } else if (name.equals("rect")) {
       shape = createShape(this, elem, true);
       shape.parseRect();
+   
+    } else if (name.equals("image")) {
+      shape = createShape(this, elem, true);
+      shape.parseImage();
 
     } else if (name.equals("polygon")) {
       shape = createShape(this, elem, true);
@@ -439,8 +443,23 @@ public class PShapeSVG extends PShape {
       getFloatWithUnit(element, "height", svgHeight)
     };
   }
+  
+  
+  protected void parseImage() {
+    kind = RECT;
+    textureMode = NORMAL;
 
+    family = PRIMITIVE;
+    params = new float[] {
+      getFloatWithUnit(element, "x", svgWidth),
+      getFloatWithUnit(element, "y", svgHeight),
+      getFloatWithUnit(element, "width", svgWidth),
+      getFloatWithUnit(element, "height", svgHeight)
+    };
 
+    this.imagePath = element.getString("xlink:href");
+  }
+  
   /**
    * Parse a polyline or polygon from an SVG file.
    * Syntax defined at http://www.w3.org/TR/SVG/shapes.html#PointsBNF
