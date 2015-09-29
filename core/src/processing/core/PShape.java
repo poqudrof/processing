@@ -1897,7 +1897,6 @@ public class PShape implements PConstants {
   
   private void loadImage(PGraphics g){
       
-      System.out.println("Loading image... " + this.imagePath);
       if(this.imagePath.startsWith("data:image")){
           loadBase64Image(g);
       } 
