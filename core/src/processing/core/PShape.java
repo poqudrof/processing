@@ -22,6 +22,9 @@
 
 package processing.core;
 
+import java.awt.Image;
+import java.awt.color.ColorSpace;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -32,10 +35,11 @@ import java.util.Base64.Decoder;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.nio.charset.StandardCharsets;
+import javax.swing.ImageIcon;
 import javax.xml.bind.DatatypeConverter;
 
 
-        
+
 import processing.core.PApplet;
 
 
@@ -1657,7 +1661,7 @@ public class PShape implements PConstants {
              params[6], params[7]);
 
     } else if (kind == RECT) {
-        
+
       if (imagePath != null){
           loadImage(g);
       }
@@ -1894,63 +1898,91 @@ public class PShape implements PConstants {
     }
     g.endShape(close ? CLOSE : OPEN);
   }
-  
+
   private void loadImage(PGraphics g){
-      
+
       if(this.imagePath.startsWith("data:image")){
-          loadBase64Image(g);
-      } 
-      
-      if(this.imagePath.startsWith("file://")){
-          imagePath = imagePath.substring(7);
-          setTexture(g.parent.loadImage(imagePath));
+          loadBase64Image();
       }
 
+      if(this.imagePath.startsWith("file://")){
+          loadFileSystemImage(g);
+      }
       this.imagePath = null;
   }
+  
+  private void loadFileSystemImage(PGraphics g){
+    imagePath = imagePath.substring(7);
+    PImage loadedImage = g.parent.loadImage(imagePath);
+    if(loadedImage == null){
+      System.err.println("Error loading image file: " + imagePath);
+    }else{
+      setTexture(loadedImage);
+    }
+  }
 
- private void loadBase64Image(PGraphics g){
+ private void loadBase64Image(){
     String[] parts = this.imagePath.split(";base64,");
     String extension = parts[0].substring(11);
     String encodedData = parts[1];
 
-//    byte[] decodedBytes = null;
-    
     byte[] decodedBytes = DatatypeConverter.parseBase64Binary(encodedData);
-    
-//    decodedBytes = java.util.Base64.getDecoder().decode(encodedData.getBytes(StandardCharsets.UTF_8));
+
     if(decodedBytes == null){
-       System.out.println("Decode Error" + imagePath);// todo: error
-    }
-
-    // "Random" name generation for temporary file
-    String tmpFileName = Long.toHexString(Double.doubleToLongBits(Math.random()));
-    tmpFileName = tmpFileName +  "." + extension;
-
-    String tmpPath;
-    
-    // try to make things faster on linux supporting files in /dev/shm (ram). 
-    if(Files.exists(Paths.get("/dev/shm/"))){
-        tmpPath = "/dev/shm/" + tmpFileName;
-    } else {
-       tmpPath = g.parent.sketchPath() + "/" + tmpFileName;
+      System.err.println("Decode Error on image: " + imagePath.substring(0, 20));
+      return;
     }
     
-    try {
-        // Save to disk
-        Files.write(Paths.get(tmpPath), decodedBytes);
-        
-        // load with Processing
-        setTexture(g.parent.loadImage(tmpPath));
+    Image awtImage = new ImageIcon(decodedBytes).getImage();
 
-        // Remove from disk
-        Files.delete(Paths.get(tmpPath));
-        
-    } catch (IOException ex) {
-        System.out.println("IOException impossiblet to write ? "  + ex);
-//            Logger.getLogger(PShapeSVG.class.getName()).log(Level.SEVERE, null, ex);
+    if (awtImage instanceof BufferedImage) {
+      BufferedImage buffImage = (BufferedImage) awtImage;
+      int space = buffImage.getColorModel().getColorSpace().getType();
+      if (space == ColorSpace.TYPE_CMYK) {
+       return;
+      }
     }
-        
+
+    PImage loadedImage = new PImage(awtImage);
+    if (loadedImage.width == -1) {
+      // error...
+    }
+
+    // if it's a .gif image, test to see if it has transparency
+    if (extension.equals("gif") || extension.equals("png") ||
+      extension.equals("unknown")) {
+    loadedImage.checkAlpha();
+    }
+    
+    setTexture(loadedImage);
+
+//    // "Random" name generation for temporary file
+//    String tmpFileName = Long.toHexString(Double.doubleToLongBits(Math.random()));
+//    tmpFileName = tmpFileName +  "." + extension;
+//
+//    String tmpPath;
+//
+//    // try to make things faster on linux supporting files in /dev/shm (ram).
+//    if(Files.exists(Paths.get("/dev/shm/"))){
+//        tmpPath = "/dev/shm/" + tmpFileName;
+//    } else {
+//       tmpPath = g.parent.sketchPath() + "/" + tmpFileName;
+//    }
+//
+//    try {
+//        // Save to disk
+//        Files.write(Paths.get(tmpPath), decodedBytes);
+//
+//        // load with Processing
+//        // TODO: better than
+//        setTexture(g.parent.loadImage(tmpPath));
+//
+//        // Remove from disk
+//        Files.delete(Paths.get(tmpPath));
+//    } catch (IOException ex) {
+//        System.out.println("IOException impossible to write: "  + ex);
+//    }
+
   }
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -2460,14 +2492,14 @@ public class PShape implements PConstants {
  /**
    * ( begin auto-generated from PShape_setFill.xml )
    *
-   * The <b>setFill()</b> method defines the fill color of a <b>PShape</b>. 
-   * This method is used after shapes are created or when a shape is defined explicitly 
-   * (e.g. <b>createShape(RECT, 20, 20, 80, 80)</b>) as shown in the above example. 
-   * When a shape is created with <b>beginShape()</b> and <b>endShape()</b>, its 
-   * attributes may be changed with <b>fill()</b> and <b>stroke()</b> within 
-   * <b>beginShape()</b> and <b>endShape()</b>. However, after the shape is 
-   * created, only the <b>setFill()</b> method can define a new fill value for 
-   * the <b>PShape</b>. 
+   * The <b>setFill()</b> method defines the fill color of a <b>PShape</b>.
+   * This method is used after shapes are created or when a shape is defined explicitly
+   * (e.g. <b>createShape(RECT, 20, 20, 80, 80)</b>) as shown in the above example.
+   * When a shape is created with <b>beginShape()</b> and <b>endShape()</b>, its
+   * attributes may be changed with <b>fill()</b> and <b>stroke()</b> within
+   * <b>beginShape()</b> and <b>endShape()</b>. However, after the shape is
+   * created, only the <b>setFill()</b> method can define a new fill value for
+   * the <b>PShape</b>.
    *
    * ( end auto-generated )
    *
@@ -2616,14 +2648,14 @@ public class PShape implements PConstants {
   /**
    * ( begin auto-generated from PShape_setStroke.xml )
    *
-   * The <b>setStroke()</b> method defines the outline color of a <b>PShape</b>. 
-   * This method is used after shapes are created or when a shape is defined 
-   * explicitly (e.g. <b>createShape(RECT, 20, 20, 80, 80)</b>) as shown in 
-   * the above example. When a shape is created with <b>beginShape()</b> and 
-   * <b>endShape()</b>, its attributes may be changed with <b>fill()</b> and 
-   * <b>stroke()</b> within <b>beginShape()</b> and <b>endShape()</b>. 
-   * However, after the shape is created, only the <b>setStroke()</b> method 
-   * can define a new stroke value for the <b>PShape</b>. 
+   * The <b>setStroke()</b> method defines the outline color of a <b>PShape</b>.
+   * This method is used after shapes are created or when a shape is defined
+   * explicitly (e.g. <b>createShape(RECT, 20, 20, 80, 80)</b>) as shown in
+   * the above example. When a shape is created with <b>beginShape()</b> and
+   * <b>endShape()</b>, its attributes may be changed with <b>fill()</b> and
+   * <b>stroke()</b> within <b>beginShape()</b> and <b>endShape()</b>.
+   * However, after the shape is created, only the <b>setStroke()</b> method
+   * can define a new stroke value for the <b>PShape</b>.
    *
    * ( end auto-generated )
    *
