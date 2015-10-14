@@ -1955,34 +1955,6 @@ public class PShape implements PConstants {
     }
     
     setTexture(loadedImage);
-
-//    // "Random" name generation for temporary file
-//    String tmpFileName = Long.toHexString(Double.doubleToLongBits(Math.random()));
-//    tmpFileName = tmpFileName +  "." + extension;
-//
-//    String tmpPath;
-//
-//    // try to make things faster on linux supporting files in /dev/shm (ram).
-//    if(Files.exists(Paths.get("/dev/shm/"))){
-//        tmpPath = "/dev/shm/" + tmpFileName;
-//    } else {
-//       tmpPath = g.parent.sketchPath() + "/" + tmpFileName;
-//    }
-//
-//    try {
-//        // Save to disk
-//        Files.write(Paths.get(tmpPath), decodedBytes);
-//
-//        // load with Processing
-//        // TODO: better than
-//        setTexture(g.parent.loadImage(tmpPath));
-//
-//        // Remove from disk
-//        Files.delete(Paths.get(tmpPath));
-//    } catch (IOException ex) {
-//        System.out.println("IOException impossible to write: "  + ex);
-//    }
-
   }
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
