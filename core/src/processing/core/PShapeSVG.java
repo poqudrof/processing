@@ -25,6 +25,7 @@
 package processing.core;
 
 import static java.awt.Font.BOLD;
+import static java.awt.Font.ITALIC;
 import static java.awt.Font.PLAIN;
 import processing.data.*;
 
@@ -1587,8 +1588,9 @@ public class PShapeSVG extends PShape {
 //        FontFace fontFace = new FontFace(this, properties);
     String fontFamily = null;
     float size = 10;
-    int weight = PLAIN;
-
+    int weight = PLAIN; // 0
+    int italic = 0;
+    
     if (properties.hasAttribute("style")) {
       String styleText = properties.getString("style");
       String[] styleTokens = PApplet.splitTokens(styleText, ";");
@@ -1603,7 +1605,9 @@ public class PShapeSVG extends PShape {
 
         if (tokens[0].equals("font-style")) {
           // PApplet.println("font-style: " + tokens[1]);
-
+          if (tokens[1].contains("italic")) {
+            italic = ITALIC;
+          }
         } else if (tokens[0].equals("font-variant")) {
           // PApplet.println("font-variant: " + tokens[1]);
           // setFillOpacity(tokens[1]);
@@ -1656,7 +1660,7 @@ public class PShapeSVG extends PShape {
     }
     size = size * TEXT_QUALITY;
 
-    return createFont(fontFamily, weight, size, true);
+    return createFont(fontFamily, weight | italic, size, true);
   }
 
   protected PFont createFont(String name, int weight, float size, boolean smooth) {
