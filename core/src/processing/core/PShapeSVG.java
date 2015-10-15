@@ -1582,7 +1582,7 @@ public class PShapeSVG extends PShape {
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
   
-  private static final float TEXT_QUALITY = 1;
+  public static float TEXT_QUALITY = 1;
   protected PFont parseFont(XML properties) {
 
 //        FontFace fontFace = new FontFace(this, properties);
