@@ -1712,13 +1712,17 @@ public class PShapeSVG extends PShape {
     // TODO: child should ideally be parsed too... 
     // for inline content. 
       super(parent, properties, false);
-//      if(matrix == null)
-//           matrix = new PMatrix2D();
-//    // get location
-//        float x = Float.parseFloat(properties.getString("x"));
-//        float y = Float.parseFloat(properties.getString("y"));
-//        matrix.translate(x, y);
 
+//    // get location
+      float x = Float.parseFloat(properties.getString("x"));
+      float y = Float.parseFloat(properties.getString("y"));
+
+      float parentX = Float.parseFloat(parent.element.getString("x"));
+      float parentY = Float.parseFloat(parent.element.getString("y"));
+       
+      if (matrix == null) matrix = new PMatrix2D();
+      matrix.translate(x - parentX, (y - parentY) / 2f);
+     
     // get the first properties
      parseColors(properties);
       font = parseFont(properties);
@@ -1730,10 +1734,7 @@ public class PShapeSVG extends PShape {
       }
 
       String text = properties.getContent();
-      System.out.println("Text at the beginning");
       textToDisplay = text;
-
-      System.out.println("Line of text, content : " + text);
     }
 
     @Override
