@@ -341,6 +341,7 @@
     <subant buildpath="../core" target="clean"/>
     <subant buildpath="../app" target="clean"/>
     <subant buildpath="../java/libraries/dxf" target="clean"/>
+    <subant buildpath="../java/libraries/io" target="clean"/>
     <subant buildpath="../java/libraries/net" target="clean"/>
     <subant buildpath="../java/libraries/pdf" target="clean"/>
     <subant buildpath="../java/libraries/serial" target="clean"/>
@@ -363,7 +364,12 @@
     <subant buildpath="shared/tools/MovieMaker" target="build"/>
     <subant buildpath="../java" target="build"/>
   </target>
-  
+
+  <target name="subprojects-build-linux-arm32" if="linux-arm32">
+    <!-- I/O library is only compiled on supported ARM platforms -->
+    <subant buildpath="../java/libraries/io" target="build"/>
+  </target>
+
 
   <!-- - - - - - - - - -->
   <!-- Basic Assembly  -->
@@ -393,9 +399,9 @@
       <fileset dir="${examples.dir}" />
     </copy>
 
+    <!-- removed ignoreerrors="true" for 3.0 release process -->
     <get src="http://download.processing.org/reference.zip" 
          dest="../java/reference.zip" 
-         ignoreerrors="true"
          usetimestamp="true" />
 
     <unzip dest="${target.path}/modes/java" 
@@ -514,7 +520,7 @@
                shortVersion="${version}"
                version="${revision}"
                javafx="true"
-               mainClassName="processing.app.Base">
+               mainClassName="processing.app.BaseSplash">
 
       <!-- The appbundler task needs a couple files (the Info.plist and
            anything else outside /jre) from the full JDK, even though 
@@ -549,9 +555,14 @@
                       role="Editor">
       </bundledocument>
 
+      <!-- !@#*&$ the @2x splash screen implementation was removed by Oracle -->
+      <!-- tiffutil -cathidpicheck about.png about\@2x.png -out about.tiff -->
+      <!--<option value="-splash:$APP_ROOT/Contents/Java/lib/about.png" />-->
+
       <!-- Sets dock icon when debugging (not launched via launch svcs) -->
-      <option value="-Xdock:icon=Contents/Resources/processing.icns" />
-      <!-- Don't think these actually make any difference. -->
+      <option value="-Xdock:icon=$APP_ROOT/Contents/Resources/processing.icns" />
+      <!-- Don't think these actually make any difference. 
+           (The apple.awt.application.name property is used.)-->
       <!--
       <option value="-Xdock:name=Processing" />
       -->
@@ -755,7 +766,7 @@
     <fail message="wrong platform (${os.name})" />
   </target>
   
-  <target name="linux-build" depends="ignore-tools, check-linux-arm32, revision-check, linux-check-os, jre-download, subprojects-build" description="Build Linux version">
+  <target name="linux-build" depends="ignore-tools, check-linux-arm32, revision-check, linux-check-os, jre-download, subprojects-build, subprojects-build-linux-arm32" description="Build Linux version">
     <mkdir dir="linux/work" />
     
     <copy todir="linux/work">
@@ -921,17 +932,20 @@
    <mkdir dir="linux/debian/usr/share/mime/packages/" />
    <!-- rename the work folder temporarily -->
    <move file="linux/work" tofile="linux/debian/opt/processing" />
-   <symlink link="linux/debian/usr/bin/processing" resource="../../opt/processing/processing" />
+   <symlink link="linux/debian/usr/bin/processing" 
+            resource="../../opt/processing/processing" />
 
    <!-- place .desktop and .sharedmimeinfo file -->
-   <copy file="linux/processing.desktop" tofile="linux/debian/usr/share/applications/processing.desktop" >
+   <copy file="linux/processing.desktop" 
+         tofile="linux/debian/usr/share/applications/processing.desktop">
        <filterchain>
-           <replacetokens >
+           <replacetokens>
                <token key="version" value="${version}" />
            </replacetokens>
-       </filterchain >
-   </copy >
-   <copy file="linux/processing.sharedmimeinfo" tofile="linux/debian/usr/share/mime/packages/processing.xml" />
+       </filterchain>
+   </copy>
+   <copy file="linux/processing.sharedmimeinfo" 
+         tofile="linux/debian/usr/share/mime/packages/processing.xml" />
 
    <!-- Set properties for DEBIAN/control file -->
    <property name="linux.deb" value="linux/processing-${version}-linux${sun.arch.data.model}.deb" />
@@ -1292,7 +1306,7 @@ remove the spaces for depth since it should be double dash, but screws up commen
       <arg line="everything -type f -exec rm -rf {} ';'" />
     </exec>
 
-    <javadoc access="public" author="false" classpath="../app/lib/ant.jar:../app/lib/ant-launcher.jar:../app/lib/antlr.jar:../app/lib/apple.jar:../app/lib/jna.jar:../app/lib/org-netbeans-swing-outline.jar:../core/bin:../core/library/gluegen-rt.jar:../core/library/jogl-all.jar:../java/libraries/svg/bin:../java/libraries/pdf/bin:../java/libraries/pdf/library/itext.jar:../java/libraries/dxf/bin:../java/libraries/net/bin:../java/libraries/serial/bin:../java/mode/ecj.jar:${java.home}/lib/tools.jar" destdir="javadoc/everything" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.7" splitindex="false" use="false" version="false" noqualifier="all">
+    <javadoc access="public" author="false" classpath="../app/lib/ant.jar:../app/lib/ant-launcher.jar:../app/lib/antlr.jar:../app/lib/apple.jar:../app/lib/jna.jar:../app/lib/org-netbeans-swing-outline.jar:../core/bin:../core/library/gluegen-rt.jar:../core/library/jogl-all.jar:../java/libraries/svg/bin:../java/libraries/pdf/bin:../java/libraries/pdf/library/itext.jar:../java/libraries/dxf/bin:../java/libraries/io/bin:../java/libraries/net/bin:../java/libraries/serial/bin:../java/mode/ecj.jar:${java.home}/lib/tools.jar" destdir="javadoc/everything" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.7" splitindex="false" use="false" version="false" noqualifier="all">
 
       <arg value="-notimestamp" />
 
@@ -1305,9 +1319,11 @@ remove the spaces for depth since it should be double dash, but screws up commen
         <include name="processing/**" />
       </packageset>
 
-      <packageset dir="../app/generated">
+
+
+      <!--<packageset dir="../app/generated">
         <include name="processing/**" />
-      </packageset>
+      </packageset>-->
 
       <packageset dir="../core/src">
         <include name="processing/**" />
@@ -1316,6 +1332,48 @@ remove the spaces for depth since it should be double dash, but screws up commen
 	-->
       </packageset>
     </javadoc>
+
+
+    <!-- do libraries -->
+    <exec executable="find" dir="javadoc" errorproperty="ignored">
+      <arg line="libraries -type f -exec rm -rf {} ';'" />
+    </exec>
+
+    <javadoc access="public" author="false" classpath="../app/lib/ant.jar:../app/lib/ant-launcher.jar:../app/lib/antlr.jar:../app/lib/apple.jar:../app/lib/jna.jar:../app/lib/org-netbeans-swing-outline.jar:../core/bin:../core/library/gluegen-rt.jar:../core/library/jogl-all.jar:../java/libraries/svg/bin:../java/libraries/pdf/bin:../java/libraries/pdf/library/itext.jar:../java/libraries/dxf/bin:../java/libraries/net/bin:../java/libraries/serial/bin:../java/mode/ecj.jar:${java.home}/lib/tools.jar" destdir="javadoc/libraries" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.7" splitindex="false" use="false" version="false" noqualifier="all">
+
+      <arg value="-notimestamp" />
+
+      <arg value="-quiet" />
+
+      <link href="http://docs.oracle.com/javase/7/docs/api/" />
+      
+      <packageset dir="../java/libraries/dxf/src">
+        <include name="antlr/**" />
+        <include name="processing/**" />
+      </packageset>
+      <packageset dir="../java/libraries/io/src">
+        <include name="antlr/**" />
+        <include name="processing/**" />
+      </packageset>
+      <packageset dir="../java/libraries/net/src">
+        <include name="antlr/**" />
+        <include name="processing/**" />
+      </packageset>
+      <packageset dir="../java/libraries/pdf/src">
+        <include name="antlr/**" />
+        <include name="processing/**" />
+      </packageset>
+      <packageset dir="../java/libraries/serial/src">
+        <include name="antlr/**" />
+        <include name="processing/**" />
+      </packageset>
+      <packageset dir="../java/libraries/svg/src">
+        <include name="antlr/**" />
+        <include name="processing/**" />
+      </packageset>
+    </javadoc>
+
+
 
 <!--
     <copy file="javadoc/stylesheet.css" 

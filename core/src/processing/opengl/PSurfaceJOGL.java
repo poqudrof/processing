@@ -31,14 +31,20 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import javax.swing.ImageIcon;
 
+import com.jogamp.common.util.IOUtil;
 import com.jogamp.common.util.IOUtil.ClassResources;
 import com.jogamp.nativewindow.NativeSurface;
 import com.jogamp.nativewindow.ScalableSurface;
@@ -99,11 +105,10 @@ public class PSurfaceJOGL implements PSurface {
   protected Object waitObject = new Object();
 
   protected NewtCanvasAWT canvas;
-//  protected boolean placedWindow = false;
-//  protected boolean requestedStart = false;
 
   protected float[] currentPixelScale = {0, 0};
 
+  protected boolean external = false;
 
   public PSurfaceJOGL(PGraphics graphics) {
     this.graphics = graphics;
@@ -177,7 +182,11 @@ public class PSurfaceJOGL implements PSurface {
           monitors.add(monitor);
         }
       }
-    } else { // All the other platforms...
+    } else if (PApplet.platform == PConstants.WINDOWS) {
+      // NEWT display id is == (adapterId << 8 | monitorId),
+      // should be in the same order as AWT
+      monitors.addAll(newtDevices);
+    } else { // MAC OSX and others
       for (GraphicsDevice device: awtDevices) {
         String did = device.getIDstring();
         String[] parts = did.split("Display");
@@ -373,18 +382,18 @@ public class PSurfaceJOGL implements PSurface {
     }
     window.setSurfaceScale(reqSurfacePixelScale);
     window.setSize(sketchWidth, sketchHeight);
-//    window.setResizable(false);
+    window.setResizable(false);
     setSize(sketchWidth, sketchHeight);
     sketchX = displayDevice.getViewportInWindowUnits().getX();
     sketchY = displayDevice.getViewportInWindowUnits().getY();
     if (fullScreen) {
       PApplet.hideMenuBar();
       window.setTopLevelPosition(sketchX, sketchY);
-//      placedWindow = true;
       if (spanDisplays) {
         window.setFullscreen(monitors);
       } else {
-        window.setFullscreen(true);
+        List<MonitorDevice> display = Collections.singletonList(displayDevice);
+        window.setFullscreen(display);
       }
     }
   }
@@ -404,7 +413,7 @@ public class PSurfaceJOGL implements PSurface {
 
 
   protected void initAnimator() {
-    animator = new FPSAnimator(window, 60, true);
+    animator = new FPSAnimator(window, 60);
     drawException = null;
     animator.setUncaughtExceptionHandler(new GLAnimatorControl.UncaughtExceptionHandler() {
       @Override
@@ -470,17 +479,18 @@ public class PSurfaceJOGL implements PSurface {
 
   @Override
   public void setResizable(final boolean resizable) {
-//    display.getEDTUtil().invoke(false, new Runnable() {
-//      @Override
-//      public void run() {
-//        window.setResizable(resizable);
-//      }
-//    });
+    display.getEDTUtil().invoke(false, new Runnable() {
+      @Override
+      public void run() {
+        window.setResizable(resizable);
+      }
+    });
   }
 
 
   public void setIcon(PImage icon) {
-    // TODO Auto-generated method stub
+    PGraphics.showWarning("Window icons for OpenGL sketches can only be set in settings()\n" +
+                          "using PJOGL.setIcon(filename).");
   }
 
 
@@ -496,25 +506,150 @@ public class PSurfaceJOGL implements PSurface {
 
 
   protected void initIcons() {
-    final int[] sizes = { 16, 32, 48, 64, 128, 256, 512 };
-    String[] iconImages = new String[sizes.length];
-    for (int i = 0; i < sizes.length; i++) {
-      iconImages[i] = "/icon/icon-" + sizes[i] + ".png";
+    IOUtil.ClassResources res = null;
+    if (PJOGL.icons == null || PJOGL.icons.length == 0) {
+      // Default Processing icons
+      final int[] sizes = { 16, 32, 48, 64, 128, 256, 512 };
+      String[] iconImages = new String[sizes.length];
+      for (int i = 0; i < sizes.length; i++) {
+         iconImages[i] = "/icon/icon-" + sizes[i] + ".png";
+       }
+       res = new ClassResources(iconImages,
+                                PApplet.class.getClassLoader(),
+                                PApplet.class);
+    } else {
+      // Loading custom icons from user-provided files.
+      String[] iconImages = new String[PJOGL.icons.length];
+      for (int i = 0; i < PJOGL.icons.length; i++) {
+        iconImages[i] = resourceFilename(PJOGL.icons[i]);
+      }
+
+      res = new ClassResources(iconImages,
+                               sketch.getClass().getClassLoader(),
+                               sketch.getClass());
     }
-    NewtFactory.setWindowIcons(new ClassResources(PApplet.class, iconImages));
+    NewtFactory.setWindowIcons(res);
   }
 
 
-//  private void setFrameCentered() {
-//  }
+  @SuppressWarnings("resource")
+  private String resourceFilename(String filename) {
+    // The code below comes from PApplet.createInputRaw() with a few adaptations
+    InputStream stream = null;
+    try {
+      // First see if it's in a data folder. This may fail by throwing
+      // a SecurityException. If so, this whole block will be skipped.
+      File file = new File(sketch.dataPath(filename));
+      if (!file.exists()) {
+        // next see if it's just in the sketch folder
+        file = sketch.sketchFile(filename);
+      }
+
+      if (file.exists() && !file.isDirectory()) {
+        try {
+          // handle case sensitivity check
+          String filePath = file.getCanonicalPath();
+          String filenameActual = new File(filePath).getName();
+          // make sure there isn't a subfolder prepended to the name
+          String filenameShort = new File(filename).getName();
+          // if the actual filename is the same, but capitalized
+          // differently, warn the user.
+          //if (filenameActual.equalsIgnoreCase(filenameShort) &&
+          //!filenameActual.equals(filenameShort)) {
+          if (!filenameActual.equals(filenameShort)) {
+            throw new RuntimeException("This file is named " +
+                                       filenameActual + " not " +
+                                       filename + ". Rename the file " +
+                                       "or change your code.");
+          }
+        } catch (IOException e) { }
+      }
+
+      stream = new FileInputStream(file);
+      if (stream != null) {
+        stream.close();
+        return file.getCanonicalPath();
+      }
+
+      // have to break these out because a general Exception might
+      // catch the RuntimeException being thrown above
+    } catch (IOException ioe) {
+    } catch (SecurityException se) { }
+
+    ClassLoader cl = sketch.getClass().getClassLoader();
+
+    try {
+      // by default, data files are exported to the root path of the jar.
+      // (not the data folder) so check there first.
+      stream = cl.getResourceAsStream("data/" + filename);
+      if (stream != null) {
+        String cn = stream.getClass().getName();
+        // this is an irritation of sun's java plug-in, which will return
+        // a non-null stream for an object that doesn't exist. like all good
+        // things, this is probably introduced in java 1.5. awesome!
+        // http://dev.processing.org/bugs/show_bug.cgi?id=359
+        if (!cn.equals("sun.plugin.cache.EmptyInputStream")) {
+          stream.close();
+          return "data/" + filename;
+        }
+      }
+
+      // When used with an online script, also need to check without the
+      // data folder, in case it's not in a subfolder called 'data'.
+      // http://dev.processing.org/bugs/show_bug.cgi?id=389
+      stream = cl.getResourceAsStream(filename);
+      if (stream != null) {
+        String cn = stream.getClass().getName();
+        if (!cn.equals("sun.plugin.cache.EmptyInputStream")) {
+          stream.close();
+          return filename;
+        }
+      }
+    } catch (IOException e) { }
+
+    try {
+      // attempt to load from a local file, used when running as
+      // an application, or as a signed applet
+      try {  // first try to catch any security exceptions
+        try {
+          String path = sketch.dataPath(filename);
+          stream = new FileInputStream(path);
+          if (stream != null) {
+            stream.close();
+            return path;
+          }
+        } catch (IOException e2) { }
+
+        try {
+          String path = sketch.sketchPath(filename);
+          stream = new FileInputStream(path);
+          if (stream != null) {
+            stream.close();
+            return path;
+          }
+        } catch (Exception e) { }  // ignored
+
+        try {
+          stream = new FileInputStream(filename);
+          if (stream != null) {
+            stream.close();
+            return filename;
+          }
+        } catch (IOException e1) { }
+
+      } catch (SecurityException se) { }  // online, whups
+
+    } catch (Exception e) {
+      //die(e.getMessage(), e);
+      e.printStackTrace();
+    }
+
+    return "";
+  }
 
 
   @Override
   public void placeWindow(int[] location, int[] editorLocation) {
-//    Dimension dim = new Dimension(sketchWidth, sketchHeight);
-//    int contentW = Math.max(sketchWidth, MIN_WINDOW_WIDTH);
-//    int contentH = Math.max(sketchHeight, MIN_WINDOW_HEIGHT);
-
     int x = window.getX() - window.getInsets().getLeftWidth();
     int y = window.getY() - window.getInsets().getTopHeight();
     int w = window.getWidth() + window.getInsets().getTotalWidth();
@@ -534,6 +669,7 @@ public class PSurfaceJOGL implements PSurface {
         window.setTopLevelPosition(locationX - w, locationY);
 
       } else {  // doesn't fit
+        /*
         // if it fits inside the editor window,
         // offset slightly from upper lefthand corner
         // so that it's plunked inside the text area
@@ -543,9 +679,12 @@ public class PSurfaceJOGL implements PSurface {
         if ((locationX + w > sketch.displayWidth - 33) ||
             (locationY + h > sketch.displayHeight - 33)) {
           // otherwise center on screen
-          locationX = (sketch.displayWidth - w) / 2;
-          locationY = (sketch.displayHeight - h) / 2;
+        */
+        locationX = (sketch.displayWidth - w) / 2;
+        locationY = (sketch.displayHeight - h) / 2;
+        /*
         }
+        */
         window.setTopLevelPosition(locationX, locationY);
       }
     } else {  // just center on screen
@@ -553,24 +692,8 @@ public class PSurfaceJOGL implements PSurface {
       // frame to the main display, which undermines the --display setting.
       int sketchX = displayDevice.getViewportInWindowUnits().getX();
       int sketchY = displayDevice.getViewportInWindowUnits().getY();
-//      System.err.println("just center on the screen at " + sketchX + screenRect.x + (screenRect.width - sketchWidth) / 2 + ", " +
-//                                                           sketchY + screenRect.y + (screenRect.height - sketchHeight) / 2);
-  //
-//      System.err.println("  Display starts at " +  sketchX + ", " + sketchY);
-//      System.err.println("  Screen rect pos: " +  screenRect.x + ", " + screenRect.y);
-//      System.err.println("  Screen rect w/h: " +  screenRect.width + ", " + screenRect.height);
-//      System.err.println("  Sketch w/h: " +  sketchWidth + ", " + sketchHeight);
-
-//      int w = sketchWidth;
-//      int h = sketchHeight;
-//      if (graphics.is2X()) {
-//        w /= 2;
-//        h /= 2;
-//      }
-
       window.setTopLevelPosition(sketchX + screenRect.x + (screenRect.width - sketchWidth) / 2,
                                  sketchY + screenRect.y + (screenRect.height - sketchHeight) / 2);
-
     }
 
     Point frameLoc = new Point(x, y);
@@ -579,41 +702,22 @@ public class PSurfaceJOGL implements PSurface {
       // closed. Awesome. http://dev.processing.org/bugs/show_bug.cgi?id=1508
       window.setTopLevelPosition(frameLoc.x, 30);
     }
-
-//    placedWindow = true;
-//    if (requestedStart) startThread();
-//    canvas.setBounds((contentW - sketchWidth)/2,
-//                     (contentH - sketchHeight)/2,
-//                     sketchWidth, sketchHeight);
   }
 
 
   public void placePresent(int stopColor) {
-//    if (presentMode) {
-//      System.err.println("Present mode");
-//    System.err.println("WILL USE FBO");
     pgl.initPresentMode(0.5f * (screenRect.width - sketchWidth),
-                        0.5f * (screenRect.height - sketchHeight));
-//    presentMode = pgl.presentMode = true;
-//    offsetX = pgl.offsetX = 0.5f * (screenRect.width - sketchWidth);
-//    offsetY = pgl.offsetY = 0.5f * (screenRect.height - sketchHeight);
-//    pgl.requestFBOLayer();
-
+                        0.5f * (screenRect.height - sketchHeight), stopColor);
     window.setSize(screenRect.width, screenRect.height);
     PApplet.hideMenuBar();
     window.setTopLevelPosition(sketchX + screenRect.x,
                                sketchY + screenRect.y);
-//    window.setTopLevelPosition(0, 0);
     window.setFullscreen(true);
-//    placedWindow = true;
-//    if (requestedStart) startThread();
-//    }
   }
 
 
   public void setupExternalMessages() {
-    // TODO Auto-generated method stub
-
+    external = true;
   }
 
 
@@ -844,6 +948,9 @@ public class PSurfaceJOGL implements PSurface {
 
     @Override
     public void windowMoved(com.jogamp.newt.event.WindowEvent arg0) {
+      if (external) {
+        sketch.frameMoved(window.getX(), window.getY());
+      }
     }
 
     @Override
@@ -962,7 +1069,7 @@ public class PSurfaceJOGL implements PSurface {
       mx -= (int)pgl.presentX;
       my -= (int)pgl.presentY;
       if (peAction == KeyEvent.RELEASE &&
-          pgl.insideCloseButton(sx, sy - screenRect.height)) {
+          pgl.insideStopButton(sx, sy - screenRect.height)) {
         sketch.exit();
       }
       if (mx < 0 || sketchWidth < mx || my < 0 || sketchHeight < my) {
@@ -1136,6 +1243,10 @@ public class PSurfaceJOGL implements PSurface {
 
 
   public void setCursor(int kind) {
+    if (!cursorNames.containsKey(kind)) {
+      PGraphics.showWarning("Unknown cursor type: " + kind);
+      return;
+    }
     CursorInfo cursor = cursors.get(kind);
     if (cursor == null) {
       String name = cursorNames.get(kind);
@@ -1157,10 +1268,11 @@ public class PSurfaceJOGL implements PSurface {
         cursor = new CursorInfo(img, x, y);
         cursors.put(kind, cursor);
       }
+    }
+    if (cursor != null) {
       cursor.set();
-
     } else {
-      PGraphics.showWarning("Unknown cursor type: " + kind);
+      PGraphics.showWarning("Cannot load cursor type: " + kind);
     }
   }
 

@@ -1,36 +1,38 @@
-0246 the papal visit
-X implement high-performance/async image saving
-X   Use PBOs for async texture copy
-X   https://github.com/processing/processing/issues/3569
-X   https://github.com/processing/processing/pull/3863
-X   https://github.com/processing/processing/pull/3869
-X Textures disappearing in beta 7 (might be WeakReference regression)
-X   https://github.com/processing/processing/issues/3858
-X   https://github.com/processing/processing/pull/3874
-X   https://github.com/processing/processing/pull/3875
-X Convert all documented hacky keys in OpenGL
-X   https://github.com/processing/processing/pull/3888
-X Frame size displays incorrectly if surface.setResizable(true)
-X   https://github.com/processing/processing/issues/3868
-X   https://github.com/processing/processing/pull/3880
+0248 (3.0.2)
+X Fix another "Zero length string passed to TextLayout constructor" error
 
-cleaning
-o move AWT image loading into PImageAWT
-o   look into how GL and FX will handle from there
-o run only the necessary pieces on the EDT
-o   in part because FX doesn't even use the EDT
-o   re-check the Linux frame visibility stuff
-X   cleaned most of this as far as we can go
+andres
+X Stop button in OpenGL exported applications does not use preference settings
+X   https://github.com/processing/processing/issues/4064
+X Export without a stop button using P3D or P2D
+X   https://github.com/processing/processing/issues/4056
+
+
+_ fix menu bar hiding in exported JavaFX apps
+_   just call it around setup time? 
+_ should fullScreen() set width and height to displayWidth/Height
+_   or is that being set/unset used for any state info?
+_ when calling exit(), if sketch has halted w/ exception, force the quit
+_   otherwise have to double-quit with cmd-q on OS X
+_   simple test case: using size() inside setup() from Eclipse
+_ figure our size(img.width, img.height) situation
+_   just make loadImage() work in settings
+_   update the wiki and reference
+_ menu bar not hiding properly in exported applications with FX2D
+_   hideMenuBar() called from setup() works fine
+_ see if 8u65 or 8u66 fix the JavaFX problem
+_   if not, need to add them to the block list
+_ the --hide-stop option not working (FX only? traces?)
 
 
 known
 _ window must close when using file dialogs with OpenGL on Windows
 _   https://github.com/processing/processing/issues/3831
-_ P2D and P3D windows behave strangely when larger than the screen size
-_   https://github.com/processing/processing/issues/3401
+_ window loses focus after maximizing
+_   https://github.com/processing/processing/issues/3339
 
 
-3.0 final
+misc
 _ move blending calculations from PImage into PGraphics
 _   tricky because that means moving blend_resize() as well
 _   and should that live in PGraphics or be its own class or ??
@@ -47,14 +49,17 @@ _ SVG only exports last frame
 _   possibly because Java2D is disposing the Graphics2D in between?
 _   https://github.com/processing/processing/issues/3753
 
+
 javafx
+_ make wiki about quirks
+_   starving the thread makes things really slow down
+_   keyPressed() is always uppercase, keyTyped() will be correct
 _ do we really need setTextFont/Size when we already have Impl? 
 _ need keyPressed() to do lower and upper case
 _ static mode sketches (draw once and halt w/o closing window)
 _ fix display handling, line up the device order with AWT
 _   https://docs.oracle.com/javafx/2/api/javafx/stage/Screen.html
 _ noLoop()
-_ displayWidth, displayHeight, full screen, display number
 _ present mode not working at all
 _   stage in the center, clear the rest of the screen
 _ createGraphics() should probably create PGraphicsJava2D
@@ -77,19 +82,8 @@ _ javafx not supported with ARM (so we're screwed on raspberry pi)
 _   https://www.linkedin.com/pulse/oracle-just-removed-javafx-support-arm-jan-snelders
 
 
-opengl
-_ Use PBOs for async texture copy
-_   https://github.com/processing/processing/issues/3569
-_ filter(PShader) broken in HiDPI mode
-_   https://github.com/processing/processing/issues/3577
-_ hard crash at 1920x1080, mirrored, Casey's GT 650M 1GB
-_ window loses focus after maximizing
-_   https://github.com/processing/processing/issues/3339
-_ Implement standard cursor types in OpenGL
-_   https://github.com/processing/processing/issues/3554
-
-
 opengl questions
+_ hard crash at 1920x1080, mirrored, Casey's GT 650M 1GB
 _ issues with how JOGL handles window layout/sizing
 _   https://github.com/processing/processing/issues/3401
 _ exitCalled() and exitActual made public by Andres, breaks Python
@@ -111,8 +105,6 @@ _   AMD Radeon HD 6770M was in the Oracle bug report
 _   https://github.com/processing/processing/issues/2186
 _   https://bugs.openjdk.java.net/browse/JDK-8027391
 _   test with JG's 13" retina laptop
-_ Ubuntu Unity prevents full screen from working properly
-_   https://github.com/processing/processing/issues/3158
 
 
 graphics
@@ -650,6 +642,7 @@ _   table.append(anotherTable)?
 _   table.join(anotherTable)
 _ getInt() on categorial to return index?
 _   getCategories() and getCategory() methods to query names?
+
 
 
 ////////////////////////////////////////////////////////////////////

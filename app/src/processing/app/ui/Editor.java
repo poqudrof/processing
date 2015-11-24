@@ -40,16 +40,20 @@ import processing.app.syntax.*;
 import processing.core.*;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.Image;
 import java.awt.Point;
+import java.awt.Window;
 import java.awt.datatransfer.*;
 import java.awt.event.*;
 import java.awt.print.*;
 import java.io.*;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
@@ -72,7 +76,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
   protected Mode mode;
 
   static public final int LEFT_GUTTER = 44;
-  static public final int RIGHT_GUTTER = 20;
+  static public final int RIGHT_GUTTER = 12;
   static public final int GUTTER_MARGIN = 3;
 
 
@@ -333,6 +337,19 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
     // Add a window listener to watch for changes to the files in the sketch
     addWindowFocusListener(new ChangeDetector(this));
+
+    // Try to enable fancy fullscreen on OSX
+    if (Platform.isMacOS()) {
+      try {
+        Class util = Class.forName("com.apple.eawt.FullScreenUtilities");
+        Class params[] = new Class[]{Window.class, Boolean.TYPE};
+        Method method = util.getMethod("setWindowCanFullScreen", params);
+        method.invoke(util, this, true);
+      } catch (Exception e) {
+        Messages.loge("Could not enable OSX fullscreen", e);
+      }
+    }
+
   }
 
 
@@ -1087,6 +1104,15 @@ public abstract class Editor extends JFrame implements RunnerListener {
   public void clearToolMenu() {
     toolsMenu.removeAll();
     System.gc();
+  }
+
+
+  /**
+   * Updates update count in the UI. Called on EDT.
+   * @param count number of available updates
+   */
+  public void setUpdatesAvailable(int count) {
+    footer.setUpdateCount(count);
   }
 
 
@@ -2779,6 +2805,14 @@ public abstract class Editor extends JFrame implements RunnerListener {
   }
 
 
+  /**
+   * Returns the current notice message in the editor status bar.
+   */
+  public int getStatusMode() {
+    return status.mode;
+  }
+
+
 //  /**
 //   * Returns the current mode of the editor status bar: NOTICE, ERR or EDIT.
 //   */
@@ -2812,6 +2846,47 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
   public boolean isHalted() {
     return false;
+  }
+
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
+  static Font font;
+  static Color textColor;
+  static Color bgColorWarning;
+  static Color bgColorError;
+
+
+  /*
+  public void toolTipError(JComponent comp, String message) {
+    setToolTip(comp, message, true);
+  }
+
+
+  public void toolTipWarning(JComponent comp, String message) {
+    setToolTip(comp, message, false);
+  }
+  */
+
+
+  public void statusToolTip(JComponent comp, String message, boolean error) {
+    if (font == null) {
+      font = Toolkit.getSansFont(9, Font.PLAIN);
+      textColor = mode.getColor("errors.selection.fgcolor");
+      bgColorWarning = mode.getColor("errors.selection.warning.bgcolor");
+      bgColorError = mode.getColor("errors.selection.error.bgcolor");
+    }
+
+    Color bgColor = error ? //text.startsWith(Language.text("editor.status.error")) ?
+      bgColorError : bgColorWarning;
+    String content = "<html>" +
+      "<div style='margin: -3 -3 -3 -3; padding: 3 3 3 3; " +
+      "background: #" + PApplet.hex(bgColor.getRGB(), 8).substring(2) + ";" +
+      "font-family: " + font.getFontName() + ", sans-serif;" +
+      "font-size: " + font.getSize() + "px;'>" + message + "</div></html>";
+    //System.out.println(content);
+    comp.setToolTipText(content);
   }
 
 

@@ -23,35 +23,27 @@ package processing.mode.java.pdex;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
 
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
-import javax.swing.Painter;
-import javax.swing.UIDefaults;
-import javax.swing.UIManager;
-import javax.swing.plaf.InsetsUIResource;
-import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.text.BadLocationException;
 
 import processing.app.Base;
 import processing.app.Messages;
 import processing.app.Mode;
 import processing.app.syntax.JEditTextArea;
+import processing.app.ui.Toolkit;
 import processing.mode.java.JavaEditor;
 
 
@@ -94,6 +86,9 @@ public class CompletionPanel {
   static public ImageIcon methodIcon;
   static public ImageIcon localVarIcon;
 
+  static Color selectionBgColor;
+  static Color textColor;
+
 
   /**
    * Triggers the completion popup
@@ -117,15 +112,50 @@ public class CompletionPanel {
       this.subWord = subWord;
     }
 
-    loadIcons();
+    if (classIcon == null) {
+      Mode mode = editor.getMode();
+
+      File dir = new File(mode.getFolder(), "theme/completion");
+      classIcon = Toolkit.getIconX(dir, "class_obj");
+      methodIcon = Toolkit.getIconX(dir, "methpub_obj");
+      fieldIcon = Toolkit.getIconX(dir, "field_protected_obj");
+      localVarIcon = Toolkit.getIconX(dir, "field_default_obj");
+
+      //selectionBgColor = mode.getColor("");  // no theme.txt for Java Mode
+      selectionBgColor = new Color(0xffF0F0F0);
+      textColor = new Color(0xff222222);
+    }
+
     popupMenu = new JPopupMenu();
     popupMenu.removeAll();
     popupMenu.setOpaque(false);
     popupMenu.setBorder(null);
 
     scrollPane = new JScrollPane();
-    styleScrollPane();
-    scrollPane.setViewportView(completionList = createSuggestionList(position, items));
+//    styleScrollPane();
+    //scrollPane.setViewportView(completionList = createSuggestionList(position, items));
+    completionList = new JList<CompletionCandidate>(items) {
+      {
+        setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        setSelectedIndex(0);
+        addMouseListener(new MouseAdapter() {
+          @Override
+          public void mouseClicked(MouseEvent e) {
+            if (e.getClickCount() == 2) {
+              insertSelection(MOUSE_COMPLETION);
+              setInvisible();
+            }
+          }
+        });
+        setCellRenderer(new CustomListRenderer());
+        setFocusable(false);
+        setFont(Toolkit.getSansFont(12, Font.PLAIN));
+      }
+    };
+    scrollPane.setViewportView(completionList);
+    // remove an ugly multi-line border around it
+    scrollPane.setBorder(null);
+
     popupMenu.add(scrollPane, BorderLayout.CENTER);
     popupMenu.setPopupSize(calcWidth(), calcHeight(items.getSize())); //TODO: Eradicate this evil
     popupMenu.setFocusable(false);
@@ -138,17 +168,7 @@ public class CompletionPanel {
   }
 
 
-  private void loadIcons() {
-    if (classIcon == null) {
-      Mode mode = editor.getMode();
-      classIcon = mode.loadIcon("theme/completion/class_obj.png");
-      methodIcon = mode.loadIcon("theme/completion/methpub_obj.png");
-      fieldIcon = mode.loadIcon("theme/completion/field_protected_obj.png");
-      localVarIcon = mode.loadIcon("theme/completion/field_default_obj.png");
-    }
-  }
-
-
+  /*
   private void styleScrollPane() {
     String laf = UIManager.getLookAndFeel().getID();
     if (!laf.equals("Nimbus") && !laf.equals("Windows")) return;
@@ -205,6 +225,7 @@ public class CompletionPanel {
       return jbutton;
     }
   }
+  */
 
 
   public boolean isVisible() {
@@ -244,10 +265,6 @@ public class CompletionPanel {
   }
 
 
-  /**
-   * Dynamic width of completion panel
-   * @return - width
-   */
   private int calcWidth() {
     int maxWidth = 300;
     float min = 0;
@@ -270,7 +287,6 @@ public class CompletionPanel {
    * @param position
    * @param items
    * @return
-   */
   private JList<CompletionCandidate> createSuggestionList(final int position,
                                     final DefaultListModel<CompletionCandidate> items) {
 
@@ -291,6 +307,7 @@ public class CompletionPanel {
     list.setFocusable(false);
     return list;
   }
+   */
 
 
   /*
@@ -333,8 +350,8 @@ public class CompletionPanel {
       try {
         // If user types 'abc.', subword becomes '.' and null is returned
         String currentSubword = fetchCurrentSubword();
-        int currentSubwordLen = currentSubword == null ? 0 : currentSubword
-            .length();
+        int currentSubwordLen =
+            (currentSubword == null) ? 0 : currentSubword.length();
         //logE(currentSubword + " <= subword,len => " + currentSubword.length());
         String selectedSuggestion =
           completionList.getSelectedValue().getCompletionString();
@@ -346,13 +363,12 @@ public class CompletionPanel {
         }
 
         String completionString =
-            completionList.getSelectedValue().getCompletionString();
+          completionList.getSelectedValue().getCompletionString();
         if (selectedSuggestion.endsWith(" )")) { // the case of single param methods
           // selectedSuggestion = ")";
           if (completionString.endsWith(" )")) {
-            completionString = completionString.substring(0, completionString
-                .length() - 2)
-                + ")";
+            completionString =
+              completionString.substring(0, completionString.length() - 2) + ")";
           }
         }
 
@@ -365,20 +381,19 @@ public class CompletionPanel {
           }
         }
 
-        Messages.loge(subWord + " <= subword, Inserting suggestion=> "
-            + selectedSuggestion + " Current sub: " + currentSubword);
+        Messages.loge(subWord + " <= subword, Inserting suggestion=> " +
+          selectedSuggestion + " Current sub: " + currentSubword);
         if (currentSubword.length() > 0) {
           textarea.getDocument().remove(insertionPosition - currentSubwordLen,
                                         currentSubwordLen);
         }
 
-        textarea.getDocument()
-            .insertString(insertionPosition - currentSubwordLen,
-                          completionString, null);
+        textarea.getDocument().insertString(insertionPosition - currentSubwordLen,
+                                            completionString, null);
         if (selectedSuggestion.endsWith(")") && !selectedSuggestion.endsWith("()")) {
           // place the caret between '( and first ','
           int x = selectedSuggestion.indexOf(',');
-          if(x == -1) {
+          if (x == -1) {
             // the case of single param methods, containing no ','
             textarea.setCaretPosition(textarea.getCaretPosition() - 1); // just before ')'
           } else {
@@ -395,12 +410,12 @@ public class CompletionPanel {
           setInvisible();
         }
 
-        if(mouseClickOnOverloadedMethods) {
+        if (mouseClickOnOverloadedMethods) {
           // See #2755
           ((JavaTextArea) editor.getTextArea()).fetchPhrase();
         }
-
         return true;
+
       } catch (BadLocationException e1) {
         e1.printStackTrace();
       } catch (Exception e) {
@@ -552,6 +567,11 @@ public class CompletionPanel {
                                                                  index,
                                                                  isSelected,
                                                                  cellHasFocus);
+      if (isSelected) {
+        label.setBackground(selectionBgColor);
+      }
+      label.setForeground(textColor);
+
       if (value instanceof CompletionCandidate) {
         CompletionCandidate cc = (CompletionCandidate) value;
         switch (cc.getType()) {

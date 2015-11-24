@@ -4,7 +4,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.beans.*;
 import java.io.*;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -17,8 +16,6 @@ import javax.swing.border.*;
 import javax.swing.event.*;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
-
-import org.eclipse.jdt.core.compiler.IProblem;
 
 import processing.core.PApplet;
 import processing.data.StringList;
@@ -34,7 +31,6 @@ import processing.mode.java.debug.LineID;
 import processing.mode.java.pdex.ASTGenerator;
 import processing.mode.java.pdex.ErrorCheckerService;
 import processing.mode.java.pdex.LineMarker;
-import processing.mode.java.pdex.ErrorMessageSimplifier;
 import processing.mode.java.pdex.JavaTextArea;
 import processing.mode.java.pdex.Problem;
 import processing.mode.java.runner.Runner;
@@ -140,8 +136,17 @@ public class JavaEditor extends Editor {
     hasJavaTabs = checkForJavaTabs();
     //initializeErrorChecker();
 
-    errorCheckerService = new ErrorCheckerService(this);
-    errorCheckerService.start();
+    { // Init error checker
+      errorCheckerService = new ErrorCheckerService(this);
+      for (SketchCode code : getSketch().getCode()) {
+        Document document = code.getDocument();
+        if (document != null) {
+          errorCheckerService.addListener(document);
+        }
+      }
+      errorCheckerService.start();
+      errorCheckerService.request();
+    }
 
     // hack to add a JPanel to the right-hand side of the text area
     JPanel textAndError = new JPanel();
@@ -166,6 +171,12 @@ public class JavaEditor extends Editor {
       }
 
       public void windowGainedFocus(WindowEvent e) { }
+    });
+
+    textarea.addCaretListener(new CaretListener() {
+      public void caretUpdate(CaretEvent e) {
+        errorCheckerService.updateEditorStatus();
+      }
     });
   }
 
@@ -1281,9 +1292,9 @@ public class JavaEditor extends Editor {
 
   public void internalCloseRunner() {
     // Added temporarily to dump error log. TODO: Remove this later [mk29]
-    if (JavaMode.errorLogsEnabled) {
-      writeErrorsToFile();
-    }
+    //if (JavaMode.errorLogsEnabled) {
+    //  writeErrorsToFile();
+    //}
     handleStop();
   }
 
@@ -1313,10 +1324,12 @@ public class JavaEditor extends Editor {
   }
 
 
+  // Not sure how this was supposed to work, tempErrorLog is always empty [jv]
   /**
    * Writes all error messages to a csv file.
    * For analytics purposes only.
    */
+  /*
   private void writeErrorsToFile() {
     if (errorCheckerService.tempErrorLog.size() == 0) return;
 
@@ -1354,7 +1367,7 @@ public class JavaEditor extends Editor {
       System.err.println("Failed to save log file for sketch " + getSketch().getName());
       e.printStackTrace();
     }
-  }
+  }*/
 
 
   /*
@@ -2325,9 +2338,16 @@ public class JavaEditor extends Editor {
   @Override
   public void setCode(SketchCode code) {
 
+    Document oldDoc = code.getDocument();
+
     //System.out.println("tab switch: " + code.getFileName());
     // set the new document in the textarea, etc. need to do this first
     super.setCode(code);
+
+    Document newDoc = code.getDocument();
+    if (oldDoc != newDoc && errorCheckerService != null) {
+      errorCheckerService.addListener(newDoc);
+    }
 
     // set line background colors for tab
     final JavaTextArea ta = getJavaTextArea();
@@ -2724,13 +2744,14 @@ public class JavaEditor extends Editor {
   }
 
 
+  @Override
   protected void applyPreferences() {
     super.applyPreferences();
     if (jmode != null) {
       jmode.loadPreferences();
       Messages.log("Applying prefs");
       // trigger it once to refresh UI
-      errorCheckerService.request();
+      errorCheckerService.handleErrorCheckingToggle();
     }
   }
 

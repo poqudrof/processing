@@ -39,9 +39,10 @@ import processing.app.Mode;
 import processing.app.Sketch;
 import processing.app.SketchCode;
 import processing.app.Util;
+import processing.app.ui.Editor;
+import processing.core.PApplet;
 import processing.mode.java.pdex.LineMarker;
 import processing.mode.java.pdex.Problem;
-import processing.app.Language;
 
 
 /**
@@ -56,11 +57,10 @@ import processing.app.Language;
 public class MarkerColumn extends JPanel {
   protected JavaEditor editor;
 
-  static final int WIDE = 12;
+//  static final int WIDE = 12;
 
 	private Color errorColor;
 	private Color warningColor;
-	private Color backgroundColor;
 
 	// Stores error markers displayed PER TAB along the error bar.
 	private List<LineMarker> errorPoints =
@@ -73,7 +73,6 @@ public class MarkerColumn extends JPanel {
 		Mode mode = editor.getMode();
 		errorColor = mode.getColor("editor.column.error.color");
 		warningColor = mode.getColor("editor.column.warning.color");
-		backgroundColor = mode.getColor("editor.gutter.bgcolor");
 
     addMouseListener(new MouseAdapter() {
       public void mouseClicked(MouseEvent e) {
@@ -95,9 +94,10 @@ public class MarkerColumn extends JPanel {
 	  super.repaint();
 	}
 
+
   public void paintComponent(Graphics g) {
-    g.setColor(backgroundColor);
-    g.fillRect(0, 0, getWidth(), getHeight());
+    g.drawImage(editor.getJavaTextArea().getGutterGradient(),
+                0, 0, getWidth(), getHeight(), this);
 
     for (LineMarker m : errorPoints) {
       if (m.getType() == LineMarker.ERROR) {
@@ -170,7 +170,15 @@ public class MarkerColumn extends JPanel {
 	}
 
 
-	/** Show tooltip on hover. */
+	/*
+  @Override
+  public JToolTip createToolTip() {
+    return new ErrorToolTip(editor.getMode(), this);
+  }
+  */
+
+
+  /** Show tooltip on hover. */
 	private void showMarkerHover(final int y) {
 	  try {
 	    new SwingWorker() {
@@ -178,10 +186,11 @@ public class MarkerColumn extends JPanel {
 	        LineMarker m = findClosestMarker(y);
 	        if (m != null) {
 	          Problem p = m.getProblem();
-	          String kind = p.isError() ?
-	            Language.text("editor.status.error") :
-	            Language.text("editor.status.warning");
-	          setToolTipText(kind + ": " + p.getMessage());
+//	          String kind = p.isError() ?
+//	            Language.text("editor.status.error") :
+//	            Language.text("editor.status.warning");
+//	          setToolTipText(kind + ": " + p.getMessage());
+	          editor.statusToolTip(MarkerColumn.this, p.getMessage(), p.isError());
 	          setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 	        }
 	        return null;
@@ -205,12 +214,15 @@ public class MarkerColumn extends JPanel {
 	      e.printStackTrace();
 	      totalLines = 1; // do not divide by zero
 	    }
+	    int visibleLines = editor.getTextArea().getVisibleLines();
+	    totalLines = PApplet.max(totalLines, visibleLines);
 
 	    for (LineMarker m : errorPoints) {
 	      // Ratio of error line to total lines
 	      float y = (m.getLineNumber() + 1) / ((float) totalLines);
 	      // Ratio multiplied by height of the error bar
-	      y *= getHeight() - 15; // -15 is just a vertical offset
+	      y *= getHeight();
+	      y -= 15; // -15 is just a vertical offset
 
 	      m.setY((int) y);
 	    }
@@ -233,11 +245,11 @@ public class MarkerColumn extends JPanel {
 
 
 	public Dimension getPreferredSize() {
-	  return new Dimension(WIDE, super.getPreferredSize().height);
+	  return new Dimension(Editor.RIGHT_GUTTER, super.getPreferredSize().height);
 	}
 
 
 	public Dimension getMinimumSize() {
-	  return new Dimension(WIDE, super.getMinimumSize().height);
+	  return new Dimension(Editor.RIGHT_GUTTER, super.getMinimumSize().height);
 	}
 }

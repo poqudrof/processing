@@ -164,7 +164,8 @@ class DetailPanel extends JPanel {
               }
             }
           }
-          listPanel.contributionTab.restartButton.setVisible(toBeRestarted);
+          // TODO: remove or uncomment if the button was added
+          //listPanel.contributionTab.restartButton.setVisible(toBeRestarted);
         }
       }
     };
@@ -501,7 +502,7 @@ class DetailPanel extends JPanel {
     description = desc.toString();
     descriptionPane.setText(description);
 
-    if (contribListing.hasUpdates(contrib)) {
+    if (contribListing.hasUpdates(contrib) && contrib.isCompatible(Base.getRevision())) {
       StringBuilder versionText = new StringBuilder();
       versionText.append("<html><body><i>");
       if (contrib.isUpdateFlagged() || contrib.isDeletionFlagged()) {
@@ -618,7 +619,7 @@ class DetailPanel extends JPanel {
         }
       };
 
-      ContributionManager.downloadAndInstall(listPanel.contributionTab.editor,
+      ContributionManager.downloadAndInstall(listPanel.contributionTab.editor.getBase(),
                                              downloadUrl, ad,
                                              downloadProgress, installProgress,
                                              listPanel.contributionTab.statusPanel);
@@ -864,12 +865,13 @@ class DetailPanel extends JPanel {
           if (isModeActive) {
             updateButton.setEnabled(true);
           } else {
-            listPanel.contributionTab.restartButton.setVisible(true);
+            // TODO: remove or uncomment if the button was added
+            //listPanel.contributionTab.restartButton.setVisible(true);
           }
         }
       };
       ((LocalContribution) contrib)
-        .removeContribution(listPanel.contributionTab.editor,
+        .removeContribution(listPanel.contributionTab.editor.getBase(),
                             progress, listPanel.contributionTab.statusPanel);
     } else {
       updateButton.setEnabled(false);
@@ -930,13 +932,14 @@ class DetailPanel extends JPanel {
           if (isModeActive) {
             updateButton.setEnabled(true);
           } else {
-            contributionTab.restartButton.setVisible(true);
+            // TODO: remove or uncomment if the button was added
+            //contributionTab.restartButton.setVisible(true);
           }
         }
       };
       ContributionTab contributionTab = listPanel.contributionTab;
       LocalContribution localContrib = (LocalContribution) contrib;
-      localContrib.removeContribution(contributionTab.editor, monitor, contributionTab.statusPanel);
+      localContrib.removeContribution(contributionTab.editor.getBase(), monitor, contributionTab.statusPanel);
     }
 
   }
