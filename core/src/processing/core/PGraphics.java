@@ -1958,12 +1958,20 @@ public class PGraphics extends PImage implements PConstants {
 
   // CLIPPING
 
-  /*
-   * @webref rendering:shaders
-   * @param a x-coordinate of the rectangle by default
-   * @param b y-coordinate of the rectangle by default
-   * @param c width of the rectangle by default
-   * @param d height of the rectangle by default
+  /**
+   * ( begin auto-generated from clip.xml )
+   *
+   * Limits the rendering to the boundaries of a rectangle defined 
+   * by the parameters. The boundaries are drawn based on the state 
+   * of the <b>imageMode()</b> fuction, either CORNER, CORNERS, or CENTER. 
+   *
+   * ( end auto-generated )
+   *
+   * @webref rendering
+   * @param a x-coordinate of the rectangle, by default
+   * @param b y-coordinate of the rectangle, by default
+   * @param c width of the rectangle, by default
+   * @param d height of the rectangle, by default
    */
   public void clip(float a, float b, float c, float d) {
     if (imageMode == CORNER) {
@@ -2002,8 +2010,14 @@ public class PGraphics extends PImage implements PConstants {
     showMissingWarning("clip");
   }
 
-  /*
-   * @webref rendering:shaders
+  /**
+   * ( begin auto-generated from noClip.xml )
+   *
+   * Disables the clipping previously started by the <b>clip()</b> function.
+   *
+   * ( end auto-generated )
+   *
+   * @webref rendering
    */
   public void noClip() {
     showMissingWarning("noClip");
@@ -2087,6 +2101,7 @@ public class PGraphics extends PImage implements PConstants {
     }
   }
 
+
 /**
    * ( begin auto-generated from bezierVertex.xml )
    *
@@ -2149,6 +2164,7 @@ public class PGraphics extends PImage implements PConstants {
     }
   }
 
+
   /**
    * @webref shape:vertex
    * @param cx the x-coordinate of the control point
@@ -2171,6 +2187,7 @@ public class PGraphics extends PImage implements PConstants {
                  x3, y3);
   }
 
+
   /**
    * @param cz the z-coordinate of the control point
    * @param z3 the z-coordinate of the anchor point
@@ -2187,9 +2204,11 @@ public class PGraphics extends PImage implements PConstants {
                  x3, y3, z3);
   }
 
+
   protected void curveVertexCheck() {
     curveVertexCheck(shape);
   }
+
 
   /**
    * Perform initialization specific to curveVertex(), and handle standard
@@ -2213,6 +2232,7 @@ public class PGraphics extends PImage implements PConstants {
     }
     curveInitCheck();
   }
+
 
  /**
    * ( begin auto-generated from curveVertex.xml )
@@ -5343,6 +5363,7 @@ public class PGraphics extends PImage implements PConstants {
   /**
    * <h3>Advanced</h3>
    * Rotate about a vector in space. Same as the glRotatef() function.
+   * @nowebref
    * @param x
    * @param y
    * @param z

@@ -80,20 +80,13 @@ import processing.app.Preferences;
  * @author fry
  */
 public class Toolkit {
+  /*
   static public final String PROMPT_YES     = Language.text("prompt.yes");
   static public final String PROMPT_NO      = Language.text("prompt.no");
   static public final String PROMPT_CANCEL  = Language.text("prompt.cancel");
   static public final String PROMPT_OK      = Language.text("prompt.ok");
   static public final String PROMPT_BROWSE  = Language.text("prompt.browse");
-
-  /**
-   * Standardized width for buttons. Mac OS X 10.3 wants 70 as its default,
-   * Windows XP needs 66, and my Ubuntu machine needs 80+, so 80 seems proper.
-   * This is now stored in the languages file since this may need to be larger
-   * for languages that are consistently wider than English.
-   */
-  static public int BUTTON_WIDTH =
-    Integer.parseInt(Language.text("preferences.button.width"));
+  */
 
   static final java.awt.Toolkit awtToolkit =
     java.awt.Toolkit.getDefaultToolkit();
@@ -111,6 +104,19 @@ public class Toolkit {
   /** Command-Shift on Mac OS X, Ctrl-Shift on Windows and Linux */
   static final int SHORTCUT_SHIFT_KEY_MASK =
     ActionEvent.SHIFT_MASK | SHORTCUT_KEY_MASK;
+
+
+  /**
+   * Standardized width for buttons. Mac OS X 10.3 wants 70 as its default,
+   * Windows XP needs 66, and my Ubuntu machine needs 80+, so 80 seems proper.
+   * This is now stored in the languages file since this may need to be larger
+   * for languages that are consistently wider than English.
+   */
+  static public int getButtonWidth() {
+    // Made into a method so that calling Toolkit methods doesn't require
+    // the languages to be loaded, and with that, Base initialized completely
+    return Integer.parseInt(Language.text("preferences.button.width"));
+  }
 
 
   /**
@@ -483,12 +489,8 @@ public class Toolkit {
   }
 
 
-  /**
-   * Get an image icon with hi-dpi support. Pulls 1x or 2x versions of the
-   * file depending on the display type, but sizes them based on 1x.
-   */
-  static public ImageIcon getLibIconX(String base) {
-    return getLibIconX(base, 0);
+  static public ImageIcon getIconX(File dir, String base) {
+    return getIconX(dir, base, 0);
   }
 
 
@@ -496,12 +498,13 @@ public class Toolkit {
    * Get an icon of the format base-NN.png where NN is the size, but if it's
    * a hidpi display, get the NN*2 version automatically, sized at NN
    */
-  static public ImageIcon getLibIconX(String base, int size) {
+  static public ImageIcon getIconX(File dir, String base, int size) {
     final int scale = Toolkit.highResDisplay() ? 2 : 1;
     String filename = (size == 0) ?
       (base + "-" + scale + "x.png") :
       (base + "-" + (size*scale) + ".png");
-    File file = Platform.getContentFile("lib/" + filename);
+//    File file = Platform.getContentFile("lib/" + filename);
+    File file = new File(dir, filename);
     if (!file.exists()) {
 //      System.err.println("does not exist: " + file);
       return null;
@@ -527,6 +530,20 @@ public class Toolkit {
       }
     };
     return outgoing;
+  }
+
+
+  /**
+   * Get an image icon with hi-dpi support. Pulls 1x or 2x versions of the
+   * file depending on the display type, but sizes them based on 1x.
+   */
+  static public ImageIcon getLibIconX(String base) {
+    return getLibIconX(base, 0);
+  }
+
+
+  static public ImageIcon getLibIconX(String base, int size) {
+    return getIconX(Platform.getContentFile("lib"), base, size);
   }
 
 

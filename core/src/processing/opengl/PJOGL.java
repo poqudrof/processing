@@ -65,6 +65,9 @@ public class PJOGL extends PGL {
   // OpenGL profile to use (2, 3 or 4)
   public static int profile = 2;
 
+  // User-provided icons to override defaults
+  protected static String[] icons = null;
+
   // The two windowing toolkits available to use in JOGL:
   public static final int AWT  = 0; // http://jogamp.org/wiki/index.php/Using_JOGL_in_AWT_SWT_and_Swing
   public static final int NEWT = 1; // http://jogamp.org/jogl/doc/NEWT-Overview.html
@@ -166,6 +169,12 @@ public class PJOGL extends PGL {
 
   @Override
   protected void registerListeners() {}
+
+
+  static public void setIcon(String... icons) {
+    PJOGL.icons = new String[icons.length];
+    PApplet.arrayCopy(icons, PJOGL.icons);
+  }
 
 
   ///////////////////////////////////////////////////////////////
@@ -289,39 +298,61 @@ public class PJOGL extends PGL {
   @Override
   protected void initFBOLayer() {
     if (0 < sketch.frameCount) {
-      // Copy the contents of the front and back screen buffers to the textures
-      // of the FBO, so they are properly initialized. Note that the front buffer
-      // of the default framebuffer (the screen) contains the previous frame:
-      // https://www.opengl.org/wiki/Default_Framebuffer
-      // so it is copied to the front texture of the FBO layer:
-      if (pclearColor || 0 < pgeomCount || !sketch.isLooping()) {
-        readBuffer(FRONT);
-      } else {
-        // ...except when the previous frame has not been cleared and nothing was
-        // rendered while looping. In this case the back buffer, which holds the
-        // initial state of the previous frame, still contains the most up-to-date
-        // screen state.
-        readBuffer(BACK);
-      }
-      bindFramebufferImpl(DRAW_FRAMEBUFFER, glColorFbo.get(0));
-      framebufferTexture2D(FRAMEBUFFER, COLOR_ATTACHMENT0,
-                           TEXTURE_2D, glColorTex.get(frontTex), 0);
-      drawBuffer(COLOR_ATTACHMENT0);
-      blitFramebuffer(0, 0, fboWidth, fboHeight,
-                      0, 0, fboWidth, fboHeight,
-                      COLOR_BUFFER_BIT, NEAREST);
-
-      readBuffer(BACK);
-      bindFramebufferImpl(DRAW_FRAMEBUFFER, glColorFbo.get(0));
-      framebufferTexture2D(FRAMEBUFFER, COLOR_ATTACHMENT0,
-                           TEXTURE_2D, glColorTex.get(backTex), 0);
-      drawBuffer(COLOR_ATTACHMENT0);
-      blitFramebuffer(0, 0, fboWidth, fboHeight,
-                      0, 0, fboWidth, fboHeight,
-                      COLOR_BUFFER_BIT, NEAREST);
-
-      bindFramebufferImpl(FRAMEBUFFER, 0);
+      if (isES()) initFBOLayerES();
+      else initFBOLayerGL();
     }
+  }
+
+
+  private void initFBOLayerES() {
+    IntBuffer buf = allocateDirectIntBuffer(fboWidth * fboHeight);
+
+    if (hasReadBuffer()) readBuffer(BACK);
+    readPixelsImpl(0, 0, fboWidth, fboHeight, RGBA, UNSIGNED_BYTE, buf);
+    bindTexture(TEXTURE_2D, glColorTex.get(frontTex));
+    texSubImage2D(TEXTURE_2D, 0, 0, 0, fboWidth, fboHeight, RGBA, UNSIGNED_BYTE, buf);
+
+    bindTexture(TEXTURE_2D, glColorTex.get(backTex));
+    texSubImage2D(TEXTURE_2D, 0, 0, 0, fboWidth, fboHeight, RGBA, UNSIGNED_BYTE, buf);
+
+    bindTexture(TEXTURE_2D, 0);
+    bindFramebufferImpl(FRAMEBUFFER, 0);
+  }
+
+
+  private void initFBOLayerGL() {
+    // Copy the contents of the front and back screen buffers to the textures
+    // of the FBO, so they are properly initialized. Note that the front buffer
+    // of the default framebuffer (the screen) contains the previous frame:
+    // https://www.opengl.org/wiki/Default_Framebuffer
+    // so it is copied to the front texture of the FBO layer:
+    if (pclearColor || 0 < pgeomCount || !sketch.isLooping()) {
+      if (hasReadBuffer()) readBuffer(FRONT);
+    } else {
+      // ...except when the previous frame has not been cleared and nothing was
+      // rendered while looping. In this case the back buffer, which holds the
+      // initial state of the previous frame, still contains the most up-to-date
+      // screen state.
+      readBuffer(BACK);
+    }
+    bindFramebufferImpl(DRAW_FRAMEBUFFER, glColorFbo.get(0));
+    framebufferTexture2D(FRAMEBUFFER, COLOR_ATTACHMENT0,
+                         TEXTURE_2D, glColorTex.get(frontTex), 0);
+    if (hasDrawBuffer()) drawBuffer(COLOR_ATTACHMENT0);
+    blitFramebuffer(0, 0, fboWidth, fboHeight,
+                    0, 0, fboWidth, fboHeight,
+                    COLOR_BUFFER_BIT, NEAREST);
+
+    readBuffer(BACK);
+    bindFramebufferImpl(DRAW_FRAMEBUFFER, glColorFbo.get(0));
+    framebufferTexture2D(FRAMEBUFFER, COLOR_ATTACHMENT0,
+                         TEXTURE_2D, glColorTex.get(backTex), 0);
+    drawBuffer(COLOR_ATTACHMENT0);
+    blitFramebuffer(0, 0, fboWidth, fboHeight,
+                    0, 0, fboWidth, fboHeight,
+                    COLOR_BUFFER_BIT, NEAREST);
+
+    bindFramebufferImpl(FRAMEBUFFER, 0);
   }
 
 
@@ -1678,7 +1709,7 @@ public class PJOGL extends PGL {
       gl2.glGetProgramInfoLog(program, length, val, 0, log, 0);
       return new String(log);
     } else {
-      return "Unknow error";
+      return "Unknown error";
     }
   }
 
@@ -1779,7 +1810,7 @@ public class PJOGL extends PGL {
 
   @Override
   public void clearDepth(float d) {
-    gl.glClearDepthf(d);
+    gl.glClearDepth(d);
   }
 
   @Override

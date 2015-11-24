@@ -3,7 +3,8 @@
 /*
   Part of the Processing project - http://processing.org
 
-  Copyright (c) 2004-10 Ben Fry and Casey Reas
+  Copyright (c) 2012-15 The Processing Foundation
+  Copyright (c) 2004-12 Ben Fry and Casey Reas
   Copyright (c) 2001-04 Massachusetts Institute of Technology
 
   This program is free software; you can redistribute it and/or modify
@@ -23,7 +24,13 @@
 
 package processing.app.ui;
 
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Image;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
@@ -43,14 +50,15 @@ public class EditorStatus extends BasicSplitPaneDivider {  //JPanel {
   static final int LEFT_MARGIN = Editor.LEFT_GUTTER;
   static final int RIGHT_MARGIN = 20;
 
-
-  Color[] bgcolor;
-  Color[] fgcolor;
+  Color[] fgColor;
+  Color[] bgColor;
+  Image[] bgImage;
 
   @SuppressWarnings("hiding")
   static public final int ERROR   = 1;
-  static public final int COMPILER_ERROR = 1;  // temporary
-  static public final int WARNING = 2;
+  static public final int CURSOR_LINE_ERROR = 2;
+  static public final int WARNING = 3;
+  static public final int CURSOR_LINE_WARNING = 4;
   static public final int NOTICE  = 0;
 
   static final int YES    = 1;
@@ -116,16 +124,29 @@ public class EditorStatus extends BasicSplitPaneDivider {  //JPanel {
 
   public void updateMode() {
     Mode mode = editor.getMode();
-    bgcolor = new Color[] {
-      mode.getColor("status.notice.bgcolor"),
-      mode.getColor("status.error.bgcolor"),
-      mode.getColor("status.edit.bgcolor")
-    };
 
-    fgcolor = new Color[] {
+    fgColor = new Color[] {
       mode.getColor("status.notice.fgcolor"),
       mode.getColor("status.error.fgcolor"),
-      mode.getColor("status.edit.fgcolor")
+      mode.getColor("status.error.fgcolor"),
+      mode.getColor("status.warning.fgcolor"),
+      mode.getColor("status.warning.fgcolor")
+    };
+
+    bgColor = new Color[] {
+      mode.getColor("status.notice.bgcolor"),
+      mode.getColor("status.error.bgcolor"),
+      mode.getColor("status.error.bgcolor"),
+      mode.getColor("status.warning.bgcolor"),
+      mode.getColor("status.warning.bgcolor")
+    };
+
+    bgImage = new Image[] {
+      mode.loadImage("/lib/status/notice.png"),
+      mode.loadImage("/lib/status/error.png"),
+      mode.loadImage("/lib/status/error.png"),
+      mode.loadImage("/lib/status/warning.png"),
+      mode.loadImage("/lib/status/warning.png")
     };
 
     font = mode.getFont("status.font");
@@ -236,10 +257,11 @@ public class EditorStatus extends BasicSplitPaneDivider {  //JPanel {
       ascent = metrics.getAscent();
     }
 
-    g.setColor(bgcolor[mode]);
-    g.fillRect(0, 0, sizeW, sizeH);
+    //g.setColor(bgColor[mode]);
+    //g.fillRect(0, 0, sizeW, sizeH);
+    g.drawImage(bgImage[mode], 0, 0, sizeW, sizeH, this);
 
-    g.setColor(fgcolor[mode]);
+    g.setColor(fgColor[mode]);
     // https://github.com/processing/processing/issues/3265
     if (message != null) {
       g.setFont(font); // needs to be set each time on osx
@@ -249,7 +271,7 @@ public class EditorStatus extends BasicSplitPaneDivider {  //JPanel {
     if (indeterminate) {
       //int x = cancelButton.getX();
       //int w = cancelButton.getWidth();
-      int w = Toolkit.BUTTON_WIDTH;
+      int w = Toolkit.getButtonWidth();
       int x = getWidth() - RIGHT_MARGIN - w;
       int y = getHeight() / 3;
       int h = getHeight() / 3;

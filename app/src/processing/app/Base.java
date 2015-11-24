@@ -55,9 +55,9 @@ import processing.data.StringList;
 public class Base {
   // Added accessors for 0218 because the UpdateCheck class was not properly
   // updating the values, due to javac inlining the static final values.
-  static private final int REVISION = 246;
+  static private final int REVISION = 248;
   /** This might be replaced by main() if there's a lib/version.txt file. */
-  static private String VERSION_NAME = "0246"; //$NON-NLS-1$
+  static private String VERSION_NAME = "0248"; //$NON-NLS-1$
   /** Set true if this a proper release rather than a numbered revision. */
 
   /** True if heavy debugging error/log messages are enabled */
@@ -342,6 +342,9 @@ public class Base {
 
     // check for updates
     new UpdateCheck(this);
+
+    ContributionListing cl = ContributionListing.getInstance();
+    cl.downloadAvailableList(this, new ContribProgressMonitor() { });
   }
 
 
@@ -515,6 +518,22 @@ public class Base {
       rebuildContribExamples();
       for (Mode m : getModeList()) {
         m.rebuildExamplesFrame();
+      }
+    }
+  }
+
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
+  private int updatesAvailable = 0;
+
+
+  public void setUpdatesAvailable(int n) {
+    updatesAvailable = n;
+    synchronized (editors) {
+      for (Editor e : editors) {
+        e.setUpdatesAvailable(n);
       }
     }
   }
@@ -1217,6 +1236,8 @@ public class Base {
       try {
         Editor editor = nextMode.createEditor(this, path, state);
 
+        editor.setUpdatesAvailable(updatesAvailable);
+
         // opened successfully, let's go to work
         editor.getSketch().setUntitled(untitled);
         editors.add(editor);
@@ -1229,7 +1250,7 @@ public class Base {
         return editor;
 
       } catch (EditorException ee) {
-        if (!ee.getMessage().equals("")) {  // blank if the user canceled
+        if (ee.getMessage() != null) {  // null if the user canceled
           Messages.showWarning("Error opening sketch", ee.getMessage(), ee);
         }
       } catch (NoSuchMethodError nsme) {

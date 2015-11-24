@@ -84,7 +84,17 @@ public class InstallCommander implements Tool {
 
       File file = File.createTempFile("processing", "commander");
       PrintWriter writer = PApplet.createWriter(file);
-      writer.println("#!/bin/sh");
+      writer.print("#!/bin/sh\n\n");
+
+      writer.print("# Prevents processing-java from stealing focus, see:\n" +
+                   "# https://github.com/processing/processing/issues/3996.\n" +
+                   "OPTION_FOR_HEADLESS_RUN=\"\"\n" +
+                   "for ARG in \"$@\"\n" +
+                   "do\n" +
+                   "    if [ $ARG = \"--build\" ]; then\n" +
+                   "        OPTION_FOR_HEADLESS_RUN=\"-Djava.awt.headless=true\"\n" +
+                   "    fi\n" +
+                   "done\n\n");
 
       String javaRoot = Platform.getContentFile(".").getCanonicalPath();
 
@@ -97,6 +107,7 @@ public class InstallCommander implements Tool {
       writer.println("cd \"" + javaRoot + "\" && " +
                      Platform.getJavaPath() +
                      " -Djna.nosys=true" +
+                     " $OPTION_FOR_HEADLESS_RUN" +
       		           " -cp \"" + classPath + "\"" +
       		           " processing.mode.java.Commander \"$@\"");
       writer.flush();

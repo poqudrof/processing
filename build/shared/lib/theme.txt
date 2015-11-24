@@ -4,8 +4,6 @@ status.notice.fgcolor = #000000
 status.notice.bgcolor = #818b95
 status.error.fgcolor = #ffffff
 status.error.bgcolor = #9E0A0A
-#status.edit.fgcolor = #000000
-#status.edit.bgcolor = #cc9900
 status.warning.bgcolor = #EF8115
 status.warning.fgcolor = #FFFFFF
 status.font = processing.sans,plain,13
@@ -32,6 +30,7 @@ footer.gradient.bottom = #122535
 footer.tab.selected.color = #2d4251
 footer.tab.unselected.color = #1f3241
 # updates orange #eb7f15
+footer.updates.color = #ed7f15
 
 # CONSOLE
 # The font is handled by preferences, so its size/etc are modifiable.
@@ -44,8 +43,8 @@ console.error.color = #d9211e
 buttons.bgcolor = #000000
 
 # for the debug and mode buttons
-reversed.gradient.top = #10212f
-reversed.gradient.bottom = #122637
+#reversed.gradient.top = #10212f
+#reversed.gradient.bottom = #122637
 
 ## size of divider between editing area and the console
 #divider.size = 0
@@ -86,7 +85,7 @@ editor.fgcolor = #000000
 editor.bgcolor = #ffffff
 
 editor.gradient.top = #122535
-editor.gradient.bottom = #020408
+editor.gradient.bottom = #010305
 
 # highlight for the current line
 #editor.linehighlight.color=#e2e2e2

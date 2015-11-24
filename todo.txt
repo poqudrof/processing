@@ -1,30 +1,22 @@
-0246 the holy land
-X does the "Saving" message never clear on "Save As"? 
-X   https://github.com/processing/processing/issues/3861
-X error checker/suggestions fixes
-X   https://github.com/processing/processing/pull/3871
-X   https://github.com/processing/processing/pull/3879
-X contributions filter is ignored after clicking Install
-X   https://github.com/processing/processing/issues/3826
-X   https://github.com/processing/processing/pull/3872
-X   https://github.com/processing/processing/pull/3883
-X Exception in thread "Contribution List Downloader"
-X   https://github.com/processing/processing/issues/3882
-X   https://github.com/processing/processing/pull/3884
-X Hide useless error in error checker
-X   https://github.com/processing/processing/pull/3887
+0248 (3.0.2)
 
-gui
-X distinguish errors and warnings
-X   https://github.com/processing/processing/issues/3406
-X make breakpoints more prominent
-X   https://github.com/processing/processing/issues/3307 (comp is set)
 
-earlier
-X list with contrib types separated is really wonky
-o   do we keep the list?
-o   does it even work for different contrib types?
-X   cleaned this up in the last release
+contribs
+X add "full screen" option to the Editor on OS X
+X   https://github.com/processing/processing/issues/3993
+X   https://github.com/processing/processing/pull/4078
+
+
+more contribs
+_ question about PDE_pt-br instead of PDE_pt
+_   https://github.com/processing/processing/issues/4018
+_ Saving sketch with the same name as a class
+_   https://github.com/processing/processing/pull/4033
+_ infinite "file changed" popups
+_   https://github.com/processing/processing/issues/3965
+_   https://github.com/processing/processing/pull/4037
+_ Pasting text into PDE results in "Clipboard does not contain a string"
+_   https://github.com/processing/processing/pull/4040
 
 
 known issues
@@ -37,52 +29,26 @@ _   http://www.excelsiorjet.com/kb/35/howto-create-a-single-exe-from-your-java-a
 _ mouse events (i.e. toggle breakpoint) seem to be firing twice
 
 
-beta 7
-_ remove the dated releases from download.processing.org
-_ new Android release (EditorButton constructor changed)
+run/debug
+_ debugger deadlocks when choosing "Step Into" on println()
+_   https://github.com/processing/processing/issues/3923
+_ Tweak Mode sometimes freezes while running, require a force quit
+_   https://github.com/processing/processing/issues/3928
 
 
-3.0 final
-_ https://github.com/processing/processing/milestones/3.0%20final
-X clean up statusMessage() inside JavaEditor
-_   do we want to bring back the delays?
-_ JavaEditor has several null colors, remove color support
-_   once the design is complete and we for sure do not need color
-
-
-gui / James
-_ Fix placement and visual design when showing error on hover
-_   https://github.com/processing/processing/issues/3173
+gui
+_ Tooltip over variable decl has wrong style and content
+_   make all tooltips run through our style
+_   https://github.com/processing/processing/issues/3940
 _ import suggestions box needs design review
 _   https://github.com/processing/processing/issues/3407
-_ replace startup/about screen (1x and 2x versions)
-_   change 'alpha' to correct name
-_   also change the revision in the "about processing" dialog
-_   https://github.com/processing/processing/issues/3665
+_ fix background color for selected lines in VariableInspector 
+_   https://github.com/processing/processing/issues/3925
+_ implement 2x versions of the icons for the debugger window/variable inspector
+_   https://github.com/processing/processing/issues/3921
 _ different design of squiggly line
 _   easy to do inside JavaTextAreaPainter.paintSquiggle()
-
-
-manager / 3.0 final
-_ bring back the # of updates on the update tab
-_   use this instead of the 'icon' stuff?
-_   or in addition, since only the 'updates' tab has it
-_   https://github.com/processing/processing/issues/3855
-_ show number of updates available in the footer
-_   https://github.com/processing/processing/issues/3518
-_   and have it be clickable so to open the manager
-_   total number of updates available is not correct? (may be fixed)
-_ ugly white gap at the top of scroll bar
-_   the table header doesn't extend far enough
-_ scrolling "past" top/bottom causes the screen to jiggle (OS X and Trackpad)
-_   looks like ContributionListing.getScrollableUnitIncrement() returns early
-
-
-gui / post 3.0
 _ build custom scroll bar since the OS versions are so ugly
-_ error/warning location is awkward when no scroll bar is in use
-_   when only one screen-full, show ticks at exact location
-_   simpler/less confusing to not show at all? 
 _ see notes in the 'dialogs' section below, implement our own option panes?
 _ tiny trail of dots when moving the selection bar up/down on retina
 _ need 'actively pressed' version of 'play' and 'stop'
@@ -99,20 +65,12 @@ _   rather than post-compile
 _   https://github.com/processing/processing/issues/136
 
 
-manager / post 3.0
-_ Examples window closes and re-opens during library install/remove
-_   https://github.com/processing/processing/issues/3304
-_ ArrayIndexOutOfBoundsException freak out when clicking the header line
-_   think this was on name, with libraries, but not sure
-_ CM - Icon instead of an "X" for the "could not connect" message
-_   https://github.com/processing/processing/issues/3706
-
-
-gui/low
-_ welcome screen tweaks
-_   click "show this welcome" text to check/uncheck the box
-_   submit the form (as if 'get started' clicked) when closing the window
-_     whether hitting ESC or the close box on the window
+welcome
+_ click "show this welcome" text to check/uncheck the box
+_   https://github.com/processing/processing/issues/3912
+_ submit the form (as if 'get started' clicked) when closing the window
+_   whether hitting ESC or the close box on the window
+_   https://github.com/processing/processing/issues/3911
 
 
 fonts
@@ -130,9 +88,9 @@ _   https://github.com/processing/processing/issues/2886
 
 
 pde/build
+_ unsupported java version when trying ant run with 7u65
+_   no helpful message about how to automatically download 8u51
 _ ignore-tools in build.xml not being called for some reason
-_ can't install processing-java into /usr/bin with El Capitan
-_   https://github.com/processing/processing/issues/3497
 _ when variables used in size(), getting exceptions instead of any warning
 _   https://github.com/processing/processing/issues/3311
 _ crashed on startup w/ JavaScript mode as default b/c PdeKeyListener not found
@@ -150,11 +108,11 @@ _   update license info to state gplv2 not v3
 _   run through that online license checker
 _ save() and saveAs() need to be refactored
 _   https://github.com/processing/processing/issues/3843
-
-
-breakage
-_ remove deprecated methods
-_ do the right thing on passing around List vs ArrayList and others
+_ clean out the repo
+_   https://github.com/processing/processing/issues/1898
+_ search the source for 'applet' references (i.e. SVG docs)
+_ update list of optional JRE files
+_   https://github.com/processing/processing/issues/3288
 _ PreferencesFrame is a misnomer (not a frame itself)
 _   change to PreferencesDialog, and make it a dialog?
 _ move Library to LibraryContribution and into contrib?
@@ -164,22 +122,11 @@ from the todo list
 _ reas: comments go nasty when auto-formatted
 _ reas: code coloring sometimes disappears
 _ me: undo not in the correct location
-_ implement the new gui
 _ drop XP support (but improve Windows 8 support? ouch)
 _ improve error message when creating a tab with the same name
 _   right now it's generic, based on "a file exists"
 _ don't allow users to create 'blah.java' when 'blah.pde' already in sketch
 
-
-3.0 beta/final
-_ wonder if "Save As" is causing the problems with auto-reload
-_ look at the sound library https://github.com/wirsing/ProcessingSound
-_   sound is not yet supported on Windows
-_ clean out the repo
-_   https://github.com/processing/processing/issues/1898
-_ search the source for 'applet' references (i.e. SVG docs)
-_ update list of option JRE files
-_   https://github.com/processing/processing/issues/3288
 
 
 sketchbook
@@ -650,6 +597,16 @@ _   e.g. ocd is broken in 0125 because of method signature changes
 
 PDE / Manager
 
+_ update CM entries when sketchbook location changes
+_   https://github.com/processing/processing/issues/3927
+_ ugly white gap at the top of scroll bar
+_   the table header doesn't extend far enough
+_ scrolling "past" top/bottom causes the screen to jiggle (OS X and Trackpad)
+_   looks like ContributionListing.getScrollableUnitIncrement() returns early
+_ Examples window closes and re-opens during library install/remove
+_   https://github.com/processing/processing/issues/3304
+_ CM - Icon instead of an "X" for the "could not connect" message
+_   https://github.com/processing/processing/issues/3706
 _ several TODO items listed in ContributionPanel
 _ something to set min/max versions that are supported by a library
 _ ability to cancel a download/install

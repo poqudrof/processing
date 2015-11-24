@@ -997,7 +997,7 @@ public class PApplet implements PConstants {
                                           JOptionPane.WARNING_MESSAGE);
           }
         });
-      } else if (!result.equals("1")) {
+      } else if (!"1".equals(result)) {
         System.err.println("Could not check the status of “Displays have separate spaces.”");
         System.err.format("Received message '%s' and result code %d.%n", trim(stderr.toString()), resultCode);
       }
@@ -1975,7 +1975,7 @@ public class PApplet implements PConstants {
         height != this.height ||
         !renderer.equals(this.renderer)) {
       //println(width, height, renderer, this.width, this.height, this.renderer);
-      if (insideSettings("size", width, height, renderer)) {
+      if (insideSettings("size", width, height, "\"" + renderer + "\"")) {
         this.width = width;
         this.height = height;
         this.renderer = renderer;
@@ -1994,7 +1994,8 @@ public class PApplet implements PConstants {
     if (width != this.width ||
         height != this.height ||
         !renderer.equals(this.renderer)) {
-      if (insideSettings("size", width, height, renderer, path)) {
+      if (insideSettings("size", width, height, "\"" + renderer + "\"",
+                         "\"" + path + "\"")) {
         this.width = width;
         this.height = height;
         this.renderer = renderer;
@@ -3280,6 +3281,8 @@ public class PApplet implements PConstants {
 
 
   /**
+   * ( begin auto-generated from delay.xml )
+   *
    * The delay() function causes the program to halt for a specified time.
    * Delay times are specified in thousandths of a second. For example,
    * running delay(3000) will stop the program for three seconds and
@@ -3293,6 +3296,12 @@ public class PApplet implements PConstants {
    * a script that needs to pause a few seconds before attempting a download,
    * or a sketch that needs to wait a few milliseconds before reading from
    * the serial port).
+   *
+   * ( end auto-generated )
+   * @webref environment
+   * @param napTime milliseconds to pause before running draw() again
+   * @see PApplet#frameRate
+   * @see PApplet#draw()
    */
   public void delay(int napTime) {
     //if (frameCount != 0) {
@@ -5964,6 +5973,8 @@ public class PApplet implements PConstants {
    * (in terms of speed and memory usage) for loading and parsing tables. The
    * dictionary file can only be tab separated values (.tsv) and its extension
    * will be ignored. This option was added in Processing 2.0.2.
+   *
+   * @param options may contain "header", "tsv", "csv", or "bin" separated by commas
    */
   public Table loadTable(String filename, String options) {
     try {
@@ -6408,7 +6419,7 @@ public class PApplet implements PConstants {
           fileChooser.setDialogTitle(prompt);
           fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
           if (defaultSelection != null) {
-            fileChooser.setSelectedFile(defaultSelection);
+            fileChooser.setCurrentDirectory(defaultSelection);
           }
 
           int result = fileChooser.showOpenDialog(parentFrame);
@@ -10211,15 +10222,21 @@ public class PApplet implements PConstants {
     // (and most likely, from the PDE's preference setting).
     sketch.display = displayNum;
 
+    // For 3.0.1, moved this above handleSettings() so that loadImage() can be
+    // used inside settings(). Sets a terrible precedent, but the alternative
+    // of not being able to size a sketch to an image is driving people loopy.
+    // A handful of things that need to be set before init/start.
+//    if (folder == null) {
+//      folder = calcSketchPath();
+//    }
+    sketch.sketchPath = folder;
+
     // Call the settings() method which will give us our size() call
 //    try {
     sketch.handleSettings();
 //    } catch (Throwable t) {
 //      System.err.println("I think I'm gonna hurl");
 //    }
-
-    // A handful of things that need to be set before init/start.
-    sketch.sketchPath = folder;
 
 ////    sketch.spanDisplays = spanDisplays;
 //    // If spanning screens, that means we're also full screen.
@@ -11125,12 +11142,20 @@ public class PApplet implements PConstants {
   }
 
 
-  /*
-   * @webref rendering:shaders
-   * @param a x-coordinate of the rectangle by default
-   * @param b y-coordinate of the rectangle by default
-   * @param c width of the rectangle by default
-   * @param d height of the rectangle by default
+  /**
+   * ( begin auto-generated from clip.xml )
+   *
+   * Limits the rendering to the boundaries of a rectangle defined 
+   * by the parameters. The boundaries are drawn based on the state 
+   * of the <b>imageMode()</b> fuction, either CORNER, CORNERS, or CENTER. 
+   *
+   * ( end auto-generated )
+   *
+   * @webref rendering
+   * @param a x-coordinate of the rectangle, by default
+   * @param b y-coordinate of the rectangle, by default
+   * @param c width of the rectangle, by default
+   * @param d height of the rectangle, by default
    */
   public void clip(float a, float b, float c, float d) {
     if (recorder != null) recorder.clip(a, b, c, d);
@@ -11138,8 +11163,14 @@ public class PApplet implements PConstants {
   }
 
 
-  /*
-   * @webref rendering:shaders
+  /**
+   * ( begin auto-generated from noClip.xml )
+   *
+   * Disables the clipping previously started by the <b>clip()</b> function.
+   *
+   * ( end auto-generated )
+   *
+   * @webref rendering
    */
   public void noClip() {
     if (recorder != null) recorder.noClip();
@@ -12827,6 +12858,7 @@ public class PApplet implements PConstants {
   /**
    * <h3>Advanced</h3>
    * Rotate about a vector in space. Same as the glRotatef() function.
+   * @nowebref
    * @param x
    * @param y
    * @param z
