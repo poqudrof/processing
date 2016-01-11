@@ -3320,6 +3320,10 @@ public class PShape implements PConstants {
       matrix = new PMatrix3D(matrix);
     }
   }
+  
+  public PMatrix getMatrix(){
+    return this.matrix;
+  }
 
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
