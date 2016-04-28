@@ -86,7 +86,7 @@ public class JavaEditor extends Editor {
     inspector = new VariableInspector(this);
 
     // Add show usage option
-    JMenuItem showUsageItem = new JMenuItem("Show Usage...");
+    JMenuItem showUsageItem = new JMenuItem(Language.text("editor.popup.show_usage"));
     showUsageItem.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         handleShowUsage();
@@ -95,7 +95,7 @@ public class JavaEditor extends Editor {
     getTextArea().getRightClickPopup().add(showUsageItem);
 
     // add refactor option
-    JMenuItem renameItem = new JMenuItem("Rename...");
+    JMenuItem renameItem = new JMenuItem(Language.text("editor.popup.rename"));
     renameItem.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         handleRefactor();
@@ -327,6 +327,8 @@ public class JavaEditor extends Editor {
       public void actionPerformed(ActionEvent e) {
         if (textarea.isSelectionActive()) {
           handleFindReference();
+        } else {
+          statusNotice(Language.text("editor.status.find_reference.select_word_first"));
         }
       }
     });
@@ -1178,11 +1180,11 @@ public class JavaEditor extends Editor {
       Logger.getLogger(getClass().getName()).log(Level.INFO, "Invoked 'Step Over' menu item");
       debugger.stepOver();
 
-    } else if ((modifiers & KeyEvent.SHIFT_DOWN_MASK) != 0) {
+    } else if ((modifiers & ActionEvent.SHIFT_MASK) != 0) {
       Logger.getLogger(getClass().getName()).log(Level.INFO, "Invoked 'Step Into' menu item");
       debugger.stepInto();
 
-    } else if ((modifiers & KeyEvent.ALT_DOWN_MASK) != 0) {
+    } else if ((modifiers & ActionEvent.ALT_MASK) != 0) {
       Logger.getLogger(getClass().getName()).log(Level.INFO, "Invoked 'Step Out' menu item");
       debugger.stepOut();
     }
@@ -1494,7 +1496,7 @@ public class JavaEditor extends Editor {
     item = Toolkit.newJMenuItemShift(Language.text("menu.debug.step_into"), KeyEvent.VK_J);
     item.addActionListener(new ActionListener() {
         public void actionPerformed(ActionEvent e) {
-          handleStep(KeyEvent.SHIFT_DOWN_MASK);
+          handleStep(ActionEvent.SHIFT_MASK);
         }
       });
     debugMenu.add(item);
@@ -1503,7 +1505,7 @@ public class JavaEditor extends Editor {
     item = Toolkit.newJMenuItemAlt(Language.text("menu.debug.step_out"), KeyEvent.VK_J);
     item.addActionListener(new ActionListener() {
         public void actionPerformed(ActionEvent e) {
-          handleStep(KeyEvent.ALT_DOWN_MASK);
+          handleStep(ActionEvent.ALT_MASK);
         }
       });
     debugMenu.add(item);

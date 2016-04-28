@@ -313,7 +313,8 @@ public class PSurfaceFX implements PSurface {
       // https://github.com/processing/processing/issues/3823
       if ((PApplet.platform == PConstants.MACOSX ||
            PApplet.platform == PConstants.LINUX) &&
-          PApplet.javaVersionName.compareTo("1.8.0_60") >= 0) {
+          PApplet.javaVersionName.compareTo("1.8.0_60") >= 0 &&
+          PApplet.javaVersionName.compareTo("1.8.0_72") < 0) {
         System.err.println("smooth() disabled for JavaFX with this Java version due to Oracle bug");
         System.err.println("https://github.com/processing/processing/issues/3795");
         smooth = 0;
@@ -365,11 +366,15 @@ public class PSurfaceFX implements PSurface {
 
   /** Show or hide the window. */
   @Override
-  public void setVisible(boolean visible) {
+  public void setVisible(final boolean visible) {
     Platform.runLater(new Runnable() {
       public void run() {
-        stage.show();
-        canvas.requestFocus();
+        if (visible) {
+          stage.show();
+          canvas.requestFocus();
+        } else {
+          stage.hide();
+        }
       }
     });
   }
