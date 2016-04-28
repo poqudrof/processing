@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.processing</groupId>
         <artifactId>processing-complete</artifactId>
-        <version>3.0.1</version>
+        <version>3.0.2</version>
         <relativePath>../build/pom.xml</relativePath>
     </parent>
     
@@ -24,7 +24,7 @@
         <dependency>
             <groupId>gluegen-rt</groupId>  
             <artifactId>gluegen-rt</artifactId>  
-            <version>3.0.1</version>   
+            <version>3.0.2</version>   
             <scope>system</scope>
             <systemPath>${project.basedir}/library/gluegen-rt.jar</systemPath>
         </dependency>
@@ -39,7 +39,7 @@
         <dependency>
             <groupId>apple</groupId>  
             <artifactId>apple</artifactId>  
-            <version>3.0.1</version>   
+            <version>3.0.2</version>   
             <scope>system</scope>
             <systemPath>${project.basedir}/apple.jar</systemPath>
         </dependency>
