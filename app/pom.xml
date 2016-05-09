@@ -65,11 +65,9 @@
             <systemPath>${project.basedir}/lib/jdt-core.jar</systemPath>
         </dependency>-->
         <dependency>
-            <groupId>jna</groupId>
+            <groupId>net.java.dev.jna</groupId>
             <artifactId>jna</artifactId>
-            <version>2.2.1</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/jna.jar</systemPath>
+            <version>4.2.0</version>
         </dependency>
         <!--        <dependency>
             <groupId>org-netbeans-swing-outline</groupId>
