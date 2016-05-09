@@ -3628,11 +3628,8 @@ public class PGraphicsOpenGL extends PGraphics {
   protected void textCharModelImpl(FontTexture.TextureInfo info,
                                    float x0, float y0,
                                    float x1, float y1) {
-    if (textTex.currentTex != info.texIndex) {
-      textTex.setTexture(info.texIndex);
-    }
     beginShape(QUADS);
-    texture(textTex.getCurrentTexture());
+    texture(textTex.getTexture(info));
     vertex(x0, y0, info.u0, info.v0);
     vertex(x1, y0, info.u1, info.v0);
     vertex(x1, y1, info.u1, info.v1);
@@ -5171,7 +5168,7 @@ public class PGraphicsOpenGL extends PGraphics {
       x*modelview.m20 + y*modelview.m21 + z*modelview.m22 + modelview.m23;
 
     // Used to indicate if the light is directional or not.
-    lightPosition[4 * num + 3] = dir ? 1: 0;
+    lightPosition[4 * num + 3] = dir ? 0 : 1;
   }
 
 
@@ -12484,8 +12481,8 @@ public class PGraphicsOpenGL extends PGraphics {
         } else {
           texCache.setLastIndex(lastIndex, lastCache);
         }
+        prevTexImage = newTexImage;
       }
-      prevTexImage = newTexImage;
     }
 
     // -----------------------------------------------------------------

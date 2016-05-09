@@ -54,6 +54,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import javax.swing.Action;
@@ -71,6 +72,7 @@ import processing.app.Language;
 import processing.app.Messages;
 import processing.app.Platform;
 import processing.app.Preferences;
+import processing.app.Util;
 
 
 /**
@@ -881,7 +883,6 @@ public class Toolkit {
     if (monoFont == null) {
       try {
         monoFont = createFont("SourceCodePro-Regular.ttf", size);
-        //monoBoldFont = createFont("SourceCodePro-Semibold.ttf", size);
         monoBoldFont = createFont("SourceCodePro-Bold.ttf", size);
 
         // additional language constraints
@@ -891,6 +892,14 @@ public class Toolkit {
             monoFont = createFont("AnonymousPro-Regular.ttf", size);
             monoBoldFont = createFont("AnonymousPro-Bold.ttf", size);
           }
+        }
+        // https://github.com/processing/processing/issues/2886
+        String lang = Language.getLanguage();
+        if (Locale.CHINESE.getLanguage().equals(lang) ||
+            Locale.JAPANESE.getLanguage().equals(lang) ||
+            Locale.KOREAN.getLanguage().equals(lang)) {
+          sansFont = new Font("Monospaced", Font.PLAIN, size);
+          sansBoldFont = new Font("Monospaced", Font.BOLD, size);
         }
       } catch (Exception e) {
         Messages.loge("Could not load mono font", e);
@@ -927,6 +936,15 @@ public class Toolkit {
             sansFont = createFont("Carlito-Regular.ttf", size);
             sansBoldFont = createFont("Carlito-Bold.ttf", size);
           }
+        }
+
+        // https://github.com/processing/processing/issues/2886
+        String lang = Language.getLanguage();
+        if (Locale.CHINESE.getLanguage().equals(lang) ||
+            Locale.JAPANESE.getLanguage().equals(lang) ||
+            Locale.KOREAN.getLanguage().equals(lang)) {
+          sansFont = new Font("SansSerif", Font.PLAIN, size);
+          sansBoldFont = new Font("SansSerif", Font.BOLD, size);
         }
       } catch (Exception e) {
         Messages.loge("Could not load sans font", e);
@@ -973,7 +991,7 @@ public class Toolkit {
       // This gets the JAVA_HOME for the *local* copy of the JRE installed with
       // Processing. If it's not using the local JRE, it may be because of this
       // launch4j bug: https://github.com/processing/processing/issues/3543
-      if (hasNonAsciiChars(Platform.getJavaHome().getAbsolutePath())) {
+      if (Util.containsNonASCII(Platform.getJavaHome().getAbsolutePath())) {
         msg += "Trying moving Processing\n" +
           "to a location with only ASCII characters in the path.";
       } else {
@@ -986,14 +1004,6 @@ public class Toolkit {
     Font font = Font.createFont(Font.TRUETYPE_FONT, input);
     input.close();
     return font.deriveFont((float) size);
-  }
-
-
-  static private final boolean hasNonAsciiChars(String what) {
-    for (char c : what.toCharArray()) {
-      if (c < 32 || c > 127) return true;
-    }
-    return false;
   }
 
 

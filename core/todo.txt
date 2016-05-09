@@ -1,48 +1,46 @@
-0248 (3.0.2)
-X Fix another "Zero length string passed to TextLayout constructor" error
-X Ambiguity on where to call smooth()
-X   https://github.com/processing/processing/issues/4211
-X   add additional clarification for Eclipse users
-X Flipped Y-axis in JavaFX is now done (JDK bug)
-X   https://github.com/processing/processing/issues/3795
+0249 (3.1)
+X Float/IntDict changes
+X   minIndex() and maxIndex() return -1 when count is zero (rather than ex)
+X   bug fix to reverse sorts
+X   2x performance increase for sorting
+X   added optional "stable" parameter for sorting by values
+X     set to false for higher performance
+X   call crop() in keyArray() and valueArray() functions
+X     they're duplicates, their length is an implementation detail
+X   normalize features and error handling between all of them
+X add print() and write(PrintWriter) methods to Table/TableRow
+X   https://github.com/processing/processing/issues/4396
 
 jakub
-X Initialize sketch args before calling settings() 
-X   https://github.com/processing/processing/issues/4219
-X   https://github.com/processing/processing/pull/4220
+X several JavaFX fixes
+X   https://github.com/processing/processing/pull/4411
+X cursor() and noCursor() not working on FX2D
+X   https://github.com/processing/processing/issues/4405
+X Make sure PImage.parent is set in loadImage()
+X   https://github.com/processing/processing/pull/4412
 
 andres
-X Stop button in OpenGL exported applications does not use preference settings
-X   https://github.com/processing/processing/issues/4064
-X Export without a stop button using P3D or P2D
-X   https://github.com/processing/processing/issues/4056
-X glClearDepthf() not available on older hardware
-X   https://github.com/processing/processing/issues/4106
-X Drawing a sphere with shape() first changes sphereDetail from default
-X   https://github.com/processing/processing/issues/4192
-X PShape.scale() affects strokeWeight differently in P2D and P3D
-X   https://github.com/processing/processing/issues/4231
-X createShape(GROUP) + textured child + non-textured child = P3D render problems
-X   https://github.com/processing/processing/issues/4176
-X pixelDensity() and createGraphics() with P3D
-X   https://github.com/processing/processing/issues/4039
-X Friendlier message when running drawing commands outside animation thread
-X   https://github.com/processing/processing/issues/4196
-X strokeWeight() not working properly with point() in P2D and P3D
-X   https://github.com/processing/processing/issues/4188
-X exit() is not called in P2D/P3D
-X   https://github.com/processing/processing/issues/4156
-X attrib*() function does not work well with PShape 
-X   https://github.com/processing/processing/issues/4048
+X Change convention for directional lights in OpenGL-Binding for GLSL
+X   https://github.com/processing/processing/issues/4275
+X internal texture copy does not update immediately
+X   https://github.com/processing/processing/issues/4404
+X Font corruption issue in OpenGL
+X   https://github.com/processing/processing/issues/4392
+X setStroke() does not work with imported OBJ Pshapes
+X   https://github.com/processing/processing/issues/4377
 
 contribs
-X Fill out the Javadoc for PMatrix
-X   https://github.com/processing/processing/pull/4155
-X Have PSurfaceFX pay attention to the setVisible argument
-X   https://github.com/processing/processing/pull/4210
-X Use xdg-open in PApplet#launch(String)
-X   https://github.com/processing/processing/pull/4171
+X blendMode() resetting with getGraphics()
+X   https://github.com/processing/processing/issues/4019
+X   https://github.com/processing/processing/pull/4341
+X   https://github.com/processing/processing/issues/4376
 
+
+_ JSONObject get() method is private
+_   https://github.com/processing/processing/issues/4334
+_   https://github.com/processing/processing/pull/4336
+
+_ add push() and pop() methods to mirror js?
 
 _ textAlign(CENTER) and pixelDensity(2) aligning incorrectly with Java2D
 _   https://github.com/processing/processing/issues/4020
@@ -52,9 +50,6 @@ _ normalize error messages for missing files
 _   https://github.com/processing/processing/issues/4265
 _   https://github.com/processing/processing/pull/4268
 
-
-_ fix menu bar hiding in exported JavaFX apps
-_   just call it around setup time? 
 _ should fullScreen() set width and height to displayWidth/Height
 _   or is that being set/unset used for any state info?
 _ when calling exit(), if sketch has halted w/ exception, force the quit
@@ -96,6 +91,8 @@ _   https://github.com/processing/processing/issues/3753
 
 
 javafx
+_ fix menu bar hiding in exported JavaFX apps
+_   just call it around setup time? 
 _ make wiki about quirks
 _   starving the thread makes things really slow down
 _   keyPressed() is always uppercase, keyTyped() will be correct
