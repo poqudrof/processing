@@ -36,16 +36,7 @@
   <target name="check-linux-arm32" if="linux-arm32">
     <!-- there is currently no JRE available -->
     <property name="jre.download.jdk" value="true" />
-    <!-- temporary special case since the URL changed between 8u51 and 8u60 -->
-    <condition property="jre.downloader" value="linux-arm-vfp-hflt.tar.gz">
-      <equals arg1="${jdk.update}" arg2="51" />
-    </condition>
-    <condition property="jre.downloader" value="linux-arm32-vfp-hflt.tar.gz">
-      <not>
-        <equals arg1="${jdk.update}" arg2="51" />
-      </not>
-    </condition>
-    <!-- <property name="jre.downloader" value="linux-arm32-vfp-hflt.tar.gz" /> -->
+    <property name="jre.downloader" value="linux-arm32-vfp-hflt.tar.gz" />
     <property name="linux.dist" value="linux/processing-${version}-linux-armv6hf.tgz" />
   </target>
 
@@ -68,14 +59,9 @@
 
   <!-- Switching to 8 because updates for 7 ended April 2015 -->
   <property name="jdk.version" value="8" />
-  <!-- moving back to 8u51 because of Oracle bug in OS X and Linux smoothing
-       https://github.com/processing/processing/issues/3795 -->
-  <property name="jdk.update" value="51" />
-  <property name="jdk.build" value="16" />
-  <!--
-  <property name="jdk.update" value="60" />
-  <property name="jdk.build" value="27" />
-  -->
+  <property name="jdk.update" value="92" />
+  <property name="jdk.build" value="14" />
+
   <property name="jdk.short" value="${jdk.version}u${jdk.update}" />
   <property name="jdk.esoteric" value="1.${jdk.version}.0_${jdk.update}" />
 
@@ -292,13 +278,9 @@
     <include name="app/pde.jar" />
     <include name="app/lib/antlr.jar" />
     <include name="app/lib/jna.jar" />
+    <include name="app/lib/jna-platform.jar" />
     <include name="app/lib/ant.jar" />
     <include name="app/lib/ant-launcher.jar" />
-    <include name="app/lib/org-netbeans-swing-outline.jar" />
-    <include name="app/lib/jdi.jar" />
-    <include name="app/lib/jdimodel.jar" />
-    <include name="app/lib/org.eclipse.osgi_3.8.1.v20120830-144521.jar" />
-    <include name="app/lib/com.ibm.icu_4.4.2.v20110823.jar" />
   </fileset>
 
   <target name="build" description="Build Processing.">
@@ -499,7 +481,7 @@
     <!-- Require that a JDK be installed, but call this on build, so that
          the download-jdk-macosx target can be called. -->
     <fail unless="macosx_jdk_found"
-          message="JDK ${jdk.short} required.${line.separator}To build on OS X, you must install Oracle's JDK ${jdk.short} from${line.separator}http://www.oracle.com/technetwork/java/javase/downloads${line.separator}Note that only ${jdk.short} (not a later or earlier version) will work. ${line.separator}And it must be the JDK, not the JRE. And do not try to defy me again.${line.separator}Or... type 'ant download-jdk-macosx' to download it to your Desktop." />
+          message="JDK ${jdk.short} required.${line.separator}To build on OS X, you must install Oracle's JDK ${jdk.short} from${line.separator}http://www.oracle.com/technetwork/java/javase/downloads${line.separator}Or... type 'ant download-jdk-macosx' to download it to your Desktop.${line.separator}Note that only ${jdk.short} (not a later or earlier version) will work. ${line.separator}And it must be the JDK, not the JRE. And do not try to defy me again." />
 
     <mkdir dir="macosx/work" />
     
@@ -520,6 +502,7 @@
                shortVersion="${version}"
                version="${revision}"
                javafx="true"
+               minimumSystem="10.8.5"
                mainClassName="processing.app.BaseSplash">
 
       <!-- The appbundler task needs a couple files (the Info.plist and
@@ -534,13 +517,9 @@
       <classpath file="../app/pde.jar" />
       <classpath file="../app/lib/antlr.jar" />
       <classpath file="../app/lib/jna.jar" />
+      <classpath file="../app/lib/jna-platform.jar" />
       <classpath file="../app/lib/ant.jar" />
       <classpath file="../app/lib/ant-launcher.jar" />
-      <classpath file="../app/lib/org-netbeans-swing-outline.jar" />
-      <classpath file="../app/lib/jdi.jar" />
-      <classpath file="../app/lib/jdimodel.jar" />
-      <classpath file="../app/lib/org.eclipse.osgi_3.8.1.v20120830-144521.jar" />
-      <classpath file="../app/lib/com.ibm.icu_4.4.2.v20110823.jar" />
 
       <!-- plus core.jar... note that this is no longer shared -->
       <classpath file="../core/library/core.jar" />
@@ -934,6 +913,8 @@
    <move file="linux/work" tofile="linux/debian/opt/processing" />
    <symlink link="linux/debian/usr/bin/processing" 
             resource="../../opt/processing/processing" />
+   <symlink link="linux/debian/usr/bin/processing-java"
+            resource="../../opt/processing/processing-java" />
 
    <!-- place .desktop and .sharedmimeinfo file -->
    <copy file="linux/processing.desktop" 
@@ -948,8 +929,15 @@
          tofile="linux/debian/usr/share/mime/packages/processing.xml" />
 
    <!-- Set properties for DEBIAN/control file -->
+   <condition property="linux.deb" value="linux/processing-${version}-linux-armv6hf.deb">
+     <equals arg1="${linux-arm32}" arg2="linux-arm32" />
+   </condition>
    <property name="linux.deb" value="linux/processing-${version}-linux${sun.arch.data.model}.deb" />
 
+   <!-- Raspbian seems to borrow armhf for armv6hf, so this works -->
+   <condition property="deb.arch" value="armhf">
+     <equals arg1="${linux-arm32}" arg2="linux-arm32" />
+   </condition>
    <condition property="deb.arch" value="i386"> 
      <equals arg1="${sun.arch.data.model}" arg2="32" />
    </condition>
@@ -1046,7 +1034,7 @@
     <condition property="jna.subfolder" value="win32-x86"> 
       <equals arg1="${sun.arch.data.model}" arg2="32" />
     </condition>
-    <condition property="jna.subfolder" value="win32-amd64"> 
+    <condition property="jna.subfolder" value="win32-x86-64">
       <equals arg1="${sun.arch.data.model}" arg2="64" />
     </condition>
 
@@ -1277,7 +1265,7 @@ remove the spaces for depth since it should be double dash, but screws up commen
       <arg line="core -type f -exec rm -rf {} ';'" />
     </exec>
 
-    <javadoc access="public" author="false" classpath="../core/library/jogl-all.jar:../core/bin:../core/library/gluegen-rt.jar" destdir="javadoc/core" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.7" splitindex="false" use="false" version="false">
+    <javadoc access="public" author="false" classpath="../core/library/jogl-all.jar:../core/bin:../core/library/gluegen-rt.jar" destdir="javadoc/core" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.8" splitindex="false" use="false" version="false">
 
       <!-- provide links for java.* classes. 
            also suppresses the java.lang prefix in the text.  --> 
@@ -1306,7 +1294,7 @@ remove the spaces for depth since it should be double dash, but screws up commen
       <arg line="everything -type f -exec rm -rf {} ';'" />
     </exec>
 
-    <javadoc access="public" author="false" classpath="../app/lib/ant.jar:../app/lib/ant-launcher.jar:../app/lib/antlr.jar:../app/lib/apple.jar:../app/lib/jna.jar:../app/lib/org-netbeans-swing-outline.jar:../core/bin:../core/library/gluegen-rt.jar:../core/library/jogl-all.jar:../java/libraries/svg/bin:../java/libraries/pdf/bin:../java/libraries/pdf/library/itext.jar:../java/libraries/dxf/bin:../java/libraries/io/bin:../java/libraries/net/bin:../java/libraries/serial/bin:../java/mode/ecj.jar:${java.home}/lib/tools.jar" destdir="javadoc/everything" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.7" splitindex="false" use="false" version="false" noqualifier="all">
+    <javadoc access="public" author="false" classpath="../app/lib/ant.jar:../app/lib/ant-launcher.jar:../app/lib/antlr.jar:../app/lib/apple.jar:../app/lib/jna.jar:../app/lib/jna-platform.jar:../core/bin:../core/library/gluegen-rt.jar:../core/library/jogl-all.jar:../java/libraries/svg/bin:../java/libraries/pdf/bin:../java/libraries/pdf/library/itext.jar:../java/libraries/dxf/bin:../java/libraries/io/bin:../java/libraries/net/bin:../java/libraries/serial/bin:${java.home}/lib/tools.jar" destdir="javadoc/everything" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.8" splitindex="false" use="false" version="false" noqualifier="all">
 
       <arg value="-notimestamp" />
 
@@ -1339,7 +1327,7 @@ remove the spaces for depth since it should be double dash, but screws up commen
       <arg line="libraries -type f -exec rm -rf {} ';'" />
     </exec>
 
-    <javadoc access="public" author="false" classpath="../app/lib/ant.jar:../app/lib/ant-launcher.jar:../app/lib/antlr.jar:../app/lib/apple.jar:../app/lib/jna.jar:../app/lib/org-netbeans-swing-outline.jar:../core/bin:../core/library/gluegen-rt.jar:../core/library/jogl-all.jar:../java/libraries/svg/bin:../java/libraries/pdf/bin:../java/libraries/pdf/library/itext.jar:../java/libraries/dxf/bin:../java/libraries/net/bin:../java/libraries/serial/bin:../java/mode/ecj.jar:${java.home}/lib/tools.jar" destdir="javadoc/libraries" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.7" splitindex="false" use="false" version="false" noqualifier="all">
+    <javadoc access="public" author="false" classpath="../app/lib/ant.jar:../app/lib/ant-launcher.jar:../app/lib/antlr.jar:../app/lib/apple.jar:../app/lib/jna.jar:../app/lib/jna-platform.jar:../core/bin:../core/library/gluegen-rt.jar:../core/library/jogl-all.jar:../java/libraries/svg/bin:../java/libraries/pdf/bin:../java/libraries/pdf/library/itext.jar:../java/libraries/dxf/bin:../java/libraries/net/bin:../java/libraries/serial/bin:${java.home}/lib/tools.jar" destdir="javadoc/libraries" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.8" splitindex="false" use="false" version="false" noqualifier="all">
 
       <arg value="-notimestamp" />
 

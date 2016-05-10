@@ -523,11 +523,11 @@ public class JavaBuild {
           } else {
             if (packageMatch == null) {
               // use the default package name, since mixing with package-less code will break
-              packageMatch = new String[] { packageName };
+              packageMatch = new String[] { "", packageName };
               // add the package name to the source before writing it
               javaCode = "package " + packageName + ";" + javaCode;
             }
-            File packageFolder = new File(srcFolder, packageMatch[0].replace('.', '/'));
+            File packageFolder = new File(srcFolder, packageMatch[1].replace('.', File.separatorChar));
             packageFolder.mkdirs();
             Util.saveFile(javaCode, new File(packageFolder, filename));
           }
@@ -1123,7 +1123,12 @@ public class JavaBuild {
     /// figure out run options for the VM
 
     List<String> runOptions = new ArrayList<String>();
-    if (Preferences.getBoolean("run.options.memory")) {
+
+    // Set memory options, except for ARM where we're more memory-constrained
+    // compared to the machine being used to build/export the sketch
+    // https://github.com/processing/processing/pull/4406
+    if (Preferences.getBoolean("run.options.memory") &&
+        !exportVariant.equals("armv6hf")) {
       runOptions.add("-Xms" + Preferences.get("run.options.memory.initial") + "m");
       runOptions.add("-Xmx" + Preferences.get("run.options.memory.maximum") + "m");
     }
@@ -1280,7 +1285,8 @@ public class JavaBuild {
       // isn't used when exporting for Unix.
       pw.print("#!/bin/sh\n\n");
       //ps.print("APPDIR=`dirname $0`\n");
-      pw.print("APPDIR=$(dirname \"$0\")\n");  // more posix compliant
+      pw.print("APPDIR=$(readlink -f \"$0\")\n"); //Allow Symlinks
+      pw.print("APPDIR=$(dirname \"$APPDIR\")\n");  // more posix compliant
       // another fix for bug #234, LD_LIBRARY_PATH ignored on some platforms
       //ps.print("LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$APPDIR\n");
       if (embedJava) {

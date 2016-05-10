@@ -228,8 +228,7 @@ public class ContributionTab extends JPanel {
     StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
     doc.setParagraphAttributes(0, doc.getLength(), center, false);
 
-    // TODO https://github.com/processing/processing/issues/3706
-    closeButton = new JButton("X");
+    closeButton = new JButton(Toolkit.getLibIconX("manager/close"));
     closeButton.setContentAreaFilled(false);
     closeButton.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
@@ -443,6 +442,10 @@ public class ContributionTab extends JPanel {
       contributionListPanel.panelByContribution.values();
     for (DetailPanel detailPanel : collection) {
       detailPanel.update();
+
+    // Refreshing the ContributionUpdateTab's status icons
+    contributionListPanel.updatePanelOrdering(contributionListPanel
+      .panelByContribution.keySet());
     }
   }
 

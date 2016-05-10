@@ -445,6 +445,8 @@ public class PSurfaceJOGL implements PSurface {
               throw (RuntimeException)cause;
             } else if (cause instanceof UnsatisfiedLinkError) {
               throw new UnsatisfiedLinkError(cause.getMessage());
+            } else if (cause == null) {
+              throw new RuntimeException(drawException.getMessage());
             } else {
               throw new RuntimeException(cause);
             }
@@ -938,8 +940,7 @@ public class PSurfaceJOGL implements PSurface {
 
     @Override
     public void windowDestroyNotify(com.jogamp.newt.event.WindowEvent arg0) {
-      sketch.dispose();
-      sketch.exitActual();
+      sketch.exit();
     }
 
     @Override

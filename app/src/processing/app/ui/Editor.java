@@ -332,6 +332,10 @@ public abstract class Editor extends JFrame implements RunnerListener {
       }
     });
 
+    // TODO: Subclasses can't initialize anything before Doc Open happens since
+    //       super() has to be the first line in subclass constructor; we might
+    //       want to keep constructor light and call methods later [jv 160318]
+
     // Open the document that was passed in
     handleOpenInternal(path);
 
@@ -1073,6 +1077,11 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
 
   abstract public void handleImportLibrary(String name);
+
+
+  public void librariesChanged() { }
+
+  public void codeFolderChanged() { }
 
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -2660,7 +2669,11 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
     // make sure any edits have been stored
     //current.setProgram(editor.getText());
-    sketch.getCurrentCode().setProgram(getText());
+    for (SketchCode sc : sketch.getCode()) {
+      try {
+        sc.setProgram(sc.getDocumentText());
+      } catch (BadLocationException e) { }
+    }
 
 //    // if an external editor is being used, need to grab the
 //    // latest version of the code from the file.

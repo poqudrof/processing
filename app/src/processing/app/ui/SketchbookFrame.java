@@ -22,6 +22,7 @@
 
 package processing.app.ui;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Point;
@@ -33,10 +34,13 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTree;
 import javax.swing.border.EmptyBorder;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreeSelectionModel;
 
 import processing.app.Base;
@@ -113,11 +117,27 @@ public class SketchbookFrame extends JFrame {
     } else {
       tree.setToggleClickCount(1);
     }
-    JScrollPane treePane = new JScrollPane(tree);
-    treePane.setPreferredSize(new Dimension(250, 450));
-    treePane.setBorder(new EmptyBorder(0, 0, 0, 0));
 
-    getContentPane().add(treePane);
+    // Check whether sketch book is empty or not
+    TreeModel treeModel = tree.getModel();
+    if (treeModel.getChildCount(treeModel.getRoot()) != 0) {
+      JScrollPane treePane = new JScrollPane(tree);
+      treePane.setPreferredSize(new Dimension(250, 450));
+      treePane.setBorder(new EmptyBorder(0, 0, 0, 0));
+      getContentPane().add(treePane);
+
+    } else {
+      JPanel emptyPanel = new JPanel();
+      emptyPanel.setBackground(Color.WHITE);
+      emptyPanel.setPreferredSize(new Dimension(250,450));
+
+      JLabel emptyLabel = new JLabel("Empty Sketchbook");
+      emptyLabel.setForeground(Color.GRAY);
+      emptyPanel.add(emptyLabel);
+
+      setContentPane(emptyPanel);
+    }
+
     pack();
   }
 

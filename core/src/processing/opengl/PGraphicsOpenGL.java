@@ -509,6 +509,12 @@ public class PGraphicsOpenGL extends PGraphics {
     "to render this geometry properly, using default shader instead.";
   static final String TESSELLATION_ERROR =
     "Tessellation Error: %1$s";
+  static final String GL_THREAD_NOT_CURRENT =
+    "You are trying to draw outside OpenGL's animation thread.\n" +
+    "Place all drawing commands in the draw() function, or inside\n" +
+    "your own functions as long as they are called from draw(),\n" +
+    "but not in event handling functions such as keyPressed()\n" +
+    "or mousePressed().";
 
   //////////////////////////////////////////////////////////////
 
@@ -1463,6 +1469,11 @@ public class PGraphicsOpenGL extends PGraphics {
     } else {
       pgl.getGL(getPrimaryPGL());
       getPrimaryPG().setCurrentPG(this);
+    }
+
+    if (!pgl.threadIsCurrent()) {
+      PGraphics.showWarning(GL_THREAD_NOT_CURRENT);
+      return;
     }
 
     // This has to go after the surface initialization, otherwise offscreen
@@ -3617,11 +3628,8 @@ public class PGraphicsOpenGL extends PGraphics {
   protected void textCharModelImpl(FontTexture.TextureInfo info,
                                    float x0, float y0,
                                    float x1, float y1) {
-    if (textTex.currentTex != info.texIndex) {
-      textTex.setTexture(info.texIndex);
-    }
     beginShape(QUADS);
-    texture(textTex.getCurrentTexture());
+    texture(textTex.getTexture(info));
     vertex(x0, y0, info.u0, info.v0);
     vertex(x1, y0, info.u1, info.v0);
     vertex(x1, y1, info.u1, info.v1);
@@ -3783,6 +3791,30 @@ public class PGraphicsOpenGL extends PGraphics {
                     0, 1, 0, -ty,
                     0, 0, 1, -tz,
                     0, 0, 0, 1);
+  }
+
+
+  static protected float matrixScale(PMatrix matrix) {
+    // Volumetric scaling factor that is associated to the given
+    // transformation matrix, which is given by the absolute value of its
+    // determinant:
+    float factor = 1;
+
+    if (matrix != null) {
+      if (matrix instanceof PMatrix2D) {
+        PMatrix2D tr = (PMatrix2D)matrix;
+        float areaScaleFactor = Math.abs(tr.m00 * tr.m11 - tr.m01 * tr.m10);
+        factor = (float) Math.sqrt(areaScaleFactor);
+      } else if (matrix instanceof PMatrix3D) {
+        PMatrix3D tr = (PMatrix3D)matrix;
+        float volumeScaleFactor =
+          Math.abs(tr.m00 * (tr.m11 * tr.m22 - tr.m12 * tr.m21) +
+                   tr.m01 * (tr.m12 * tr.m20 - tr.m10 * tr.m22) +
+                   tr.m02 * (tr.m10 * tr.m21 - tr.m11 * tr.m20));
+        factor = (float) Math.pow(volumeScaleFactor, 1.0f / 3.0f);
+      }
+    }
+    return factor;
   }
 
 
@@ -5136,7 +5168,7 @@ public class PGraphicsOpenGL extends PGraphics {
       x*modelview.m20 + y*modelview.m21 + z*modelview.m22 + modelview.m23;
 
     // Used to indicate if the light is directional or not.
-    lightPosition[4 * num + 3] = dir ? 1: 0;
+    lightPosition[4 * num + 3] = dir ? 0 : 1;
   }
 
 
@@ -10672,6 +10704,7 @@ public class PGraphicsOpenGL extends PGraphics {
       if (first < last) {
         int index;
 
+        float scaleFactor = matrixScale(tr);
         for (int i = first; i <= last; i++) {
           index = 4 * i;
           float x = lineVertices[index++];
@@ -10688,6 +10721,7 @@ public class PGraphicsOpenGL extends PGraphics {
           index = 4 * i;
           lineDirections[index++] = dx*tr.m00 + dy*tr.m01;
           lineDirections[index  ] = dx*tr.m10 + dy*tr.m11;
+          lineDirections[index + 2] *= scaleFactor;
         }
       }
     }
@@ -10696,6 +10730,7 @@ public class PGraphicsOpenGL extends PGraphics {
       if (first < last) {
         int index;
 
+        float matrixScale = matrixScale(tr);
         for (int i = first; i <= last; i++) {
           index = 4 * i;
           float x = pointVertices[index++];
@@ -10704,6 +10739,10 @@ public class PGraphicsOpenGL extends PGraphics {
           index = 4 * i;
           pointVertices[index++] = x*tr.m00 + y*tr.m01 + tr.m02;
           pointVertices[index  ] = x*tr.m10 + y*tr.m11 + tr.m12;
+
+          index = 2 * i;
+          pointOffsets[index++] *= matrixScale;
+          pointOffsets[index] *= matrixScale;
         }
       }
     }
@@ -10769,6 +10808,7 @@ public class PGraphicsOpenGL extends PGraphics {
       if (first < last) {
         int index;
 
+        float scaleFactor = matrixScale(tr);
         for (int i = first; i <= last; i++) {
           index = 4 * i;
           float x = lineVertices[index++];
@@ -10790,7 +10830,8 @@ public class PGraphicsOpenGL extends PGraphics {
           index = 4 * i;
           lineDirections[index++] = dx*tr.m00 + dy*tr.m01 + dz*tr.m02;
           lineDirections[index++] = dx*tr.m10 + dy*tr.m11 + dz*tr.m12;
-          lineDirections[index  ] = dx*tr.m20 + dy*tr.m21 + dz*tr.m22;
+          lineDirections[index++] = dx*tr.m20 + dy*tr.m21 + dz*tr.m22;
+          lineDirections[index] *= scaleFactor;
         }
       }
     }
@@ -10799,6 +10840,7 @@ public class PGraphicsOpenGL extends PGraphics {
       if (first < last) {
         int index;
 
+        float matrixScale = matrixScale(tr);
         for (int i = first; i <= last; i++) {
           index = 4 * i;
           float x = pointVertices[index++];
@@ -10811,6 +10853,10 @@ public class PGraphicsOpenGL extends PGraphics {
           pointVertices[index++] = x*tr.m10 + y*tr.m11 + z*tr.m12 + w*tr.m13;
           pointVertices[index++] = x*tr.m20 + y*tr.m21 + z*tr.m22 + w*tr.m23;
           pointVertices[index  ] = x*tr.m30 + y*tr.m31 + z*tr.m32 + w*tr.m33;
+
+          index = 2 * i;
+          pointOffsets[index++] *= matrixScale;
+          pointOffsets[index] *= matrixScale;
         }
       }
     }
@@ -11030,9 +11076,9 @@ public class PGraphicsOpenGL extends PGraphics {
         float inc = (float) SINCOS_LENGTH / perim;
         for (int k = 0; k < perim; k++) {
           tess.pointOffsets[2 * attribIdx + 0] =
-            0.5f * cosLUT[(int) val] * strokeWeight;
+            0.5f * cosLUT[(int) val] * transformScale() * strokeWeight;
           tess.pointOffsets[2 * attribIdx + 1] =
-            0.5f * sinLUT[(int) val] * strokeWeight;
+            0.5f * sinLUT[(int) val] * transformScale() * strokeWeight;
           val = (val + inc) % SINCOS_LENGTH;
           attribIdx++;
         }
@@ -11160,9 +11206,9 @@ public class PGraphicsOpenGL extends PGraphics {
         attribIdx++;
         for (int k = 0; k < 4; k++) {
           tess.pointOffsets[2 * attribIdx + 0] =
-            0.5f * QUAD_POINT_SIGNS[k][0] * strokeWeight;
+            0.5f * QUAD_POINT_SIGNS[k][0] * transformScale() * strokeWeight;
           tess.pointOffsets[2 * attribIdx + 1] =
-            0.5f * QUAD_POINT_SIGNS[k][1] * strokeWeight;
+            0.5f * QUAD_POINT_SIGNS[k][1] * transformScale() * strokeWeight;
           attribIdx++;
         }
 
@@ -11952,28 +11998,7 @@ public class PGraphicsOpenGL extends PGraphics {
 
     float transformScale() {
       if (-1 < transformScale) return transformScale;
-
-      // Volumetric scaling factor that is associated to the current
-      // transformation matrix, which is given by the absolute value of its
-      // determinant:
-      float factor = 1;
-
-      if (transform != null) {
-        if (transform instanceof PMatrix2D) {
-          PMatrix2D tr = (PMatrix2D)transform;
-          float areaScaleFactor = Math.abs(tr.m00 * tr.m11 - tr.m01 * tr.m10);
-          factor = (float) Math.sqrt(areaScaleFactor);
-        } else if (transform instanceof PMatrix3D) {
-          PMatrix3D tr = (PMatrix3D)transform;
-          float volumeScaleFactor =
-            Math.abs(tr.m00 * (tr.m11 * tr.m22 - tr.m12 * tr.m21) +
-                     tr.m01 * (tr.m12 * tr.m20 - tr.m10 * tr.m22) +
-                     tr.m02 * (tr.m10 * tr.m21 - tr.m11 * tr.m20));
-          factor = (float) Math.pow(volumeScaleFactor, 1.0f / 3.0f);
-        }
-      }
-
-      return transformScale = factor;
+      return transformScale = matrixScale(transform);
     }
 
     boolean segmentIsAxisAligned(int i0, int i1) {
@@ -12456,8 +12481,8 @@ public class PGraphicsOpenGL extends PGraphics {
         } else {
           texCache.setLastIndex(lastIndex, lastCache);
         }
+        prevTexImage = newTexImage;
       }
-      prevTexImage = newTexImage;
     }
 
     // -----------------------------------------------------------------

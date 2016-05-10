@@ -1,15 +1,55 @@
-0248 (3.0.2)
-X Fix another "Zero length string passed to TextLayout constructor" error
+0249 (3.1)
+X Float/IntDict changes
+X   minIndex() and maxIndex() return -1 when count is zero (rather than ex)
+X   bug fix to reverse sorts
+X   2x performance increase for sorting
+X   added optional "stable" parameter for sorting by values
+X     set to false for higher performance
+X   call crop() in keyArray() and valueArray() functions
+X     they're duplicates, their length is an implementation detail
+X   normalize features and error handling between all of them
+X add print() and write(PrintWriter) methods to Table/TableRow
+X   https://github.com/processing/processing/issues/4396
+
+jakub
+X several JavaFX fixes
+X   https://github.com/processing/processing/pull/4411
+X cursor() and noCursor() not working on FX2D
+X   https://github.com/processing/processing/issues/4405
+X Make sure PImage.parent is set in loadImage()
+X   https://github.com/processing/processing/pull/4412
 
 andres
-X Stop button in OpenGL exported applications does not use preference settings
-X   https://github.com/processing/processing/issues/4064
-X Export without a stop button using P3D or P2D
-X   https://github.com/processing/processing/issues/4056
+X Change convention for directional lights in OpenGL-Binding for GLSL
+X   https://github.com/processing/processing/issues/4275
+X internal texture copy does not update immediately
+X   https://github.com/processing/processing/issues/4404
+X Font corruption issue in OpenGL
+X   https://github.com/processing/processing/issues/4392
+X setStroke() does not work with imported OBJ Pshapes
+X   https://github.com/processing/processing/issues/4377
+
+contribs
+X blendMode() resetting with getGraphics()
+X   https://github.com/processing/processing/issues/4019
+X   https://github.com/processing/processing/pull/4341
+X   https://github.com/processing/processing/issues/4376
 
 
-_ fix menu bar hiding in exported JavaFX apps
-_   just call it around setup time? 
+_ JSONObject get() method is private
+_   https://github.com/processing/processing/issues/4334
+_   https://github.com/processing/processing/pull/4336
+
+_ add push() and pop() methods to mirror js?
+
+_ textAlign(CENTER) and pixelDensity(2) aligning incorrectly with Java2D
+_   https://github.com/processing/processing/issues/4020
+_ add increment() that takes IntDict to merge things
+
+_ normalize error messages for missing files
+_   https://github.com/processing/processing/issues/4265
+_   https://github.com/processing/processing/pull/4268
+
 _ should fullScreen() set width and height to displayWidth/Height
 _   or is that being set/unset used for any state info?
 _ when calling exit(), if sketch has halted w/ exception, force the quit
@@ -51,6 +91,8 @@ _   https://github.com/processing/processing/issues/3753
 
 
 javafx
+_ fix menu bar hiding in exported JavaFX apps
+_   just call it around setup time? 
 _ make wiki about quirks
 _   starving the thread makes things really slow down
 _   keyPressed() is always uppercase, keyTyped() will be correct
@@ -84,8 +126,6 @@ _   https://www.linkedin.com/pulse/oracle-just-removed-javafx-support-arm-jan-sn
 
 opengl questions
 _ hard crash at 1920x1080, mirrored, Casey's GT 650M 1GB
-_ issues with how JOGL handles window layout/sizing
-_   https://github.com/processing/processing/issues/3401
 _ exitCalled() and exitActual made public by Andres, breaks Python
 _   also not API we want to expose, so sort this out
 _   or maybe we're fine b/c now FX2D needs it as well

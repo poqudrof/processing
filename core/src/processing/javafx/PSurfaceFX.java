@@ -25,7 +25,10 @@ package processing.javafx;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javafx.animation.Animation;
@@ -38,9 +41,14 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.event.EventType;
+import javafx.scene.Cursor;
+import javafx.scene.ImageCursor;
 import javafx.scene.Scene;
 import javafx.scene.SceneAntialiasing;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.image.Image;
+import javafx.scene.image.PixelFormat;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
@@ -313,7 +321,8 @@ public class PSurfaceFX implements PSurface {
       // https://github.com/processing/processing/issues/3823
       if ((PApplet.platform == PConstants.MACOSX ||
            PApplet.platform == PConstants.LINUX) &&
-          PApplet.javaVersionName.compareTo("1.8.0_60") >= 0) {
+          PApplet.javaVersionName.compareTo("1.8.0_60") >= 0 &&
+          PApplet.javaVersionName.compareTo("1.8.0_72") < 0) {
         System.err.println("smooth() disabled for JavaFX with this Java version due to Oracle bug");
         System.err.println("https://github.com/processing/processing/issues/3795");
         smooth = 0;
@@ -327,6 +336,11 @@ public class PSurfaceFX implements PSurface {
       // initFrame in different thread is waiting for
       // the stage, assign it only when it is all set up
       surface.stage = stage;
+    }
+
+    @Override
+    public void stop() throws Exception {
+      surface.sketch.dispose();
     }
   }
 
@@ -351,6 +365,8 @@ public class PSurfaceFX implements PSurface {
         Thread.sleep(5);
       } catch (InterruptedException e) { }
     }
+
+    setProcessingIcon(stage);
   }
 
 
@@ -365,11 +381,15 @@ public class PSurfaceFX implements PSurface {
 
   /** Show or hide the window. */
   @Override
-  public void setVisible(boolean visible) {
+  public void setVisible(final boolean visible) {
     Platform.runLater(new Runnable() {
       public void run() {
-        stage.show();
-        canvas.requestFocus();
+        if (visible) {
+          stage.show();
+          canvas.requestFocus();
+        } else {
+          stage.hide();
+        }
       }
     });
   }
@@ -385,7 +405,42 @@ public class PSurfaceFX implements PSurface {
 
 
   public void setIcon(PImage icon) {
-    // TODO implement this in JavaFX
+    int w = icon.pixelWidth;
+    int h = icon.pixelHeight;
+    WritableImage im = new WritableImage(w, h);
+    im.getPixelWriter().setPixels(0, 0, w, h,
+                                  PixelFormat.getIntArgbInstance(),
+                                  icon.pixels,
+                                  0, w);
+
+    Stage stage = (Stage) canvas.getScene().getWindow();
+    stage.getIcons().clear();
+    stage.getIcons().add(im);
+  }
+
+
+  List<Image> iconImages;
+
+  protected void setProcessingIcon(Stage stage) {
+    // Adapted from PSurfaceAWT
+    // Note: FX chooses wrong icon size, should be fixed in Java 9, see:
+    // https://bugs.openjdk.java.net/browse/JDK-8091186
+    // Removing smaller sizes helps a bit, but big ones are downsized
+    try {
+      if (iconImages == null) {
+        iconImages = new ArrayList<>();
+        final int[] sizes = { 48, 64, 128, 256, 512 };
+
+        for (int sz : sizes) {
+          URL url = PApplet.class.getResource("/icon/icon-" + sz + ".png");
+          Image image = new Image(url.toString());
+          iconImages.add(image);
+        }
+      }
+      List<Image> icons = stage.getIcons();
+      icons.clear();
+      icons.addAll(iconImages);
+    } catch (Exception e) { }  // harmless; keep this to ourselves
   }
 
 
@@ -585,28 +640,45 @@ public class PSurfaceFX implements PSurface {
 //    canvas.requestFocus();
 //  }
 
+  Cursor lastCursor = Cursor.DEFAULT;
 
   public void setCursor(int kind) {
-    // TODO Auto-generated method stub
-
+    Cursor c;
+    switch (kind) {
+      case PConstants.ARROW: c = Cursor.DEFAULT; break;
+      case PConstants.CROSS: c = Cursor.CROSSHAIR; break;
+      case PConstants.HAND: c = Cursor.HAND; break;
+      case PConstants.MOVE: c = Cursor.MOVE; break;
+      case PConstants.TEXT: c = Cursor.TEXT; break;
+      case PConstants.WAIT: c = Cursor.WAIT; break;
+      default: c = Cursor.DEFAULT; break;
+    }
+    lastCursor = c;
+    canvas.getScene().setCursor(c);
   }
 
 
   public void setCursor(PImage image, int hotspotX, int hotspotY) {
-    // TODO Auto-generated method stub
-
+    int w = image.pixelWidth;
+    int h = image.pixelHeight;
+    WritableImage im = new WritableImage(w, h);
+    im.getPixelWriter().setPixels(0, 0, w, h,
+                                  PixelFormat.getIntArgbInstance(),
+                                  image.pixels,
+                                  0, w);
+    ImageCursor c = new ImageCursor(im, hotspotX, hotspotY);
+    lastCursor = c;
+    canvas.getScene().setCursor(c);
   }
 
 
   public void showCursor() {
-    // TODO Auto-generated method stub
-
+    canvas.getScene().setCursor(lastCursor);
   }
 
 
   public void hideCursor() {
-    // TODO Auto-generated method stub
-
+    canvas.getScene().setCursor(Cursor.NONE);
   }
 
 

@@ -1258,6 +1258,9 @@ public class PApplet implements PConstants {
     // When running from the PDE, say setup(), otherwise say settings()
     final String where = external ? "setup" : "settings";
     PGraphics.showWarning("%s() can only be used inside %s()", method, where);
+    if (external) {
+      PGraphics.showWarning("When run from the PDE, %s() is automatically moved from setup() to settings()", method);
+    }
   }
 
 
@@ -1867,8 +1870,9 @@ public class PApplet implements PConstants {
 
 
   /**
-   * @param display the screen to run the sketch on (1, 2, 3, etc.)
+   * @param display the screen to run the sketch on (1, 2, 3, etc. or on multiple screens using SPAN) 
    */
+
   public void fullScreen(String renderer, int display) {
     if (!fullScreen ||
         !renderer.equals(this.renderer) ||
@@ -3351,11 +3355,6 @@ public class PApplet implements PConstants {
    * <p>
    * When run with an applet, uses the browser to open the url,
    * for applications, attempts to launch a browser with the url.
-   * <p>
-   * Works on Mac OS X and Windows. For Linux, use:
-   * <PRE>open(new String[] { "firefox", url });</PRE>
-   * or whatever you want as your browser, since Linux doesn't
-   * yet have a standard method for launching URLs.
    *
    * @param url the complete URL, as a String in quotes
    */
@@ -3430,25 +3429,20 @@ public class PApplet implements PConstants {
       params = new String[] { "open" };
 
     } else if (platform == LINUX) {
-      if (openLauncher == null) {
-        // Attempt to use gnome-open
+      // xdg-open is in the Free Desktop Specification and really should just
+      // work on desktop Linux. Not risking it though.
+      final String[] launchers = { "xdg-open", "gnome-open", "kde-open" };
+      for (String launcher : launchers) {
+        if (openLauncher != null) break;
         try {
-          Process p = Runtime.getRuntime().exec(new String[] { "gnome-open" });
+          Process p = Runtime.getRuntime().exec(new String[] { launcher });
           /*int result =*/ p.waitFor();
           // Not installed will throw an IOException (JDK 1.4.2, Ubuntu 7.04)
-          openLauncher = "gnome-open";
+          openLauncher = launcher;
         } catch (Exception e) { }
       }
       if (openLauncher == null) {
-        // Attempt with kde-open
-        try {
-          Process p = Runtime.getRuntime().exec(new String[] { "kde-open" });
-          /*int result =*/ p.waitFor();
-          openLauncher = "kde-open";
-        } catch (Exception e) { }
-      }
-      if (openLauncher == null) {
-        System.err.println("Could not find gnome-open or kde-open, " +
+        System.err.println("Could not find xdg-open, gnome-open, or kde-open: " +
                            "the open() command may not work.");
       }
       if (openLauncher != null) {
@@ -5339,6 +5333,7 @@ public class PApplet implements PConstants {
 //          if (params != null) {
 //            image.setParams(g, params);
 //          }
+          image.parent = this;
           return image;
         }
       }
@@ -7394,10 +7389,10 @@ public class PApplet implements PConstants {
     try {
       folder = System.getProperty("user.dir");
 
-      String jarPath =
-        PApplet.class.getProtectionDomain().getCodeSource().getLocation().getPath();
-      // The jarPath from above will be URL encoded (%20 for spaces)
-      jarPath = urlDecode(jarPath);
+      URL jarURL =
+          PApplet.class.getProtectionDomain().getCodeSource().getLocation();
+      // Decode URL
+      String jarPath = jarURL.toURI().getPath();
 
       // Workaround for bug in Java for OS X from Oracle (7u51)
       // https://github.com/processing/processing/issues/2181
@@ -7548,12 +7543,17 @@ public class PApplet implements PConstants {
     File why = new File(where);
     if (why.isAbsolute()) return why;
 
-    String jarPath =
-      getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
+    URL jarURL = getClass().getProtectionDomain().getCodeSource().getLocation();
+    // Decode URL
+    String jarPath;
+    try {
+      jarPath = jarURL.toURI().getPath();
+    } catch (URISyntaxException e) {
+      e.printStackTrace();
+      return null;
+    }
     if (jarPath.contains("Contents/Java/")) {
-      // The path will be URL encoded (%20 for spaces) coming from above
-      // http://code.google.com/p/processing/issues/detail?id=1073
-      File containingFolder = new File(urlDecode(jarPath)).getParentFile();
+      File containingFolder = new File(jarPath).getParentFile();
       File dataFolder = new File(containingFolder, "data");
       return new File(dataFolder, where);
     }
@@ -7609,7 +7609,7 @@ public class PApplet implements PConstants {
     String lower = filename.toLowerCase();
     int dot = filename.lastIndexOf('.');
     if (dot == -1) {
-      extension = "unknown";  // no extension found
+      return "";  // no extension found
     }
     extension = lower.substring(dot + 1);
 
@@ -7638,6 +7638,11 @@ public class PApplet implements PConstants {
   }
 
 
+  // DO NOT use for file paths, URLDecoder can't handle RFC2396
+  // "The recommended way to manage the encoding and decoding of
+  // URLs is to use URI, and to convert between these two classes
+  // using toURI() and URI.toURL()."
+  // https://docs.oracle.com/javase/8/docs/api/java/net/URL.html
   static public String urlDecode(String str) {
     try {
       return URLDecoder.decode(str, "UTF-8");
@@ -10231,6 +10236,13 @@ public class PApplet implements PConstants {
 //    }
     sketch.sketchPath = folder;
 
+    // Don't set 'args' to a zero-length array if it should be null [3.0a8]
+    if (args.length != argIndex + 1) {
+      // pass everything after the class name in as args to the sketch itself
+      // (fixed for 2.0a5, this was just subsetting by 1, which didn't skip opts)
+      sketch.args = PApplet.subset(args, argIndex + 1);
+    }
+
     // Call the settings() method which will give us our size() call
 //    try {
     sketch.handleSettings();
@@ -10251,13 +10263,6 @@ public class PApplet implements PConstants {
 //    // Query the applet to see if it wants to be full screen all the time.
 //    //fullScreen |= sketch.sketchFullScreen();
 //    sketch.fullScreen |= fullScreen;
-
-    // Don't set 'args' to a zero-length array if it should be null [3.0a8]
-    if (args.length != argIndex + 1) {
-      // pass everything after the class name in as args to the sketch itself
-      // (fixed for 2.0a5, this was just subsetting by 1, which didn't skip opts)
-      sketch.args = PApplet.subset(args, argIndex + 1);
-    }
 
     sketch.external = external;
 
@@ -12578,7 +12583,7 @@ public class PApplet implements PConstants {
    * ignored.
    *
    * @param x1 by default, the x-coordinate of text, see rectMode() for more info
-   * @param y1 by default, the x-coordinate of text, see rectMode() for more info
+   * @param y1 by default, the y-coordinate of text, see rectMode() for more info
    * @param x2 by default, the width of the text box, see rectMode() for more info
    * @param y2 by default, the height of the text box, see rectMode() for more info
    */
@@ -13205,6 +13210,7 @@ public class PApplet implements PConstants {
    * ( end auto-generated )
    *
    * @webref lights_camera:camera
+   * @see PGraphics#beginCamera()
    * @see PGraphics#camera(float, float, float, float, float, float, float, float, float)
    */
   public void endCamera() {
@@ -13229,6 +13235,7 @@ public class PApplet implements PConstants {
    * ( end auto-generated )
    *
    * @webref lights_camera:camera
+   * @see PGraphics#beginCamera()
    * @see PGraphics#endCamera()
    * @see PGraphics#frustum(float, float, float, float, float, float)
    */
@@ -13373,6 +13380,7 @@ public class PApplet implements PConstants {
    * @param near near component of the clipping plane; must be greater than zero
    * @param far far component of the clipping plane; must be greater than the near value
    * @see PGraphics#camera(float, float, float, float, float, float, float, float, float)
+   * @see PGraphics#beginCamera()
    * @see PGraphics#endCamera()
    * @see PGraphics#perspective(float, float, float, float)
    */
