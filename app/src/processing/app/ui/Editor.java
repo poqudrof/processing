@@ -260,6 +260,19 @@ public abstract class Editor extends JFrame implements RunnerListener {
     textarea.setRightClickPopup(new TextAreaPopup());
     textarea.setHorizontalOffset(JEditTextArea.leftHandGutter);
 
+    { // Hack: add Numpad Slash as an alternative shortcut for Comment/Uncomment
+      int modifiers = Toolkit.awtToolkit.getMenuShortcutKeyMask();
+      KeyStroke keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_DIVIDE, modifiers);
+      final String ACTION_KEY = "COMMENT_UNCOMMENT_ALT";
+      textarea.getInputMap().put(keyStroke, ACTION_KEY);
+      textarea.getActionMap().put(ACTION_KEY, new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+          handleCommentUncomment();
+        }
+      });
+    }
+
     footer = createFooter();
 
     upper.add(textarea);
@@ -297,7 +310,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
       String lastText = textarea.getText();
       public void caretUpdate(CaretEvent e) {
         String newText = textarea.getText();
-        if (lastText.equals(newText) && isDirectEdit()) {
+        if (lastText.equals(newText) && isDirectEdit() && !textarea.isOverwriteEnabled()) {
           endTextEditHistory();
         }
         lastText = newText;
@@ -1581,6 +1594,11 @@ public abstract class Editor extends JFrame implements RunnerListener {
   }
 
 
+  public void setSelectedText(String what, boolean ever) {
+    textarea.setSelectedText(what, ever);
+  }
+
+
   public void setSelection(int start, int stop) {
     // make sure that a tool isn't asking for a bad location
     start = PApplet.constrain(start, 0, textarea.getDocumentLength());
@@ -1720,7 +1738,20 @@ public abstract class Editor extends JFrame implements RunnerListener {
     SyntaxDocument document = (SyntaxDocument) code.getDocument();
 
     if (document == null) {  // this document not yet inited
-      document = new SyntaxDocument();
+      document = new SyntaxDocument() {
+        @Override
+        public void beginCompoundEdit() {
+          if (compoundEdit == null)
+            startCompoundEdit();
+          super.beginCompoundEdit();
+        }
+        
+        @Override
+        public void endCompoundEdit() {
+          stopCompoundEdit();
+          super.endCompoundEdit();
+        }
+      };
       code.setDocument(document);
 
       // turn on syntax highlighting
@@ -1739,17 +1770,20 @@ public abstract class Editor extends JFrame implements RunnerListener {
       document.addDocumentListener(new DocumentListener() {
 
         public void removeUpdate(DocumentEvent e) {
-          if (isInserting && isDirectEdit()) {
+          if (isInserting && isDirectEdit() && !textarea.isOverwriteEnabled()) {
             endTextEditHistory();
           }
           isInserting = false;
         }
 
         public void insertUpdate(DocumentEvent e) {
-          if (!isInserting && isDirectEdit()) {
+          if (!isInserting && !textarea.isOverwriteEnabled() && isDirectEdit()) {
             endTextEditHistory();
           }
-          isInserting = true;
+          
+          if (!textarea.isOverwriteEnabled()) {
+            isInserting = true;
+          }
         }
 
         public void changedUpdate(DocumentEvent e) {
@@ -2061,11 +2095,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
         continue; //ignore blank lines
       if (commented) {
         // remove a comment
-        if (lineText.trim().startsWith(prefix + " ")) {
-          textarea.select(location, location + prefixLen + 1);
-        } else {
-          textarea.select(location, location + prefixLen);
-        }
+        textarea.select(location, location + prefixLen);
         textarea.setSelectedText("");
       } else {
         // add a comment
