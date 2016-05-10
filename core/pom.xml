@@ -22,9 +22,9 @@
               
     <dependencies>
         <dependency>
-            <groupId>apple</groupId>  
-            <artifactId>apple</artifactId>  
-            <version>3.0</version>   
+            <groupId>com.apple</groupId>  
+            <artifactId>AppleJavaExtensions</artifactId>  
+            <version>processing</version>   
             <scope>system</scope>
             <systemPath>${project.basedir}/apple.jar</systemPath>
         </dependency>
