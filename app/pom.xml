@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.processing</groupId>
         <artifactId>processing-complete</artifactId>
-        <version>3.1</version>
+        <version>3.1.1</version>
         <relativePath>../build/pom.xml</relativePath>
     </parent>
 
@@ -25,7 +25,7 @@
         <dependency>
             <groupId>org.processing</groupId>
             <artifactId>core</artifactId>
-            <version>3.1</version>
+            <version>3.1.1</version>
         </dependency>
            
         <dependency>
