@@ -1,109 +1,80 @@
-0249 (3.1)
-o arrow keys aren't working in the examples window
-X   was working fine with most recent build.. weird
-X spend a lot of time trying to get non-8bit charsets on Windows
-o   https://github.com/processing/processing/issues/3543
+0250 (3.1.1)
+X Out of date Modes will hang Processing 3 on startup or when changing Modes
+X   Prevent bad Mode from taking down the environment
+X   https://github.com/processing/processing/issues/4467
+X fix up "ant clean" task
+X   remove work folder on linux and windows
+X   remove macosx dist zips
 
 contribs
-X Grab bag of smaller, mainly ARM-related updates
-X   https://github.com/processing/processing/pull/4300
-X IDE code disappearing due to a concurrency bug
-X   https://github.com/processing/processing/issues/4322
-X   https://github.com/processing/processing/pull/4325
-X Fix non-ARM Linux deb build process
-X   https://github.com/processing/processing/issues/4308
-X   https://github.com/processing/processing/pull/4309
-X Empty sketchbook message when sketchbook is empty
-X   https://github.com/processing/processing/pull/4311
-X processing-java output as UTF-8 makes Windows unhappy
-X   https://github.com/processing/processing/issues/1633
-X   https://github.com/processing/processing/pull/4350
-X Add support for symlinks to exported applications in linux
-X   https://github.com/processing/processing/issues/4318
-X   https://github.com/processing/processing/pull/4319
-X Added Ukrainian localization
-X   https://github.com/processing/processing/pull/4343
-X Non-western language hint text for toolbar buttons not correctly displayed
-X   https://github.com/processing/processing/issues/2886
-X load fallback font for CJK (Chinese, Japanese and Korean)
-X   https://github.com/processing/processing/pull/4348
-X Added readBytes(max) to net library
-X   https://github.com/processing/processing/pull/4320
-X Added readBytes(max) to serial library
-X   https://github.com/processing/processing/pull/4321
-X Improve error message "The nested type cannot hide an enclosing type"
-X   https://github.com/processing/processing/issues/4228
-X   https://github.com/processing/processing/pull/4337
-X   https://github.com/processing/processing/pull/4451
-X Multi-line comments ending in '**/' cause ArrayIndexOutOfBoundsException
-X   https://github.com/processing/processing/issues/4397
-X   https://github.com/processing/processing/pull/4402
+X Undo is a little "jerky" in insert mode
+X   https://github.com/processing/processing/issues/4302
+X   https://github.com/processing/processing/pull/4310
+X "Replace" and "Replace All" do not undo in a single step
+X   https://github.com/processing/processing/issues/4303
+X   https://github.com/processing/processing/pull/4310
+X Comment/uncomment removes indenting
+X   https://github.com/processing/processing/issues/4249
+X   https://github.com/processing/processing/pull/4313
+X remove poorly implemented "rectangular selection" support from the editor
+X   https://github.com/processing/processing/pull/4462
+X   https://github.com/processing/processing/pull/4326
+X   https://github.com/processing/processing/issues/4250
+X Fix error messages from Javadocs
+X   https://github.com/processing/processing/pull/4191
+X   https://github.com/processing/processing/issues/1492
+X Loader is not visible when opening the Updates tab
+X   https://github.com/processing/processing/issues/4088
+X   https://github.com/processing/processing/pull/4089
 
 jakub
-X Update app to Java 8
-X   https://github.com/processing/processing/pull/4383
-X more Java 8 updates
-X   https://github.com/processing/processing/pull/4388
-X update minimum JRE version for Windows
-X   https://github.com/processing/processing/pull/4389
-X update JDT to 4.5.2
-X   https://github.com/processing/processing/pull/4387
-X JavaMode cleanup
-X   https://github.com/processing/processing/pull/4390
-X tabs aren't working properly (several bugs?)
-X   https://github.com/processing/processing/issues/3975
-X   https://github.com/processing/processing/pull/4410
-X file paths not decoding properly
-X   https://github.com/processing/processing/issues/4417
-X   https://github.com/processing/processing/pull/4426
-X   double check that this is working on OS X
-X   check whether it fixes the Windows startup problem
-X Java Mode refactoring
-X   https://github.com/processing/processing/pull/4440
-X jump to variable declaration miss
-X   https://github.com/processing/processing/issues/4287
-X Numbers in scientific notation not recognized as floats in 3.0
-X   https://github.com/processing/processing/issues/4190
-X Adding .java files to sketch causes the Error Checker to weird out
-X   https://github.com/processing/processing/issues/4368
-X "Show usage..." does not locate keywords on correct line
-X   https://github.com/processing/processing/issues/3988
-X PPS: threading enhancement
-X   https://github.com/processing/processing/pull/4442
-X Move PDEX listeners from JavaEditor to PDEX
-X   https://github.com/processing/processing/pull/4446
-X   https://github.com/processing/processing/pull/4447
-X handleCtrlClick misbehaving
-X   https://github.com/processing/processing/issues/4281
-X Fix listeners not firing on first preprocessing run
-X   https://github.com/processing/processing/pull/4450
-X Remove some unnecessary calls from rename
-X   https://github.com/processing/processing/pull/4449
+X Make Comment/Uncomment trigger on numpad slash
+X   https://github.com/processing/processing/pull/4457
+X Hex values throwing errors in 3.1
+X   https://github.com/processing/processing/issues/4458
+X   https://github.com/processing/processing/pull/4460
+X Fix up cmd-click/ctrl-click behavior, add preference to disable it
+X   https://github.com/processing/processing/issues/4466
+X   https://github.com/processing/processing/pull/4472
+X Make undo/redo mark all affected tabs as modified
+X   https://github.com/processing/processing/pull/4479
 
-gottfried
-X Add automatic mipmap support to GLES2
-X   https://github.com/processing/processing/pull/4416
-X Add a few IO library examples
-X   https://github.com/processing/processing/pull/4384
-X Be more verbose with drawExceptions with cause null
-X   https://github.com/processing/processing/pull/4432
-X Ignore memory options when exporting for ARM
-X   https://github.com/processing/processing/pull/4406
-X update JNA to 4.2.0
-X   https://github.com/processing/processing/pull/4443
-X Add two Raspberry Pi related fixes to JOGL
-X   https://github.com/processing/processing/pull/4379
-X   https://github.com/sgothel/jogl/pull/96
-X   https://github.com/sgothel/jogl/pull/97
+gohai
+X Prevent InvocationTargetException when running processing-java
+X   https://github.com/processing/processing/pull/4453
+X   https://github.com/processing/processing/issues/4452
+X Switch back to JRE 8u77 on ARM to fix GL video library performance
+X   https://github.com/processing/processing/pull/4454
+
+earlier
+X complex text input issues (may be fixed with PR)
+X   https://github.com/processing/processing/issues/3860
+X   https://github.com/processing/processing/issues/3475
+o   fixed in 3.0.2
+X contrib: Allow Movie Maker to cope with bad files
+X   https://github.com/processing/processing/issues/2727
+X   https://github.com/processing/processing/pull/3635
+o   fixed prior to 3.0?
+
+
+_ possible infinite loop on modified externally
+_   https://github.com/processing/processing/issues/3965
+
+shortcuts
+_ ctrl-J (for debugger) is inserting newline
+_   https://github.com/processing/processing/issues/3830
+_ problems with non-US keyboards and some shortcuts
+_   https://github.com/processing/processing/issues/2199
+_ Determine shortcut for Export vs Use Selection for Find
+_   https://github.com/processing/processing/issues/2985
+_ Determine new keyboard shortcut for Step Out
+_   https://github.com/processing/processing/issues/3538
 
 
 needs more review
 _ createPreprocessor() added to JavaEditor, creating a mess
 _   https://github.com/processing/processing/commit/2ecdc36ac7c680eb36e271d17ad80b657b3ae6a0
 _ patch to core classpath by Manindra?
-
-_ possible infinite loop on modified externally
-_   https://github.com/processing/processing/issues/3965
 
 _ spacing of the updates number/circle in the lower right is off
 _   https://github.com/processing/processing/issues/4094
@@ -118,16 +89,6 @@ o   https://github.com/processing/processing/pull/4087
 
 _ add 2016 to about-1x and about-2x
 
-shortcuts
-_ ctrl-J (for debugger) is inserting newline
-_   https://github.com/processing/processing/issues/3830
-_ problems with non-US keyboards and some shortcuts
-_   https://github.com/processing/processing/issues/2199
-_ Determine shortcut for Export vs Use Selection for Find
-_   https://github.com/processing/processing/issues/2985
-_ Determine new keyboard shortcut for Step Out
-_   https://github.com/processing/processing/issues/3538
-
 
 more contribs
 _ question about PDE_pt-br instead of PDE_pt
@@ -139,10 +100,6 @@ _   https://github.com/processing/processing/issues/3965
 _   https://github.com/processing/processing/pull/4037
 _ Pasting text into PDE results in "Clipboard does not contain a string"
 _   https://github.com/processing/processing/pull/4040
-
-_ complex text input issues (may be fixed with PR)
-_   https://github.com/processing/processing/issues/3860
-_   https://github.com/processing/processing/issues/3475
 
 known issues
 _ launch4j doesn't work from folders with non-native charsets

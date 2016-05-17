@@ -32,14 +32,17 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Image;
 
+import java.io.File;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.WeakHashMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -825,7 +828,7 @@ public class PGraphics extends PImage implements PConstants {
    * image data, for instance a BufferedImage with tint() settings applied for
    * PGraphicsJava2D, or resized image data and OpenGL texture indices for
    * PGraphicsOpenGL.
-   * @param renderer The PGraphics renderer associated to the image
+   * @param image The image to be stored
    * @param storage The metadata required by the renderer
    */
   public void setCache(PImage image, Object storage) {  // ignore
@@ -838,7 +841,6 @@ public class PGraphics extends PImage implements PConstants {
    * will cache data in different formats, it's necessary to store cache data
    * keyed by the renderer object. Otherwise, attempting to draw the same
    * image to both a PGraphicsJava2D and a PGraphicsOpenGL will cause errors.
-   * @param renderer The PGraphics renderer associated to the image
    * @return metadata stored for the specified renderer
    */
   public Object getCache(PImage image) {  // ignore
@@ -848,7 +850,7 @@ public class PGraphics extends PImage implements PConstants {
 
   /**
    * Remove information associated with this renderer from the cache, if any.
-   * @param renderer The PGraphics renderer whose cache data should be removed
+   * @param image The image whose cache data should be removed
    */
   public void removeCache(PImage image) {  // ignore
     cacheMap.remove(image);
@@ -1961,9 +1963,9 @@ public class PGraphics extends PImage implements PConstants {
   /**
    * ( begin auto-generated from clip.xml )
    *
-   * Limits the rendering to the boundaries of a rectangle defined 
-   * by the parameters. The boundaries are drawn based on the state 
-   * of the <b>imageMode()</b> fuction, either CORNER, CORNERS, or CENTER. 
+   * Limits the rendering to the boundaries of a rectangle defined
+   * by the parameters. The boundaries are drawn based on the state
+   * of the <b>imageMode()</b> fuction, either CORNER, CORNERS, or CENTER.
    *
    * ( end auto-generated )
    *
@@ -8289,12 +8291,24 @@ public class PGraphics extends PImage implements PConstants {
     if (target == null) return false;
     int count = PApplet.min(pixels.length, target.pixels.length);
     System.arraycopy(pixels, 0, target.pixels, 0, count);
-    asyncImageSaver.saveTargetAsync(this, target, filename);
+    asyncImageSaver.saveTargetAsync(this, target, parent.sketchFile(filename));
 
     return true;
   }
 
   protected void processImageBeforeAsyncSave(PImage image) { }
+
+
+  /**
+   * If there is running async save task for this file, blocks until it completes.
+   * Has to be called on main thread because OpenGL overrides this and calls GL.
+   * @param filename
+   */
+  protected void awaitAsyncSaveCompletion(String filename) {
+    if (asyncImageSaver != null) {
+      asyncImageSaver.awaitAsyncSaveCompletion(parent.sketchFile(filename));
+    }
+  }
 
 
   protected static AsyncImageSaver asyncImageSaver;
@@ -8308,6 +8322,9 @@ public class PGraphics extends PImage implements PConstants {
     ExecutorService saveExecutor = Executors.newFixedThreadPool(TARGET_COUNT);
 
     int targetsCreated = 0;
+
+    Map<File, Future<?>> runningTasks = new HashMap<>();
+    final Object runningTasksLock = new Object();
 
 
     static final int TIME_AVG_FACTOR = 32;
@@ -8368,7 +8385,7 @@ public class PGraphics extends PImage implements PConstants {
 
 
     public void saveTargetAsync(final PGraphics renderer, final PImage target, // ignore
-                                final String filename) {
+                                final File file) {
       target.parent = renderer.parent;
 
       // if running every frame, smooth the framerate
@@ -8389,14 +8406,17 @@ public class PGraphics extends PImage implements PConstants {
       lastFrameCount = target.parent.frameCount;
       lastTime = System.nanoTime();
 
-      try {
-        saveExecutor.submit(new Runnable() {
-          @Override
-          public void run() { // ignore
+      awaitAsyncSaveCompletion(file);
+
+      // Explicit lock, because submitting a task and putting it into map
+      // has to be atomic (and happen before task tries to remove itself)
+      synchronized (runningTasksLock) {
+        try {
+          Future<?> task = saveExecutor.submit(() -> {
             try {
               long startTime = System.nanoTime();
               renderer.processImageBeforeAsyncSave(target);
-              target.save(filename);
+              target.save(file.getAbsolutePath());
               long saveNanos = System.nanoTime() - startTime;
               synchronized (AsyncImageSaver.this) {
                 if (avgNanos == 0) {
@@ -8410,13 +8430,32 @@ public class PGraphics extends PImage implements PConstants {
               }
             } finally {
               targetPool.offer(target);
+              synchronized (runningTasksLock) {
+                runningTasks.remove(file);
+              }
             }
-          }
-        });
-      } catch (RejectedExecutionException e) {
-        // the executor service was probably shut down, no more saving for us
+          });
+          runningTasks.put(file, task);
+        } catch (RejectedExecutionException e) {
+          // the executor service was probably shut down, no more saving for us
+        }
       }
     }
+
+
+    public void awaitAsyncSaveCompletion(final File file) { // ignore
+      Future<?> taskWithSameFilename;
+      synchronized (runningTasksLock) {
+        taskWithSameFilename = runningTasks.get(file);
+      }
+
+      if (taskWithSameFilename != null) {
+        try {
+          taskWithSameFilename.get();
+        } catch (InterruptedException | ExecutionException e) { }
+      }
+    }
+
   }
 
 }

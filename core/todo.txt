@@ -1,40 +1,22 @@
-0249 (3.1)
-X Float/IntDict changes
-X   minIndex() and maxIndex() return -1 when count is zero (rather than ex)
-X   bug fix to reverse sorts
-X   2x performance increase for sorting
-X   added optional "stable" parameter for sorting by values
-X     set to false for higher performance
-X   call crop() in keyArray() and valueArray() functions
-X     they're duplicates, their length is an implementation detail
-X   normalize features and error handling between all of them
-X add print() and write(PrintWriter) methods to Table/TableRow
-X   https://github.com/processing/processing/issues/4396
+0250 (3.1.1)
+X implement support for encoding= option in loadTable()
 
 jakub
-X several JavaFX fixes
-X   https://github.com/processing/processing/pull/4411
-X cursor() and noCursor() not working on FX2D
-X   https://github.com/processing/processing/issues/4405
-X Make sure PImage.parent is set in loadImage()
-X   https://github.com/processing/processing/pull/4412
+X Block loadImage and requestImage while images still being saved
+X   https://github.com/processing/processing/issues/4218
+X   https://github.com/processing/processing/pull/4465
 
 andres
-X Change convention for directional lights in OpenGL-Binding for GLSL
-X   https://github.com/processing/processing/issues/4275
-X internal texture copy does not update immediately
-X   https://github.com/processing/processing/issues/4404
-X Font corruption issue in OpenGL
-X   https://github.com/processing/processing/issues/4392
-X setStroke() does not work with imported OBJ Pshapes
-X   https://github.com/processing/processing/issues/4377
+X PShapeOBJ error String for missing MTL texture file
+X   https://github.com/processing/processing/issues/3990
+X   https://github.com/processing/processing/commit/49a4c815557214fc1bf92e381ffaa398f262361a
+X Shape (OBJ) import texture data is 0.0
+X   https://github.com/processing/processing/issues/3156
+X   https://github.com/processing/processing/commit/9f1d2988dc80ca7d5ee861b944cb59020ff771c5
 
-contribs
-X blendMode() resetting with getGraphics()
-X   https://github.com/processing/processing/issues/4019
-X   https://github.com/processing/processing/pull/4341
-X   https://github.com/processing/processing/issues/4376
 
+_ Can't render PGraphics object using image() within a PDF
+_   https://github.com/processing/processing/issues/4473
 
 _ JSONObject get() method is private
 _   https://github.com/processing/processing/issues/4334
