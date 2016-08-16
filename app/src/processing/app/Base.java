@@ -3,7 +3,7 @@
 /*
   Part of the Processing project - http://processing.org
 
-  Copyright (c) 2012-15 The Processing Foundation
+  Copyright (c) 2012-16 The Processing Foundation
   Copyright (c) 2004-12 Ben Fry and Casey Reas
   Copyright (c) 2001-04 Massachusetts Institute of Technology
 
@@ -55,9 +55,9 @@ import processing.data.StringList;
 public class Base {
   // Added accessors for 0218 because the UpdateCheck class was not properly
   // updating the values, due to javac inlining the static final values.
-  static private final int REVISION = 250;
+  static private final int REVISION = 251;
   /** This might be replaced by main() if there's a lib/version.txt file. */
-  static private String VERSION_NAME = "0250"; //$NON-NLS-1$
+  static private String VERSION_NAME = "0251"; //$NON-NLS-1$
   /** Set true if this a proper release rather than a numbered revision. */
 
   /** True if heavy debugging error/log messages are enabled */
@@ -885,8 +885,9 @@ public class Base {
   /**
    * The call has already checked to make sure this sketch is not modified,
    * now change the mode.
+   * @return true if mode is changed.
    */
-  public void changeMode(Mode mode) {
+  public boolean changeMode(Mode mode) {
     Mode oldMode = activeEditor.getMode();
     if (oldMode != mode) {
       Sketch sketch = activeEditor.getSketch();
@@ -908,7 +909,9 @@ public class Base {
             break;
           }
         }
-        if (newModeCanHandleCurrentSource) {
+        if (!newModeCanHandleCurrentSource) {
+          return false;
+        } else {
           final File props = new File(sketch.getCodeFolder(), "sketch.properties");
           saveModeSettings(props, nextMode);
           handleClose(activeEditor, true);
@@ -918,10 +921,12 @@ public class Base {
             // re-open the sketch using the mode we were in before
             saveModeSettings(props, oldMode);
             handleOpen(sketch.getMainFilePath());
+            return false;
           }
         }
       }
     }
+    return true;
   }
 
 

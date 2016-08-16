@@ -1,64 +1,71 @@
-0250 (3.1.1)
-X Out of date Modes will hang Processing 3 on startup or when changing Modes
-X   Prevent bad Mode from taking down the environment
-X   https://github.com/processing/processing/issues/4467
-X fix up "ant clean" task
-X   remove work folder on linux and windows
-X   remove macosx dist zips
-
-contribs
-X Undo is a little "jerky" in insert mode
-X   https://github.com/processing/processing/issues/4302
-X   https://github.com/processing/processing/pull/4310
-X "Replace" and "Replace All" do not undo in a single step
-X   https://github.com/processing/processing/issues/4303
-X   https://github.com/processing/processing/pull/4310
-X Comment/uncomment removes indenting
-X   https://github.com/processing/processing/issues/4249
-X   https://github.com/processing/processing/pull/4313
-X remove poorly implemented "rectangular selection" support from the editor
-X   https://github.com/processing/processing/pull/4462
-X   https://github.com/processing/processing/pull/4326
-X   https://github.com/processing/processing/issues/4250
-X Fix error messages from Javadocs
-X   https://github.com/processing/processing/pull/4191
-X   https://github.com/processing/processing/issues/1492
-X Loader is not visible when opening the Updates tab
-X   https://github.com/processing/processing/issues/4088
-X   https://github.com/processing/processing/pull/4089
-
-jakub
-X Make Comment/Uncomment trigger on numpad slash
-X   https://github.com/processing/processing/pull/4457
-X Hex values throwing errors in 3.1
-X   https://github.com/processing/processing/issues/4458
-X   https://github.com/processing/processing/pull/4460
-X Fix up cmd-click/ctrl-click behavior, add preference to disable it
-X   https://github.com/processing/processing/issues/4466
-X   https://github.com/processing/processing/pull/4472
-X Make undo/redo mark all affected tabs as modified
-X   https://github.com/processing/processing/pull/4479
+0251 (3.1.2)
+X update to Java 8u102 build 14
 
 gohai
-X Prevent InvocationTargetException when running processing-java
-X   https://github.com/processing/processing/pull/4453
-X   https://github.com/processing/processing/issues/4452
-X Switch back to JRE 8u77 on ARM to fix GL video library performance
-X   https://github.com/processing/processing/pull/4454
+X IO: Fix drawing for SPIAnalogDigital examples
+X   https://github.com/processing/processing/pull/4480
+X Update JVM warning text on Linux
+X   https://github.com/processing/processing/pull/4512
+X undo the 8u91 workaround, add Mesa warning for ARM
+X   https://github.com/processing/processing/pull/4508
+X IO: We want motors, they said (implements SoftwareServo)
+X   https://github.com/processing/processing/pull/4546
+X Add a temporary workaround for the CHIP to deal with cursor problems
+X   https://github.com/processing/processing/pull/4554
+X Fix the Downloader so that builds work again
+X   https://github.com/processing/processing/issues/4496
+X   https://github.com/processing/processing/pull/4511
 
-earlier
-X complex text input issues (may be fixed with PR)
-X   https://github.com/processing/processing/issues/3860
-X   https://github.com/processing/processing/issues/3475
-o   fixed in 3.0.2
-X contrib: Allow Movie Maker to cope with bad files
-X   https://github.com/processing/processing/issues/2727
-X   https://github.com/processing/processing/pull/3635
-o   fixed prior to 3.0?
+jakub
+X Return of the error check toggle
+X   https://github.com/processing/processing/pull/4491
+X   https://github.com/processing/processing/issues/4485
+X problems when running PDE from network locations
+X   lots of reports about a failure to launch on Windows
+X   seems related to running from network drives
+X   https://github.com/processing/processing/issues/4417
+X   https://github.com/processing/processing/pull/4582
+X   https://github.com/processing/processing/issues/4476
+
+contrib
+X updates to Japanese translation
+X   https://github.com/processing/processing/pull/4564
+X Make preferences button wider for Japanese
+X   https://github.com/processing/processing/pull/4558
+X Show warning message if Mode cannot be changed
+X   https://github.com/processing/processing/pull/4559
+
+fixed in 3.1.1
+X debugger deadlocks when choosing "Step Into" on println()
+X   https://github.com/processing/processing/issues/3923
+X Suggestions switch scope to first import
+X   https://github.com/processing/processing/issues/4016
+X loadImage() immediately after saveFrame() foiled by async default
+X   https://github.com/processing/processing/issues/4218
+X   the hint() mostly works, but gross to use a hint frequently
 
 
+high
+_ NullPointerException in SketchCode.getDocumentText()
+_   https://github.com/processing/processing/issues/4555
+_   https://github.com/processing/processing/pull/4547
+_ Pasting code from editor to empty editor produces Exception
+_   https://github.com/processing/processing/issues/4522
+_ did we lose settings.path because it was too buggy?
+_   https://github.com/processing/processing/issues/3948
 _ possible infinite loop on modified externally
 _   https://github.com/processing/processing/issues/3965
+
+lower
+_ make when opening new editor window, open on the same display as current
+_   https://github.com/processing/processing/issues/4526
+_ hi-dpi support on Linux
+_   https://github.com/processing/processing/issues/4183
+_ PDE and sketches are 2x smaller on high-res Windows machines
+_   https://github.com/processing/processing/issues/2411
+
+_ Library path mismatch between processing-java and export
+_   https://github.com/processing/processing/issues/4493
 
 shortcuts
 _ ctrl-J (for debugger) is inserting newline
@@ -112,17 +119,8 @@ _ mouse events (i.e. toggle breakpoint) seem to be firing twice
 
 
 run/debug
-_ debugger deadlocks when choosing "Step Into" on println()
-_   https://github.com/processing/processing/issues/3923
 _ Tweak Mode sometimes freezes while running, require a force quit
 _   https://github.com/processing/processing/issues/3928
-
-
-discussion
-_ loadImage() immediately after saveFrame() foiled by async default
-_   https://github.com/processing/processing/issues/4218
-_   the hint() mostly works, but gross to use a hint frequently
-_ how to handle the touch api
 
 
 gui

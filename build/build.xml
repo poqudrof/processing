@@ -59,16 +59,7 @@
 
   <!-- Switching to 8 because updates for 7 ended April 2015 -->
   <property name="jdk.version" value="8" />
-
-  <!-- temporarily work around performance regression on ARM -->
-  <condition property="jdk.update" value="77">
-    <equals arg1="${linux-arm32}" arg2="linux-arm32" />
-  </condition>
-  <condition property="jdk.build" value="3">
-    <equals arg1="${linux-arm32}" arg2="linux-arm32" />
-  </condition>
-
-  <property name="jdk.update" value="92" />
+  <property name="jdk.update" value="102" />
   <property name="jdk.build" value="14" />
 
   <property name="jdk.short" value="${jdk.version}u${jdk.update}" />
@@ -835,11 +826,11 @@
     -->
 
     <!-- use the jre subfolder when having downloaded a JDK file -->
-    <condition property="jre.dir" value="jdk${jdk.esoteric}/jre/">
+    <condition property="jre.dir" value="jdk${jdk.esoteric}/jre">
       <!-- property might not be set, but it is for arm -->
       <equals arg1="${jre.download.jdk}" arg2="true" />
     </condition>
-    <condition property="jre.dir" value="jre${jdk.esoteric}/">
+    <condition property="jre.dir" value="jre${jdk.esoteric}">
       <not>
         <equals arg1="${jre.download.jdk}" arg2="true" />
       </not>
@@ -848,8 +839,8 @@
     <exec executable="rsync" dir="linux">
       <arg value="-a" />
       <arg value="--delete" />
-      <arg value="${jre.dir}" />
-      <arg value="work/java" />
+      <arg value="${jre.dir}/" />
+      <arg value="work/java/" />
     </exec>
 
     <delete dir="linux/jre${jdk.esoteric}" failonerror="false" />

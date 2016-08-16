@@ -718,7 +718,8 @@ public class PGraphics extends PImage implements PConstants {
 
 
   public PGraphics() {
-    // Allows subclasses to override
+    // In 3.1.2, giving up on the async image saving as the default
+    hints[DISABLE_ASYNC_SAVEFRAME] = true;
   }
 
 

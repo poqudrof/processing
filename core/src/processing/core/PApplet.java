@@ -1870,7 +1870,7 @@ public class PApplet implements PConstants {
 
 
   /**
-   * @param display the screen to run the sketch on (1, 2, 3, etc. or on multiple screens using SPAN) 
+   * @param display the screen to run the sketch on (1, 2, 3, etc. or on multiple screens using SPAN)
    */
 
   public void fullScreen(String renderer, int display) {
@@ -4921,7 +4921,13 @@ public class PApplet implements PConstants {
   public final float random(float low, float high) {
     if (low >= high) return low;
     float diff = high - low;
-    return random(diff) + low;
+    float value = 0;
+    // because of rounding error, can't just add low, otherwise it may hit high
+    // https://github.com/processing/processing/issues/4551
+    do {
+      value = random(diff) + low;
+    } while (value == high);
+    return value;
   }
 
 
@@ -5246,7 +5252,7 @@ public class PApplet implements PConstants {
 
     // await... has to run on the main thread, because P2D and P3D call GL functions
     // If this runs on background, requestImage() already called await... on the main thread
-    if (!Thread.currentThread().getName().startsWith(ASYNC_IMAGE_LOADER_THREAD_PREFIX)) {
+    if (g != null && !Thread.currentThread().getName().startsWith(ASYNC_IMAGE_LOADER_THREAD_PREFIX)) {
       g.awaitAsyncSaveCompletion(filename);
     }
 
@@ -5403,7 +5409,9 @@ public class PApplet implements PConstants {
   public PImage requestImage(String filename, String extension) {
     // Make sure saving to this file completes before trying to load it
     // Has to be called on main thread, because P2D and P3D need GL functions
-    g.awaitAsyncSaveCompletion(filename);
+    if (g != null) {
+      g.awaitAsyncSaveCompletion(filename);
+    }
     PImage vessel = createImage(0, 0, ARGB);
     AsyncImageLoader ail =
       new AsyncImageLoader(filename, extension, vessel);
@@ -6178,6 +6186,9 @@ public class PApplet implements PConstants {
    */
   public PFont createFont(String name, float size,
                           boolean smooth, char[] charset) {
+    if (g == null) {
+      throw new RuntimeException("createFont() can only be used inside setup() or after setup() has been called.");
+    }
     return g.createFont(name, size, smooth, charset);
   }
 
@@ -7408,7 +7419,7 @@ public class PApplet implements PConstants {
       URL jarURL =
           PApplet.class.getProtectionDomain().getCodeSource().getLocation();
       // Decode URL
-      String jarPath = jarURL.toURI().getPath();
+      String jarPath = jarURL.toURI().getSchemeSpecificPart();
 
       // Workaround for bug in Java for OS X from Oracle (7u51)
       // https://github.com/processing/processing/issues/2181
@@ -7842,7 +7853,7 @@ public class PApplet implements PConstants {
    * @see PApplet#shorten(boolean[])
    */
   static public boolean[] expand(boolean list[]) {
-    return expand(list, list.length << 1);
+    return expand(list, list.length > 0 ? list.length << 1 : 1);
   }
 
   /**
@@ -7855,7 +7866,7 @@ public class PApplet implements PConstants {
   }
 
   static public byte[] expand(byte list[]) {
-    return expand(list, list.length << 1);
+    return expand(list, list.length > 0 ? list.length << 1 : 1);
   }
 
   static public byte[] expand(byte list[], int newSize) {
@@ -7865,7 +7876,7 @@ public class PApplet implements PConstants {
   }
 
   static public char[] expand(char list[]) {
-    return expand(list, list.length << 1);
+    return expand(list, list.length > 0 ? list.length << 1 : 1);
   }
 
   static public char[] expand(char list[], int newSize) {
@@ -7875,7 +7886,7 @@ public class PApplet implements PConstants {
   }
 
   static public int[] expand(int list[]) {
-    return expand(list, list.length << 1);
+    return expand(list, list.length > 0 ? list.length << 1 : 1);
   }
 
   static public int[] expand(int list[], int newSize) {
@@ -7885,7 +7896,7 @@ public class PApplet implements PConstants {
   }
 
   static public long[] expand(long list[]) {
-    return expand(list, list.length << 1);
+    return expand(list, list.length > 0 ? list.length << 1 : 1);
   }
 
   static public long[] expand(long list[], int newSize) {
@@ -7895,7 +7906,7 @@ public class PApplet implements PConstants {
   }
 
   static public float[] expand(float list[]) {
-    return expand(list, list.length << 1);
+    return expand(list, list.length > 0 ? list.length << 1 : 1);
   }
 
   static public float[] expand(float list[], int newSize) {
@@ -7905,7 +7916,7 @@ public class PApplet implements PConstants {
   }
 
   static public double[] expand(double list[]) {
-    return expand(list, list.length << 1);
+    return expand(list, list.length > 0 ? list.length << 1 : 1);
   }
 
   static public double[] expand(double list[], int newSize) {
@@ -7915,7 +7926,7 @@ public class PApplet implements PConstants {
   }
 
   static public String[] expand(String list[]) {
-    return expand(list, list.length << 1);
+    return expand(list, list.length > 0 ? list.length << 1 : 1);
   }
 
   static public String[] expand(String list[], int newSize) {
@@ -7929,7 +7940,8 @@ public class PApplet implements PConstants {
   * @nowebref
   */
   static public Object expand(Object array) {
-    return expand(array, Array.getLength(array) << 1);
+    int len = Array.getLength(array);
+    return expand(array, len > 0 ? len << 1 : 1);
   }
 
   static public Object expand(Object list, int newSize) {
