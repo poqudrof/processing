@@ -57,6 +57,7 @@ import org.xml.sax.SAXException;
 import java.io.*;
 import java.lang.reflect.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.text.*;
 import java.util.*;
 import java.util.regex.*;
@@ -731,6 +732,9 @@ public class PApplet implements PConstants {
   /** true if the sketch has stopped permanently. */
   public volatile boolean finished;
 
+  /** used by the UncaughtExceptionHandler, so has to be static */
+  static Throwable uncaughtThrowable;
+
   // public, but undocumented.. removing for 3.0a5
 //  /**
 //   * true if the animation thread is paused.
@@ -978,7 +982,7 @@ public class PApplet implements PConstants {
           stderr.append(line);
         }
       } catch (IOException e) {
-        e.printStackTrace();
+        printStackTrace(e);
       }
 
       int resultCode = -1;
@@ -1411,7 +1415,7 @@ public class PApplet implements PConstants {
             throw (RuntimeException) t;
           } else {
             // trap and print as usual
-            t.printStackTrace();
+            printStackTrace(t);
           }
         }
       }
@@ -2239,11 +2243,14 @@ public class PApplet implements PConstants {
           "specified with -Djava.library.path=/path/to/jogl");
 
       } else {
-        ite.getTargetException().printStackTrace();
+        printStackTrace(ite.getTargetException());
         Throwable target = ite.getTargetException();
+        /*
+        // removing for 3.2, we'll see
         if (platform == MACOSX) {
           target.printStackTrace(System.out);  // OS X bug (still true?)
         }
+        */
         throw new RuntimeException(target.getMessage());
       }
 
@@ -2270,16 +2277,18 @@ public class PApplet implements PConstants {
           throw new RuntimeException(e);
 
         } else {
-          e.printStackTrace();
+          printStackTrace(e);
           String msg = renderer + " needs to be updated " +
             "for the current release of Processing.";
           throw new RuntimeException(msg);
         }
       } else {
+        /*
         if (platform == MACOSX) {
           e.printStackTrace(System.out);  // OS X bug (still true?)
         }
-        e.printStackTrace();
+        */
+        printStackTrace(e);
         throw new RuntimeException(e.getMessage());
       }
     }
@@ -3367,9 +3376,9 @@ public class PApplet implements PConstants {
         launch(url);
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      printStackTrace(e);
     } catch (URISyntaxException e) {
-      e.printStackTrace();
+      printStackTrace(e);
     }
   }
 
@@ -3471,8 +3480,7 @@ public class PApplet implements PConstants {
     try {
       return Runtime.getRuntime().exec(args);
     } catch (Exception e) {
-      e.printStackTrace();
-      throw new RuntimeException("Could not open " + join(args, ' '));
+      throw new RuntimeException("Could not open " + join(args, ' '), e);
     }
   }
 
@@ -3485,6 +3493,15 @@ public class PApplet implements PConstants {
 
 
   //////////////////////////////////////////////////////////////
+
+
+  /**
+   * Better way of handling e.printStackTrace() calls so that they can be
+   * handled by subclasses as necessary.
+   */
+  protected void printStackTrace(Throwable t) {
+    t.printStackTrace();
+  }
 
 
   /**
@@ -5283,7 +5300,7 @@ public class PApplet implements PConstants {
 //        }
         return image;
       } catch (IOException e) {
-        e.printStackTrace();
+        printStackTrace(e);
         return null;
       }
     }
@@ -5353,7 +5370,7 @@ public class PApplet implements PConstants {
       }
     } catch (Exception e) {
       // show error, but move on to the stuff below, see if it'll work
-      e.printStackTrace();
+      printStackTrace(e);
     }
 
     if (loadImageFormats == null) {
@@ -5543,7 +5560,7 @@ public class PApplet implements PConstants {
       return outgoing;
 
     } catch (Exception e) {
-      e.printStackTrace();
+      printStackTrace(e);
       return null;
     }
   }
@@ -6015,7 +6032,7 @@ public class PApplet implements PConstants {
       return new Table(input, optionStr);
 
     } catch (IOException e) {
-      e.printStackTrace();
+      printStackTrace(e);
       return null;
     }
   }
@@ -6055,7 +6072,7 @@ public class PApplet implements PConstants {
       return table.save(outputFile, options);
 
     } catch (IOException e) {
-      e.printStackTrace();
+      printStackTrace(e);
       return false;
     }
   }
@@ -6531,7 +6548,10 @@ public class PApplet implements PConstants {
   public BufferedReader createReader(String filename) {
     InputStream is = createInput(filename);
     if (is == null) {
-      System.err.println(filename + " does not exist or could not be read");
+      System.err.println("The file \"" + filename + "\" " +
+                       "is missing or inaccessible, make sure " +
+                       "the URL is valid or that the file has been " +
+                       "added to your sketch and is readable.");
       return null;
     }
     return createReader(is);
@@ -6562,10 +6582,8 @@ public class PApplet implements PConstants {
    * following lines any more I'm gonna send Sun my medical bills.
    */
   static public BufferedReader createReader(InputStream input) {
-    InputStreamReader isr = null;
-    try {
-      isr = new InputStreamReader(input, "UTF-8");
-    } catch (UnsupportedEncodingException e) { }  // not gonna happen
+    InputStreamReader isr =
+      new InputStreamReader(input, StandardCharsets.UTF_8);
     return new BufferedReader(isr);
   }
 
@@ -6625,12 +6643,10 @@ public class PApplet implements PConstants {
    * It's the JavaSoft API engineers who need to explain themselves.
    */
   static public PrintWriter createWriter(OutputStream output) {
-    try {
-      BufferedOutputStream bos = new BufferedOutputStream(output, 8192);
-      OutputStreamWriter osw = new OutputStreamWriter(bos, "UTF-8");
-      return new PrintWriter(osw);
-    } catch (UnsupportedEncodingException e) { }  // not gonna happen
-    return null;
+    BufferedOutputStream bos = new BufferedOutputStream(output, 8192);
+    OutputStreamWriter osw =
+      new OutputStreamWriter(bos, StandardCharsets.UTF_8);
+    return new PrintWriter(osw);
   }
 
 
@@ -6726,7 +6742,7 @@ public class PApplet implements PConstants {
       try {
         return new GZIPInputStream(input);
       } catch (IOException e) {
-        e.printStackTrace();
+        printStackTrace(e);
         return null;
       }
     }
@@ -6781,7 +6797,7 @@ public class PApplet implements PConstants {
 
       } catch (IOException e) {
         // changed for 0117, shouldn't be throwing exception
-        e.printStackTrace();
+        printStackTrace(e);
         //System.err.println("Error downloading from URL " + filename);
         return null;
         //throw new RuntimeException("Error downloading from URL " + filename);
@@ -6887,8 +6903,7 @@ public class PApplet implements PConstants {
       } catch (SecurityException se) { }  // online, whups
 
     } catch (Exception e) {
-      //die(e.getMessage(), e);
-      e.printStackTrace();
+      printStackTrace(e);
     }
 
     return null;
@@ -6944,7 +6959,7 @@ public class PApplet implements PConstants {
       try {
         is.close();
       } catch (IOException e) {
-        e.printStackTrace();  // shouldn't happen
+        printStackTrace(e);  // shouldn't happen
       }
       return outgoing;
     }
@@ -7060,7 +7075,7 @@ public class PApplet implements PConstants {
       try {
         is.close();
       } catch (IOException e) {
-        e.printStackTrace();
+        printStackTrace(e);
       }
       return strArr;
     }
@@ -10038,6 +10053,15 @@ public class PApplet implements PConstants {
 
 
   /**
+   * Convenience method so that PApplet.main(YourSketch.class)
+   * launches a sketch, rather than having to call getName() on it.
+   */
+  static public void main(final Class<?> mainClass, String... args) {
+    main(mainClass.getName(), args);
+  }
+
+
+  /**
    * Convenience method so that PApplet.main("YourSketch") launches a sketch,
    * rather than having to wrap it into a single element String array.
    * @param mainClass name of the class to load (with package if any)
@@ -10091,6 +10115,13 @@ public class PApplet implements PConstants {
 
     // Remove 60fps limit on the JavaFX "pulse" timer
     System.setProperty("javafx.animation.fullspeed", "true");
+
+    Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+      public void uncaughtException(Thread t, Throwable e) {
+        e.printStackTrace();
+        uncaughtThrowable = e;
+      }
+    });
 
     // This doesn't work, need to mess with Info.plist instead
     /*

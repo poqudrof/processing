@@ -2,7 +2,7 @@
 
 /*
 Part of the Processing project - http://processing.org
-Copyright (c) 2012-15 The Processing Foundation
+Copyright (c) 2012-16 The Processing Foundation
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 2
@@ -20,79 +20,50 @@ along with this program; if not, write to the Free Software Foundation, Inc.
 
 package processing.mode.java.pdex;
 
-import processing.mode.java.JavaInputHandler;
-import processing.mode.java.JavaMode;
-import processing.mode.java.JavaEditor;
-import processing.mode.java.tweak.ColorControlBox;
-import processing.mode.java.tweak.Handle;
-
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.EventQueue;
+import java.awt.Point;
+import java.awt.event.ComponentListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.util.BitSet;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.swing.DefaultListModel;
 import javax.swing.SwingWorker;
 
 import processing.app.Messages;
-import processing.app.Mode;
 import processing.app.Platform;
-import processing.app.syntax.JEditTextArea;
+import processing.app.syntax.PdeTextArea;
 import processing.app.syntax.TextAreaDefaults;
-import processing.app.ui.Editor;
+import processing.mode.java.JavaEditor;
+import processing.mode.java.JavaInputHandler;
+import processing.mode.java.JavaMode;
+import processing.mode.java.tweak.ColorControlBox;
+import processing.mode.java.tweak.Handle;
 
 
-// TODO The way listeners are added/removed here is fragile and
-//      likely to cause bugs that are very difficult to find.
-//      We shouldn't be re-inventing the wheel with how listeners are handled.
-// TODO We're overriding more things in JEditTextArea than we should, which
-//      makes it trickier for other Modes (Python, etc) to subclass because
-//      they'll need to re-implement what's in here, but first wade through it.
-//      To fix, we need to clean this up and put the appropriate cross-Mode
-//      changes into JEditTextArea (or a subclass in processing.app)
-
-public class JavaTextArea extends JEditTextArea {
-  protected final JavaEditor editor;
-
-  protected Image gutterGradient;
-
-  /// the text marker for highlighting breakpoints in the gutter
-  static public final String BREAK_MARKER = "<>";
-  /// the text marker for highlighting the current line in the gutter
-  static public final String STEP_MARKER = "->";
-
-  /// maps line index to gutter text
-  protected final Map<Integer, String> gutterText = new HashMap<>();
-
+/**
+ * TextArea implementation for Java Mode. Primary differences from PdeTextArea
+ * are completions, suggestions, and tweak handling.
+ */
+public class JavaTextArea extends PdeTextArea {
   private CompletionPanel suggestion;
 
 
   public JavaTextArea(TextAreaDefaults defaults, JavaEditor editor) {
-    super(defaults, new JavaInputHandler(editor));
-    this.editor = editor;
-
-    // change cursor to pointer in the gutter area
-    painter.addMouseMotionListener(gutterCursorMouseAdapter);
-
-    //addCompletionPopupListner();
-    add(CENTER, painter);
-
-    // load settings from theme.txt
-    Mode mode = editor.getMode();
-    gutterGradient = mode.makeGradient("editor", Editor.LEFT_GUTTER, 500);
-
-    // TweakMode code
-    prevCompListeners = painter.getComponentListeners();
-    prevMouseListeners = painter.getMouseListeners();
-    prevMMotionListeners = painter.getMouseMotionListeners();
-    prevKeyListeners = editor.getKeyListeners();
+    super(defaults, new JavaInputHandler(editor), editor);
 
     suggestionGenerator = new CompletionGenerator();
 
     tweakMode = false;
+  }
+
+
+  public JavaEditor getJavaEditor() {
+    return (JavaEditor) editor;
   }
 
 
@@ -102,25 +73,23 @@ public class JavaTextArea extends JEditTextArea {
   }
 
 
-  protected JavaTextAreaPainter getCustomPainter() {
+  // used by Tweak Mode
+  protected JavaTextAreaPainter getJavaPainter() {
     return (JavaTextAreaPainter) painter;
-  }
-
-
-  public void setMode(JavaMode mode) {
-    getCustomPainter().setMode(mode);
   }
 
 
   /**
    * Handles KeyEvents for TextArea (code completion begins from here).
+   * TODO Needs explanation of why this implemented with an override
+   *      of processKeyEvent() instead of using listeners.
    */
   @Override
   public void processKeyEvent(KeyEvent evt) {
     if (evt.getKeyCode() == KeyEvent.VK_ESCAPE) {
       if (suggestion != null){
         if (suggestion.isVisible()){
-          Messages.log("esc key");
+          Messages.log("ESC key");
           hideSuggestion();
           evt.consume();
           return;
@@ -176,7 +145,7 @@ public class JavaTextArea extends JEditTextArea {
     super.processKeyEvent(evt);
 
     // code completion disabled if Java tabs present
-    if (!editor.hasJavaTabs()) {
+    if (!getJavaEditor().hasJavaTabs()) {
       if (evt.getID() == KeyEvent.KEY_TYPED) {
         processCompletionKeys(evt);
       } else if (!Platform.isMacOS() && evt.getID() == KeyEvent.KEY_RELEASED) {
@@ -269,7 +238,6 @@ public class JavaTextArea extends JEditTextArea {
    * @param evt - the KeyEvent which triggered this method
    */
   protected void fetchPhrase() {
-
     if (suggestionRunning) {
       suggestionRequested = true;
       return;
@@ -319,10 +287,11 @@ public class JavaTextArea extends JEditTextArea {
     }
 
     // Adjust line number for tabbed sketches
-    int codeIndex = editor.getSketch().getCodeIndex(editor.getCurrentTab());
+    //int codeIndex = editor.getSketch().getCodeIndex(getJavaEditor().getCurrentTab());
+    int codeIndex = editor.getSketch().getCurrentCodeIndex();
     int lineStartOffset = editor.getTextArea().getLineStartOffset(caretLineIndex);
 
-    editor.getPreprocessingService().whenDone(ps -> {
+    getJavaEditor().getPreprocessingService().whenDone(ps -> {
       int lineNumber = ps.tabOffsetToJavaLine(codeIndex, lineStartOffset);
 
       String phrase = null;
@@ -379,8 +348,8 @@ public class JavaTextArea extends JEditTextArea {
     });
   }
 
-  protected static String parsePhrase(final String lineText) {
 
+  protected static String parsePhrase(final String lineText) {
     boolean overloading = false;
 
     { // Check if we can provide suggestions for this phrase ending
@@ -539,162 +508,34 @@ public class JavaTextArea extends JEditTextArea {
     if (phrase.length() == 0 || Character.isDigit(phrase.charAt(0))) {
       return null; // Can't suggest for numbers or empty phrases
     }
-
     return phrase;
   }
 
 
-  public Image getGutterGradient() {
-    return gutterGradient;
-  }
-
-
   /**
-   * Set the gutter text of a specific line.
-   *
-   * @param lineIdx
-   *          the line index (0-based)
-   * @param text
-   *          the text
-   */
-  public void setGutterText(int lineIdx, String text) {
-    gutterText.put(lineIdx, text);
-    painter.invalidateLine(lineIdx);
-  }
-
-
-  /**
-   * Clear the gutter text of a specific line.
-   *
-   * @param lineIdx
-   *          the line index (0-based)
-   */
-  public void clearGutterText(int lineIdx) {
-    gutterText.remove(lineIdx);
-    painter.invalidateLine(lineIdx);
-  }
-
-
-  /**
-   * Clear all gutter text.
-   */
-  public void clearGutterText() {
-    for (int lineIdx : gutterText.keySet()) {
-      painter.invalidateLine(lineIdx);
-    }
-    gutterText.clear();
-  }
-
-
-  /**
-   * Retrieve the gutter text of a specific line.
-   *
-   * @param lineIdx
-   *          the line index (0-based)
-   * @return the gutter text
-   */
-  public String getGutterText(int lineIdx) {
-    return gutterText.get(lineIdx);
-  }
-
-
-  /**
-   * Convert a character offset to a horizontal pixel position inside the text
-   * area. Overridden to take gutter width into account.
-   *
-   * @param line
-   *          the 0-based line number
-   * @param offset
-   *          the character offset (0 is the first character on a line)
-   * @return the horizontal position
-   */
-  @Override
-  public int _offsetToX(int line, int offset) {
-    return super._offsetToX(line, offset) + Editor.LEFT_GUTTER;
-  }
-
-
-  /**
-   * Convert a horizontal pixel position to a character offset. Overridden to
-   * take gutter width into account.
-   *
-   * @param line
-   *          the 0-based line number
-   * @param x
-   *          the horizontal pixel position
-   * @return he character offset (0 is the first character on a line)
-   */
-  @Override
-  public int xToOffset(int line, int x) {
-    return super.xToOffset(line, x - Editor.LEFT_GUTTER);
-  }
-
-
-  /**
-   * Sets default cursor (instead of text cursor) in the gutter area.
-   */
-  protected final MouseMotionAdapter gutterCursorMouseAdapter = new MouseMotionAdapter() {
-    private int lastX; // previous horizontal position of the mouse cursor
-
-    @Override
-    public void mouseMoved(MouseEvent me) {
-      if (me.getX() < Editor.LEFT_GUTTER) {
-        if (lastX >= Editor.LEFT_GUTTER) {
-          painter.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-        }
-      } else {
-        if (lastX < Editor.LEFT_GUTTER) {
-          painter.setCursor(new Cursor(Cursor.TEXT_CURSOR));
-        }
-      }
-      lastX = me.getX();
-    }
-  };
-
-
-  // appears unused, removed when looking to change completion trigger [fry 140801]
-  /*
-  public void showSuggestionLater(final DefaultListModel defListModel, final String word) {
-    SwingUtilities.invokeLater(new Runnable() {
-      @Override
-      public void run() {
-        showSuggestion(defListModel,word);
-      }
-
-    });
-  }
-  */
-
-
-  /**
-   * Calculates location of caret and displays the suggestion popup at the location.
-   *
-   * @param listModel
-   * @param subWord
+   * Calculates location of caret and displays the suggestion pop-up.
    */
   protected void showSuggestion(DefaultListModel<CompletionCandidate> listModel, String subWord) {
+    // TODO can this be ListModel instead? why is size() in DefaultListModel
+    // different from getSize() in ListModel (or are they, really?)
     hideSuggestion();
 
-    if (listModel.size() == 0) {
-      Messages.log("TextArea: No suggestions to show.");
-
-    } else {
+    if (listModel.size() != 0) {
       int position = getCaretPosition();
-      Point location = new Point();
       try {
-        location.x = offsetToX(getCaretLine(), position
-                               - getLineStartOffset(getCaretLine()));
-        location.y = lineToY(getCaretLine())
-            + getPainter().getFontMetrics().getHeight() + getPainter().getFontMetrics().getDescent();
-        //log("TA position: " + location);
-      } catch (Exception e2) {
-        e2.printStackTrace();
-        return;
-      }
+        Point location =
+          new Point(offsetToX(getCaretLine(),
+                              position - getLineStartOffset(getCaretLine())),
+                    lineToY(getCaretLine()) + getPainter().getLineHeight());
+        suggestion = new CompletionPanel(this, position, subWord,
+                                         listModel, location, getJavaEditor());
+        requestFocusInWindow();
 
-      suggestion = new CompletionPanel(this, position, subWord,
-                                       listModel, location, editor);
-      requestFocusInWindow();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    } else {
+      Messages.log("TextArea: No suggestions to show.");
     }
   }
 
@@ -715,15 +556,23 @@ public class JavaTextArea extends JEditTextArea {
 
 
   // save input listeners to stop/start text edit
-  protected final ComponentListener[] prevCompListeners;
-  protected final MouseListener[] prevMouseListeners;
-  protected final MouseMotionListener[] prevMMotionListeners;
-  protected final KeyListener[] prevKeyListeners;
+  protected ComponentListener[] baseCompListeners;
+  protected MouseListener[] baseMouseListeners;
+  protected MouseMotionListener[] baseMotionListeners;
+  protected KeyListener[] baseKeyListeners;
   protected boolean tweakMode;
 
 
   /* remove all standard interaction listeners */
-  public void removeAllListeners() {
+  public void tweakRemoveListeners() {
+    if (baseCompListeners == null) {
+      // First time in tweak mode, grab the default listeners. Moved from the
+      // constructor since not all listeners may have been added at that point.
+      baseCompListeners = painter.getComponentListeners();
+      baseMouseListeners = painter.getMouseListeners();
+      baseMotionListeners = painter.getMouseMotionListeners();
+      baseKeyListeners = editor.getKeyListeners();
+    }
     ComponentListener[] componentListeners = painter.getComponentListeners();
     MouseListener[] mouseListeners = painter.getMouseListeners();
     MouseMotionListener[] mouseMotionListeners = painter.getMouseMotionListeners();
@@ -747,8 +596,8 @@ public class JavaTextArea extends JEditTextArea {
   public void startTweakMode() {
     // ignore if we are already in interactiveMode
     if (!tweakMode) {
-      removeAllListeners();
-      getCustomPainter().startTweakMode();
+      tweakRemoveListeners();
+      getJavaPainter().startTweakMode();
       this.editable = false;
       this.caretBlinks = false;
       this.setCaretVisible(false);
@@ -760,9 +609,9 @@ public class JavaTextArea extends JEditTextArea {
   public void stopTweakMode() {
     // ignore if we are not in interactive mode
     if (tweakMode) {
-      removeAllListeners();
-      addPrevListeners();
-      getCustomPainter().stopTweakMode();
+      tweakRemoveListeners();
+      tweakRestoreBaseListeners();
+      getJavaPainter().stopTweakMode();
       editable = true;
       caretBlinks = true;
       setCaretVisible(true);
@@ -771,18 +620,18 @@ public class JavaTextArea extends JEditTextArea {
   }
 
 
-  private void addPrevListeners() {
+  private void tweakRestoreBaseListeners() {
     // add the original text-edit listeners
-    for (ComponentListener cl : prevCompListeners) {
+    for (ComponentListener cl : baseCompListeners) {
       painter.addComponentListener(cl);
     }
-    for (MouseListener ml : prevMouseListeners) {
+    for (MouseListener ml : baseMouseListeners) {
       painter.addMouseListener(ml);
     }
-    for (MouseMotionListener mml : prevMMotionListeners) {
+    for (MouseMotionListener mml : baseMotionListeners) {
       painter.addMouseMotionListener(mml);
     }
-    for (KeyListener kl : prevKeyListeners) {
+    for (KeyListener kl : baseKeyListeners) {
       editor.addKeyListener(kl);
     }
   }
@@ -790,6 +639,6 @@ public class JavaTextArea extends JEditTextArea {
 
   public void updateInterface(List<List<Handle>> handles,
                               List<List<ColorControlBox>> colorBoxes) {
-    getCustomPainter().updateInterface(handles, colorBoxes);
+    getJavaPainter().updateTweakInterface(handles, colorBoxes);
   }
 }

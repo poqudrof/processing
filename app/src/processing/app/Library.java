@@ -115,6 +115,14 @@ public class Library extends LocalContribution {
     examplesFolder = new File(folder, "examples");
     referenceFile = new File(folder, "reference/index.html");
 
+    handle();
+  }
+
+
+  /**
+   * Handles all the Java-specific parsing for library handling.
+   */
+  protected void handle() {
     File exportSettings = new File(libraryFolder, "export.txt");
     StringDict exportTable = exportSettings.exists() ?
       Util.readSettings(exportSettings) : new StringDict();
@@ -486,6 +494,14 @@ public class Library extends LocalContribution {
             Messages.showMessage("Ignoring bad library name", mess);
             continue;
           }
+          /*
+        } else {  // maybe it's a JS library
+          // TODO this should be in a better location
+          File jsLibrary = new File(libraryFolder, potentialName + ".js");
+          if (jsLibrary.exists()) {
+            libraries.add(baseFolder);
+          }
+          */
         }
       }
     }

@@ -40,7 +40,6 @@ import java.util.Arrays;
  * continuing to hack this class.
  */
 public class JavaInputHandler extends PdeInputHandler {
-  private Editor editor;
 
   /** ctrl-alt on windows and linux, cmd-alt on mac os x */
   static final int CTRL_ALT = ActionEvent.ALT_MASK |
@@ -48,7 +47,7 @@ public class JavaInputHandler extends PdeInputHandler {
 
 
   public JavaInputHandler(Editor editor) {
-    this.editor = editor;
+    super(editor);
   }
 
 
@@ -160,7 +159,7 @@ public class JavaInputHandler extends PdeInputHandler {
         textarea.setSelectedText(spaces(tabSize));
         event.consume();
 
-      } else if (!Preferences.getBoolean("editor.tabs.expand")) {
+      } else {  // !Preferences.getBoolean("editor.tabs.expand")
         textarea.setSelectedText("\t");
         event.consume();
       }

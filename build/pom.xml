@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.processing</groupId>
     <artifactId>processing-complete</artifactId>
-    <version>3.1.2-papart-SNAPSHOT</version>
+    <version>3.2.1-papart-SNAPSHOT</version>
     <packaging>pom</packaging>
 
 

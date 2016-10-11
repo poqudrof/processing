@@ -1173,4 +1173,11 @@ public abstract class InputHandler extends KeyAdapter
     }
     return wordEnd;
   }
+
+
+  /**
+   * Called when input method support committed a character.
+   */
+  public void handleInputMethodCommit() {
+  }
 }

@@ -12,7 +12,6 @@ package processing.app.syntax;
 
 import java.awt.event.MouseEvent;
 import java.awt.*;
-import java.awt.print.*;
 
 import javax.swing.ToolTipManager;
 import javax.swing.text.*;
@@ -28,9 +27,6 @@ import processing.app.syntax.im.CompositionTextPainter;
  * @author Slava Pestov
  */
 public class TextAreaPainter extends JComponent implements TabExpander {
-  /** True if inside printing, will handle disabling the highlight */
-  boolean printing;
-
   /** A specific painter composed by the InputMethod.*/
   protected CompositionTextPainter compositionTextPainter;
 
@@ -438,6 +434,12 @@ public class TextAreaPainter extends JComponent implements TabExpander {
   }
 
 
+  // fry [160806 for 3.2]
+  public int getLineHeight() {
+    return fm.getHeight() + fm.getDescent();
+  }
+
+
 //  /**
 //   * Sets the font for this component. This is overridden to update the
 //   * cached font metrics and to recalculate which lines are visible.
@@ -498,38 +500,6 @@ public class TextAreaPainter extends JComponent implements TabExpander {
                          " range {" + firstInvalid + "," + lastInvalid + "}:");
       e.printStackTrace();
     }
-  }
-
-
-  public Printable getPrintable() {
-    return new Printable() {
-
-      @Override
-      public int print(Graphics graphics, PageFormat pageFormat,
-                       int pageIndex) throws PrinterException {
-        int lineHeight = fm.getHeight();
-        int linesPerPage = (int) (pageFormat.getImageableHeight() / lineHeight);
-        int lineCount = textArea.getLineCount();
-        int lastPage = lineCount / linesPerPage;
-
-        if (pageIndex > lastPage) {
-          return NO_SUCH_PAGE;
-
-        } else {
-          Graphics2D g2 = (Graphics2D) graphics;
-          TokenMarker tokenMarker = textArea.getDocument().getTokenMarker();
-          int firstLine = pageIndex*linesPerPage;
-          g2.translate(Math.max(54, pageFormat.getImageableX()),
-                        pageFormat.getImageableY() - firstLine*lineHeight);
-          printing = true;
-          for (int line = firstLine; line < firstLine + linesPerPage; line++) {
-            paintLine(g2, line, 0, tokenMarker);
-          }
-          printing = false;
-          return PAGE_EXISTS;
-        }
-      }
-    };
   }
 
 
@@ -660,9 +630,7 @@ public class TextAreaPainter extends JComponent implements TabExpander {
 //  protected void paintPlainLine(Graphics gfx, int line, Font defaultFont,
 //                                Color defaultColor, int x, int y) {
   protected void paintPlainLine(Graphics gfx, int line, int x, int y) {
-    if (!printing) {
-      paintHighlight(gfx,line,y);
-    }
+    paintHighlight(gfx,line,y);
     textArea.getLineText(line, currentLine);
 
 //    gfx.setFont(plainFont);
@@ -792,8 +760,7 @@ public class TextAreaPainter extends JComponent implements TabExpander {
   }
 
 
-  protected void paintHighlight(Graphics gfx, int line, int y) {//, boolean printing) {
-//    if (!printing) {
+  protected void paintHighlight(Graphics gfx, int line, int y) {
     if (line >= textArea.getSelectionStartLine() &&
         line <= textArea.getSelectionStopLine()) {
       paintLineHighlight(gfx, line, y);

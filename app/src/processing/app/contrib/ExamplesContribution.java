@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import processing.app.Base;
-import processing.core.PApplet;
+import processing.app.Mode;
 import processing.data.StringDict;
 import processing.data.StringList;
 import static processing.app.contrib.ContributionType.EXAMPLES;
@@ -30,45 +30,28 @@ public class ExamplesContribution extends LocalContribution {
   }
 
 
-  static private StringList parseModeList(StringDict properties) {
-    String unparsedModes = properties.get(MODES_PROPERTY);
-
-    // Workaround for 3.0 alpha/beta bug for 3.0b2
-    if ("null".equals(unparsedModes)) {
-      properties.remove(MODES_PROPERTY);
-      unparsedModes = null;
-    }
-
-    StringList outgoing = new StringList();
-    if (unparsedModes != null) {
-      outgoing.append(PApplet.trim(PApplet.split(unparsedModes, ',')));
-    }
-    return outgoing;
+  static public boolean isCompatible(Base base, StringDict props) {
+    return isCompatible(base.getActiveEditor().getMode(), props);
   }
 
 
   /**
    * Function to determine whether or not the example present in the
    * exampleLocation directory is compatible with the current mode.
-   *
-   * @param base
-   * @param props
-   * @return true if the example is compatible with the mode of the currently
-   *         active editor
+   * @return true if compatible with the Mode of the currently active editor
    */
-  static public boolean isCompatible(Base base, StringDict props) {
-    String currentIdentifier =
-      base.getActiveEditor().getMode().getIdentifier();
+  static public boolean isCompatible(Mode mode, StringDict props) {
+    String currentIdentifier = mode.getIdentifier();
     StringList compatibleList = parseModeList(props);
     if (compatibleList.size() == 0) {
-      return true;  // if no mode specified, assume compatible everywhere
-    }
-    for (String c : compatibleList) {
-      if (c.equals(currentIdentifier)) {
-        return true;
+      if (mode.requireExampleCompatibility()) {
+        // for p5js (and maybe Python), examples must specify that they work
+        return false;
       }
+      // if no Mode specified, assume compatible everywhere
+      return true;
     }
-    return false;
+    return compatibleList.hasValue(currentIdentifier);
   }
 
 

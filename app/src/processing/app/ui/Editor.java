@@ -30,6 +30,7 @@ import processing.app.Messages;
 import processing.app.Mode;
 import processing.app.Platform;
 import processing.app.Preferences;
+import processing.app.Problem;
 import processing.app.RunnerListener;
 import processing.app.Sketch;
 import processing.app.SketchCode;
@@ -55,15 +56,18 @@ import java.awt.print.*;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.stream.Collectors;
 
 import javax.swing.*;
 import javax.swing.event.*;
 import javax.swing.plaf.basic.*;
 import javax.swing.text.*;
+import javax.swing.text.html.*;
 import javax.swing.undo.*;
 
 
@@ -79,6 +83,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
   static public final int RIGHT_GUTTER = 12;
   static public final int GUTTER_MARGIN = 3;
 
+  protected MarkerColumn errorColumn;
 
   // Otherwise, if the window is resized with the message label
   // set to blank, its preferredSize() will be fuckered
@@ -147,6 +152,8 @@ public abstract class Editor extends JFrame implements RunnerListener {
   JMenu modePopup;
 
   Image backgroundGradient;
+
+  protected List<Problem> problems = Collections.emptyList();
 
 
   protected Editor(final Base base, String path, final EditorState state,
@@ -272,14 +279,31 @@ public abstract class Editor extends JFrame implements RunnerListener {
         }
       });
     }
+    textarea.addCaretListener(new CaretListener() {
+      public void caretUpdate(CaretEvent e) {
+        updateEditorStatus();
+      }
+    });
 
     footer = createFooter();
 
-    upper.add(textarea);
+    // build the central panel with the text area & error marker column
+    JPanel editorPanel = new JPanel(new BorderLayout());
+    errorColumn =  new MarkerColumn(this, textarea.getMinimumSize().height);
+    editorPanel.add(errorColumn, BorderLayout.EAST);
+    textarea.setBounds(0, 0, errorColumn.getX() - 1, textarea.getHeight());
+    editorPanel.add(textarea);
+    upper.add(editorPanel);
+
+    // set colors and fonts for the painter object
+    PdeTextArea pta = getPdeTextArea();
+    if (pta != null) {
+      pta.setMode(mode);
+    }
 
     splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, upper, footer);
 
-    // disable this because it hides the message area, which is essential (issue #745)
+    // disable this because it hides the message area (Google Code issue #745)
     splitPane.setOneTouchExpandable(false);
     // repaint child panes while resizing
     splitPane.setContinuousLayout(true);
@@ -389,7 +413,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
   protected JEditTextArea createTextArea() {
     return new JEditTextArea(new PdeTextAreaDefaults(mode),
-                             new PdeInputHandler());
+                             new PdeInputHandler(this));
   }
 
 
@@ -1371,10 +1395,13 @@ public abstract class Editor extends JFrame implements RunnerListener {
       redoAction.updateRedoState();
       if (sketch != null) {
         sketch.setModified(!getText().equals(sketch.getCurrentCode().getSavedProgram()));
+        // Go through all tabs; Replace All, Rename or Undo could have changed them
         for (SketchCode sc : sketch.getCode()) {
-          try {
-            sc.setModified(!sc.getDocumentText().equals(sc.getSavedProgram()));
-          } catch (BadLocationException ignore) { }
+          if (sc.getDocument() != null) {
+            try {
+              sc.setModified(!sc.getDocumentText().equals(sc.getSavedProgram()));
+            } catch (BadLocationException ignore) { }
+          }
         }
         repaintHeader();
       }
@@ -1433,10 +1460,14 @@ public abstract class Editor extends JFrame implements RunnerListener {
       undoAction.updateUndoState();
       if (sketch != null) {
         sketch.setModified(!getText().equals(sketch.getCurrentCode().getSavedProgram()));
+        // Go through all tabs; Replace All, Rename or Undo could have changed them
         for (SketchCode sc : sketch.getCode()) {
-          try {
-            sc.setModified(!sc.getDocumentText().equals(sc.getSavedProgram()));
-          } catch (BadLocationException ignore) { }
+          if (sc.getDocument() != null) {
+            try {
+              sc.setModified(!sc.getDocumentText().equals(sc.getSavedProgram()));
+            } catch (BadLocationException ignore) {
+            }
+          }
         }
         repaintHeader();
       }
@@ -1562,6 +1593,11 @@ public abstract class Editor extends JFrame implements RunnerListener {
    */
   public JEditTextArea getTextArea() {
     return textarea;
+  }
+
+
+  public PdeTextArea getPdeTextArea() {
+    return (textarea instanceof PdeTextArea) ? (PdeTextArea) textarea : null;
   }
 
 
@@ -1763,7 +1799,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
             startCompoundEdit();
           super.beginCompoundEdit();
         }
-        
+
         @Override
         public void endCompoundEdit() {
           stopCompoundEdit();
@@ -1773,7 +1809,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
       code.setDocument(document);
 
       // turn on syntax highlighting
-      document.setTokenMarker(mode.getTokenMarker());
+      document.setTokenMarker(mode.getTokenMarker(code));
 
       // insert the program text into the document object
       try {
@@ -1798,7 +1834,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
           if (!isInserting && !textarea.isOverwriteEnabled() && isDirectEdit()) {
             endTextEditHistory();
           }
-          
+
           if (!textarea.isOverwriteEnabled()) {
             isInserting = true;
           }
@@ -2351,6 +2387,14 @@ public abstract class Editor extends JFrame implements RunnerListener {
 //  }
 
 
+  public boolean isDebuggerEnabled() {
+    return false;
+  }
+
+
+  public void toggleBreakpoint(int lineIndex) { }
+
+
   /**
    * Check if the sketch is modified and ask user to save changes.
    * @return false if canceling the close/quit operation
@@ -2409,7 +2453,9 @@ public abstract class Editor extends JFrame implements RunnerListener {
                         JOptionPane.QUESTION_MESSAGE);
 
       String[] options = new String[] {
-        Language.text("save.btn.save"), Language.text("prompt.cancel"), Language.text("save.btn.dont_save")
+        Language.text("save.btn.save"),
+        Language.text("prompt.cancel"),
+        Language.text("save.btn.dont_save")
       };
       pane.setOptions(options);
 
@@ -2667,15 +2713,51 @@ public abstract class Editor extends JFrame implements RunnerListener {
    */
   public void handlePrint() {
     statusNotice(Language.text("editor.status.printing"));
+
+    StringBuilder html = new StringBuilder("<html><body>");
+    for (SketchCode tab : sketch.getCode()) {
+      html.append("<b>" + tab.getPrettyName() + "</b><br>");
+      html.append(textarea.getTextAsHtml((SyntaxDocument)tab.getDocument()));
+      html.append("<br>");
+    }
+    html.setLength(html.length() - 4); // Don't want last <br>.
+    html.append("</body></html>");
+    JTextPane jtp = new JTextPane();
+    // Needed for good line wrapping; otherwise one very long word breaks
+    // wrapping for the whole document.
+    jtp.setEditorKit(new HTMLEditorKit() {
+      public ViewFactory getViewFactory() {
+        return new HTMLFactory() {
+          public View create(Element e) {
+            View v = super.create(e);
+            if (!(v instanceof javax.swing.text.html.ParagraphView))
+              return v;
+            else
+              return new javax.swing.text.html.ParagraphView(e) {
+                protected SizeRequirements calculateMinorAxisRequirements(
+                    int axis, SizeRequirements r) {
+                  r = super.calculateMinorAxisRequirements(axis, r);
+                  r.minimum = 1;
+                  return r;
+                }
+              };
+          }
+        };
+      }
+    });
+    jtp.setFont(new Font(Preferences.get("editor.font.family"), Font.PLAIN, 10));
+    jtp.setText(html.toString().replace("\n", "<br>") // Not in a <pre>.
+        .replaceAll("(?<!&nbsp;)&nbsp;", " "));       // Allow line wrap.
+
     //printerJob = null;
     if (printerJob == null) {
       printerJob = PrinterJob.getPrinterJob();
     }
     if (pageFormat != null) {
       //System.out.println("setting page format " + pageFormat);
-      printerJob.setPrintable(textarea.getPrintable(), pageFormat);
+      printerJob.setPrintable(jtp.getPrintable(null, null), pageFormat);
     } else {
-      printerJob.setPrintable(textarea.getPrintable());
+      printerJob.setPrintable(jtp.getPrintable(null, null));
     }
     // set the name of the job to the code name
     printerJob.setJobName(sketch.getCurrentCode().getPrettyName());
@@ -2717,10 +2799,14 @@ public abstract class Editor extends JFrame implements RunnerListener {
 
     // make sure any edits have been stored
     //current.setProgram(editor.getText());
+    // Go through all tabs; Replace All, Rename or Undo could have changed them
     for (SketchCode sc : sketch.getCode()) {
-      try {
-        sc.setProgram(sc.getDocumentText());
-      } catch (BadLocationException e) { }
+      if (sc.getDocument() != null) {
+        try {
+          sc.setProgram(sc.getDocumentText());
+        } catch (BadLocationException e) {
+        }
+      }
     }
 
 //    // if an external editor is being used, need to grab the
@@ -2753,11 +2839,23 @@ public abstract class Editor extends JFrame implements RunnerListener {
    * Called by ErrorTable when a row is selected. Action taken is specific
    * to each Mode, based on the object passed in.
    */
-  public void errorTableClick(Object item) { }
+  public void errorTableClick(Object item) {
+    highlight((Problem) item);
+  }
 
 
   public void errorTableDoubleClick(Object item) { }
 
+
+  /**
+   * Handle whether the tiny red error indicator is shown near
+   * the error button at the bottom of the PDE
+   */
+  public void updateErrorToggle(boolean hasErrors) {
+    if (errorTable != null) {
+      footer.setNotification(errorTable.getParent(), hasErrors);
+    }
+  }
 
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -2890,6 +2988,15 @@ public abstract class Editor extends JFrame implements RunnerListener {
   }
 
 
+  public void statusMessage(String message, int type) {
+    if (EventQueue.isDispatchThread()) {
+      status.message(message, type);
+    } else {
+      EventQueue.invokeLater(() -> statusMessage(message, type));
+    }
+  }
+
+
   public void startIndeterminate() {
     status.startIndeterminate();
   }
@@ -2913,22 +3020,136 @@ public abstract class Editor extends JFrame implements RunnerListener {
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 
+  public void setProblemList(List<Problem> problems) {
+    this.problems = problems;
+    boolean hasErrors = problems.stream().anyMatch(Problem::isError);
+    updateErrorTable(problems);
+    errorColumn.updateErrorPoints(problems);
+    textarea.repaint();
+    updateErrorToggle(hasErrors);
+    updateEditorStatus();
+  }
+
+
+  /**
+   * Updates the error table in the Error Window.
+   */
+  public void updateErrorTable(List<Problem> problems) {
+    if (errorTable != null) {
+      errorTable.clearRows();
+
+      for (Problem p : problems) {
+        String message = p.getMessage();
+        errorTable.addRow(p, message,
+                          sketch.getCode(p.getTabIndex()).getPrettyName(),
+                          Integer.toString(p.getLineNumber() + 1));
+        // Added +1 because lineNumbers internally are 0-indexed
+      }
+    }
+  }
+
+
+    public void highlight(Problem p) {
+    if (p != null) {
+      highlight(p.getTabIndex(), p.getStartOffset(), p.getStartOffset());
+    }
+  }
+
+
+  public void highlight(int tabIndex, int startOffset, int stopOffset) {
+    // Switch to tab
+    toFront();
+    sketch.setCurrentCode(tabIndex);
+
+    // Make sure offsets are in bounds
+    int length = textarea.getDocumentLength();
+    startOffset = PApplet.constrain(startOffset, 0, length);
+    stopOffset = PApplet.constrain(stopOffset, 0, length);
+
+    // Highlight the code
+    textarea.select(startOffset, stopOffset);
+
+    // Scroll to error line
+    textarea.scrollToCaret();
+    repaint();
+  }
+
+
+  public List<Problem> getProblems() {
+    return problems;
+  }
+
+
+  /**
+   * Updates editor status bar, depending on whether the caret is on an error
+   * line or not
+   */
+  public void updateEditorStatus() {
+    Problem problem = findProblem(textarea.getCaretLine());
+    if (problem != null) {
+      int type = problem.isError() ?
+        EditorStatus.CURSOR_LINE_ERROR : EditorStatus.CURSOR_LINE_WARNING;
+      statusMessage(problem.getMessage(), type);
+    } else {
+      switch (getStatusMode()) {
+        case EditorStatus.CURSOR_LINE_ERROR:
+        case EditorStatus.CURSOR_LINE_WARNING:
+          statusEmpty();
+          break;
+      }
+    }
+  }
+
+
+  /**
+   * @return the Problem for the first error or warning on 'line'
+   */
+  Problem findProblem(int line) {
+    int currentTab = getSketch().getCurrentCodeIndex();
+    return problems.stream()
+        .filter(p -> p.getTabIndex() == currentTab)
+        .filter(p -> {
+          int pStartLine = p.getLineNumber();
+          int pEndOffset = p.getStopOffset();
+          int pEndLine = textarea.getLineOfOffset(pEndOffset);
+          return line >= pStartLine && line <= pEndLine;
+        })
+        .findFirst()
+        .orElse(null);
+  }
+
+
+  public List<Problem> findProblems(int line) {
+    int currentTab = getSketch().getCurrentCodeIndex();
+    return problems.stream()
+        .filter(p -> p.getTabIndex() == currentTab)
+        .filter(p -> {
+          int pStartLine = p.getLineNumber();
+          int pEndOffset = p.getStopOffset();
+          int pEndLine = textarea.getLineOfOffset(pEndOffset);
+          return line >= pStartLine && line <= pEndLine;
+        })
+        .collect(Collectors.toList());
+  }
+
+
+  public void repaintErrorBar() {
+    errorColumn.repaint();
+  }
+
+
+  public void showConsole() {
+    footer.setPanel(console);
+  }
+
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
   static Font font;
   static Color textColor;
   static Color bgColorWarning;
   static Color bgColorError;
-
-
-  /*
-  public void toolTipError(JComponent comp, String message) {
-    setToolTip(comp, message, true);
-  }
-
-
-  public void toolTipWarning(JComponent comp, String message) {
-    setToolTip(comp, message, false);
-  }
-  */
 
 
   public void statusToolTip(JComponent comp, String message, boolean error) {

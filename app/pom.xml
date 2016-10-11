@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.processing</groupId>
         <artifactId>processing-complete</artifactId>
-        <version>3.1.2-papart-SNAPSHOT</version>
+        <version>3.2.1-papart-SNAPSHOT</version>
         <relativePath>../build/pom.xml</relativePath>
     </parent>
     
@@ -24,7 +24,7 @@
         <dependency>
             <groupId>org.processing</groupId>
             <artifactId>core</artifactId>
-            <version>3.1.2-papart-SNAPSHOT</version>
+            <version>3.2.1-papart-SNAPSHOT</version>
         </dependency>
            
         <dependency>

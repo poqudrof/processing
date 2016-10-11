@@ -2,7 +2,7 @@
 
 /*
 Part of the Processing project - http://processing.org
-Copyright (c) 2012-15 The Processing Foundation
+Copyright (c) 2012-16 The Processing Foundation
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 2
@@ -18,7 +18,7 @@ along with this program; if not, write to the Free Software Foundation, Inc.
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 */
 
-package processing.mode.java;
+package processing.app.ui;
 
 import java.awt.Color;
 import java.awt.Cursor;
@@ -34,11 +34,12 @@ import java.util.stream.Collectors;
 import javax.swing.JPanel;
 
 import processing.app.Mode;
+import processing.app.Problem;
 import processing.app.Sketch;
 import processing.app.SketchCode;
+import processing.app.syntax.PdeTextArea;
 import processing.app.ui.Editor;
 import processing.core.PApplet;
-import processing.mode.java.pdex.Problem;
 
 
 /**
@@ -51,7 +52,7 @@ import processing.mode.java.pdex.Problem;
  * which displays the overall errors in a document
  */
 public class MarkerColumn extends JPanel {
-  protected JavaEditor editor;
+  protected Editor editor;
 
 //  static final int WIDE = 12;
 
@@ -62,7 +63,7 @@ public class MarkerColumn extends JPanel {
   private List<LineMarker> errorPoints = new ArrayList<LineMarker>();
 
 
-  public MarkerColumn(JavaEditor editor, int height) {
+  public MarkerColumn(Editor editor, int height) {
     this.editor = editor;
 
     Mode mode = editor.getMode();
@@ -92,8 +93,11 @@ public class MarkerColumn extends JPanel {
 
   @Override
   public void paintComponent(Graphics g) {
-    g.drawImage(editor.getJavaTextArea().getGutterGradient(),
-                0, 0, getWidth(), getHeight(), this);
+    PdeTextArea pta = editor.getPdeTextArea();
+    if (pta != null) {
+      g.drawImage(pta.getGutterGradient(),
+                  0, 0, getWidth(), getHeight(), this);
+    }
 
     int currentTabIndex = editor.getSketch().getCurrentCodeIndex();
 
@@ -131,24 +135,12 @@ public class MarkerColumn extends JPanel {
   }
 
 
-	/*
-  @Override
-  public JToolTip createToolTip() {
-    return new ErrorToolTip(editor.getMode(), this);
-  }
-  */
-
-
   /** Show tooltip on hover. */
   private void showMarkerHover(final int y) {
     try {
       LineMarker m = findClosestMarker(y);
       if (m != null) {
         Problem p = m.problem;
-//	          String kind = p.isError() ?
-//	            Language.text("editor.status.error") :
-//	            Language.text("editor.status.warning");
-//	          setToolTipText(kind + ": " + p.getMessage());
         editor.statusToolTip(MarkerColumn.this, p.getMessage(), p.isError());
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
       }
@@ -207,6 +199,7 @@ public class MarkerColumn extends JPanel {
   public Dimension getMinimumSize() {
     return new Dimension(Editor.RIGHT_GUTTER, super.getMinimumSize().height);
   }
+
 
   /**
    * Line markers displayed on the Error Column.

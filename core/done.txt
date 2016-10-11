@@ -1,3 +1,53 @@
+0252 (3.2)
+X some Table cleanup based on other CSV parsing work
+X use StandardCharsets.UTF_8 instead of getting encoding by name
+X PApplet.main(Blah.class) now works
+o add push() and pop() methods to mirror js?
+X Can't render PGraphics object using image() within a PDF
+X   https://github.com/processing/processing/issues/4473
+
+jakub
+X Fix resizing targets for async save
+X   https://github.com/processing/processing/pull/4607
+X   https://github.com/processing/processing/issues/4578
+
+contrib
+X Make loadStrings() and loadJSONObject/loadJSONArray() error msgs consistent
+X   https://github.com/processing/processing/issues/4265
+X   https://github.com/processing/processing/pull/4268
+
+
+0251 (3.1.2)
+X rewrite csv handling
+X   fix parsing bugs, remove newlines option, improve performance
+X prevent random(low, high) from returning 'high'
+X   https://github.com/processing/processing/issues/4551
+X disable async saveFrame() by default
+X   https://github.com/processing/processing/issues/4578
+
+gohai
+X Fix GLExceptions on Raspberry Pi when using offscreen PGraphics 
+X   https://github.com/processing/processing/pull/4524
+
+leslie
+X fixed iterator remove() methods so they dont skip container elements
+X   https://github.com/processing/processing/pull/4519
+X added a check for length 0 arrays in expand()
+X   https://github.com/processing/processing/pull/4520
+
+jakub
+X Prevent NPE in loadImage() when called before setup()
+X   https://github.com/processing/processing/pull/4505
+
+andres
+X fix crash when calling getUniformLoc() called in PShader.set()
+X   https://github.com/processing/processing/issues/4542
+
+earlier
+X see if 8u65 or 8u66 fix the JavaFX problem
+X   if not, need to add them to the block list
+
+
 0250 (3.1.1)
 X implement support for encoding= option in loadTable()
 

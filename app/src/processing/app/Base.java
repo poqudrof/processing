@@ -55,9 +55,9 @@ import processing.data.StringList;
 public class Base {
   // Added accessors for 0218 because the UpdateCheck class was not properly
   // updating the values, due to javac inlining the static final values.
-  static private final int REVISION = 251;
+  static private final int REVISION = 253;
   /** This might be replaced by main() if there's a lib/version.txt file. */
-  static private String VERSION_NAME = "0251"; //$NON-NLS-1$
+  static private String VERSION_NAME = "0253"; //$NON-NLS-1$
   /** Set true if this a proper release rather than a numbered revision. */
 
   /** True if heavy debugging error/log messages are enabled */
@@ -1094,12 +1094,17 @@ public class Base {
       // Make the directory for the new sketch
       newbieDir.mkdirs();
 
+      // Add any template files from the Mode itself
+      File newbieFile = nextMode.addTemplateFiles(newbieDir, newbieName);
+
+      /*
       // Make an empty pde file
       File newbieFile =
         new File(newbieDir, newbieName + "." + nextMode.getDefaultExtension()); //$NON-NLS-1$
       if (!newbieFile.createNewFile()) {
         throw new IOException(newbieFile + " already exists.");
       }
+      */
 
       // Create sketch properties file if it's not the default mode.
       if (!nextMode.equals(getDefaultMode())) {
@@ -1869,6 +1874,7 @@ public class Base {
     getSketchbookToolsFolder().mkdirs();
     getSketchbookModesFolder().mkdirs();
     getSketchbookExamplesFolder().mkdirs();
+    getSketchbookTemplatesFolder().mkdirs();
   }
 
 
@@ -1894,6 +1900,11 @@ public class Base {
 
   static public File getSketchbookExamplesFolder() {
     return new File(sketchbookFolder, "examples");
+  }
+
+
+  static public File getSketchbookTemplatesFolder() {
+    return new File(sketchbookFolder, "templates");
   }
 
 
