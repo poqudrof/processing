@@ -1632,8 +1632,11 @@ public class PShapeSVG extends PShape {
                 // not supported
 
         } else if (tokens[0].equals("font-family")) {
-          // PApplet.println("Font-family: " + tokens[1]);
+           PApplet.println("Font-family: " + tokens[1]);
           fontFamily = tokens[1];
+          if(fontFamily.contains("'")){
+            fontFamily = fontFamily.replace("'", "");
+          }
 
         } else if (tokens[0].equals("text-align")) {
           // not supported
