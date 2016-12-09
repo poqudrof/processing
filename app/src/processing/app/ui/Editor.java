@@ -2579,6 +2579,7 @@ public abstract class Editor extends JFrame implements RunnerListener {
     Preferences.save();
   }
 
+
   /**
    * Set the title of the PDE window based on the current sketch, i.e.
    * something like "sketch_070752a - Processing 0126"
@@ -2781,6 +2782,8 @@ public abstract class Editor extends JFrame implements RunnerListener {
   /**
    * Grab current contents of the sketch window, advance the console,
    * stop any other running sketches... not in that order.
+   * It's essential that this function be called by any Mode subclass,
+   * otherwise current edits may not be stored for getProgram().
    */
   public void prepareRun() {
     internalCloseRunner();

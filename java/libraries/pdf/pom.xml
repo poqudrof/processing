@@ -1,44 +1,44 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    
+
     <parent>
         <groupId>org.processing</groupId>
         <artifactId>processing-complete</artifactId>
-           <version>3.2.1-papart-SNAPSHOT</version>
+           <version>3.2.3</version>
         <relativePath>../../../build/pom.xml</relativePath>
     </parent>
-    
+
     <groupId>org.processing</groupId>
     <artifactId>pdf</artifactId>
     <version>${project.parent.version}</version>
     <packaging>jar</packaging>
 
     <name>Processing pdf library</name>
-    <description>Processing is a programming language, development environment, and online community. 
+    <description>Processing is a programming language, development environment, and online community.
         PDF Export. Create PDF files. These vector graphics files can be scaled to any size and printed at high resolutions.
     </description>
 
-        
+
     <dependencies>
         <dependency>
             <groupId>org.processing</groupId>
             <artifactId>core</artifactId>
-            <version>3.2.1-papart-SNAPSHOT</version>
+            <version>3.2.3</version>
         </dependency>
-        
+
         <dependency>
             <groupId>com.lowagie</groupId>
             <artifactId>itext</artifactId>
             <version>4.2.1</version>
         </dependency>
     </dependencies>
-                                
+
     <build>
         <sourceDirectory>src</sourceDirectory>
-        
-        <plugins>    
-            
+
+        <plugins>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -50,7 +50,7 @@
                     </execution>
                 </executions>
             </plugin>
-            
+
             <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>1.8</version>
@@ -64,7 +64,7 @@
                                 <copy todir="target/classes/">
                                     <fileset dir="bin/"/>
                                 </copy>
-                            </target>                            
+                            </target>
                         </configuration>
                         <goals>
                             <goal>run</goal>
@@ -72,26 +72,26 @@
                     </execution>
                 </executions>
             </plugin>
-            
-            
+
+
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
-            </plugin> 
-            
+            </plugin>
+
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
             </plugin>
-            
+
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
             </plugin>
-            
+
             <plugin>
                 <artifactId>maven-gpg-plugin</artifactId>
             </plugin>
-       
+
         </plugins>
-        
+
     </build>
     <properties>
         <netbeans.hint.license>license</netbeans.hint.license>

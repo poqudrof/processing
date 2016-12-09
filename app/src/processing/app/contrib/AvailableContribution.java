@@ -3,7 +3,7 @@
 /*
   Part of the Processing project - http://processing.org
 
-  Copyright (c) 2013-15 The Processing Foundation
+  Copyright (c) 2013-16 The Processing Foundation
   Copyright (c) 2011-12 Ben Fry and Casey Reas
 
   This program is free software; you can redistribute it and/or modify
@@ -49,9 +49,9 @@ public class AvailableContribution extends Contribution {
     imports = parseImports(params);
     name = params.get("name");
     authors = params.get("authors");
-    if (authors == null) {
-      authors = params.get("authorList");
-    }
+//    if (authors == null) {
+//      authors = params.get("authorList");
+//    }
     url = params.get("url");
     sentence = params.get("sentence");
     paragraph = params.get("paragraph");
@@ -61,7 +61,7 @@ public class AvailableContribution extends Contribution {
       version = PApplet.parseInt(versionStr, 0);
     }
 
-    prettyVersion = params.get("prettyVersion");
+    setPrettyVersion(params.get("prettyVersion"));
 
     String lastUpdatedStr = params.get("lastUpdated");
     if (lastUpdatedStr != null) {
@@ -231,9 +231,6 @@ public class AvailableContribution extends Contribution {
    * manager. However, it also ensures that valid fields in the properties file
    * aren't overwritten, since the properties file may be more recent than the
    * contributions.txt file.
-   *
-   * @param propFile
-   * @return
    */
   public boolean writePropertiesFile(File propFile) {
     try {
@@ -256,9 +253,9 @@ public class AvailableContribution extends Contribution {
       StringList importsList = parseImports(properties);
 
       String authors = properties.get(AUTHORS_PROPERTY);
-      if (authors == null) {
-        authors = properties.get("authorList");  // before 3.0a11
-      }
+//      if (authors == null) {
+//        authors = properties.get("authorList");  // before 3.0a11
+//      }
       if (authors == null || authors.isEmpty()) {
         authors = getAuthorList();
       }
@@ -283,13 +280,14 @@ public class AvailableContribution extends Contribution {
         version = Integer.parseInt(properties.get("version"));
       } catch (NumberFormatException e) {
         version = getVersion();
-        System.err.println("The version number for “" + name + "” is not set properly.");
+        System.err.println("The version number for “" + name + "” is not a number.");
         System.err.println("Please contact the author to fix it according to the guidelines.");
       }
 
       String prettyVersion = properties.get("prettyVersion");
-      if (prettyVersion == null || prettyVersion.isEmpty())
-        prettyVersion = getPrettyVersion();
+      if (prettyVersion != null && prettyVersion.isEmpty()) {
+        prettyVersion = null;
+      }
 
       String compatibleContribsList = null;
       if (getType() == ContributionType.EXAMPLES) {
@@ -336,7 +334,9 @@ public class AvailableContribution extends Contribution {
         writer.println("sentence=" + sentence);
         writer.println("paragraph=" + paragraph);
         writer.println("version=" + version);
-        writer.println("prettyVersion=" + prettyVersion);
+        if (prettyVersion != null) {
+          writer.println("prettyVersion=" + prettyVersion);
+        }
         writer.println("lastUpdated=" + lastUpdated);
         writer.println("minRevision=" + minRev);
         writer.println("maxRevision=" + maxRev);

@@ -3,7 +3,7 @@
 /*
   Part of the Processing project - http://processing.org
 
-  Copyright (c) 2013-15 The Processing Foundation
+  Copyright (c) 2013-16 The Processing Foundation
   Copyright (c) 2011-12 Ben Fry and Casey Reas
 
   This program is free software; you can redistribute it and/or modify
@@ -104,8 +104,8 @@ class StatusPanel extends JPanel {
         }
       }
     });
-    installButton = new JButton("Install", installIcon);
-    installButton.setDisabledIcon(installIcon);
+    installButton = Toolkit.createIconButton("Install", installIcon);
+    //installButton.setDisabledIcon(installIcon);
     installButton.setFont(buttonFont);
     installButton.setHorizontalAlignment(SwingConstants.LEFT);
     installButton.addActionListener(new ActionListener() {
@@ -126,8 +126,7 @@ class StatusPanel extends JPanel {
     updateLabel.setFont(buttonFont);
     updateLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-    updateButton = new JButton("Update", updateIcon);
-    updateButton.setDisabledIcon(updateIcon);
+    updateButton = Toolkit.createIconButton("Update", updateIcon);
     updateButton.setFont(buttonFont);
     updateButton.setHorizontalAlignment(SwingConstants.LEFT);
     updateButton.addActionListener(new ActionListener() {
@@ -140,8 +139,7 @@ class StatusPanel extends JPanel {
       }
     });
 
-    removeButton = new JButton("Remove", removeIcon);
-    removeButton.setDisabledIcon(removeIcon);
+    removeButton = Toolkit.createIconButton("Remove", removeIcon);
     removeButton.setFont(buttonFont);
     removeButton.setHorizontalAlignment(SwingConstants.LEFT);
     removeButton.addActionListener(new ActionListener() {
@@ -249,22 +247,34 @@ class StatusPanel extends JPanel {
                             !panel.updateInProgress);
 
     String latestVersion =
-      contributionListing.getLatestVersion(panel.getContrib());
+      contributionListing.getLatestPrettyVersion(panel.getContrib());
     String currentVersion = panel.getContrib().getPrettyVersion();
 
-    installButton.setEnabled(!panel.getContrib().isInstalled()
-                             && contributionListing.hasDownloadedLatestList()
-                             && panel.getContrib().isCompatible(Base.getRevision())
-                             && !panel.installInProgress);
+    installButton.setEnabled(!panel.getContrib().isInstalled() &&
+                             contributionListing.hasDownloadedLatestList() &&
+                             panel.getContrib().isCompatible(Base.getRevision()) &&
+                             !panel.installInProgress);
 
     if (panel.getContrib().isCompatible(Base.getRevision())) {
       if (installButton.isEnabled()) {
-        updateLabel.setText(latestVersion + " available");
+        if (latestVersion != null) {
+          updateLabel.setText(latestVersion + " available");
+        } else {
+          updateLabel.setText("Available");
+        }
       } else {
-        updateLabel.setText(currentVersion + " installed");
+        if (currentVersion != null) {
+          updateLabel.setText(currentVersion + " installed");
+        } else {
+          updateLabel.setText("Installed");
+        }
       }
     } else {
-      updateLabel.setText(currentVersion + " not compatible");
+      if (currentVersion != null) {
+        updateLabel.setText(currentVersion + " not compatible");
+      } else {
+        updateLabel.setText("Not compatible");
+      }
     }
 
     if (latestVersion != null) {
@@ -273,18 +283,13 @@ class StatusPanel extends JPanel {
       latestVersion = "Update";
     }
 
-    if (currentVersion == null) {
-      currentVersion = "";
-    }
-
     if (updateButton.isEnabled()) {
       updateButton.setText(latestVersion);
     } else {
       updateButton.setText("Update");
     }
 
-    removeButton.setEnabled(panel.getContrib().isInstalled()
-                            && !panel.removeInProgress);
+    removeButton.setEnabled(panel.getContrib().isInstalled() && !panel.removeInProgress);
     progressPanel.add(panel.installProgressBar);
     progressPanel.setVisible(false);
     updateLabel.setVisible(true);

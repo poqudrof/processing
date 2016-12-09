@@ -537,7 +537,7 @@ public class JSONObject {
    * @return      The object associated with the key.
    * @throws      RuntimeException if the key is not found.
    */
-  private Object get(String key) {
+  public Object get(String key) {
     if (key == null) {
       throw new RuntimeException("Null key.");
     }
@@ -897,9 +897,9 @@ public class JSONObject {
 
 
   /**
-   * Determine if the value associated with the key is null or if there is 
+   * Determine if the value associated with the key is null or if there is
    * no value.
-   * 
+   *
    * @webref
    * @param key   A key string.
    * @return      true if there is no value associated with the key or if
@@ -1300,7 +1300,7 @@ public class JSONObject {
    * @throws RuntimeException If the value is non-finite number
    *  or if the key is null.
    */
-  private JSONObject put(String key, Object value) {
+  public JSONObject put(String key, Object value) {
     String pooled;
     if (key == null) {
       throw new RuntimeException("Null key.");

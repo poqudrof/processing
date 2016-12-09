@@ -3,7 +3,7 @@
 /*
   Part of the Processing project - http://processing.org
 
-  Copyright (c) 2013-15 The Processing Foundation
+  Copyright (c) 2013-16 The Processing Foundation
   Copyright (c) 2011-12 Ben Fry and Casey Reas
 
   This program is free software; you can redistribute it and/or modify
@@ -158,20 +158,40 @@ abstract public class Contribution {
   }
 
 
-  // "1.0.2"
+  public void setPrettyVersion(String pretty) {
+    if (pretty != null) {
+      // some entries were written as "null", causing that to show in the ui
+      if (pretty.equals("null") || pretty.length() == 0) {
+        pretty = null;
+      }
+    }
+    prettyVersion = pretty;
+  }
+
+
+  // "1.0.2" or null if not present
   public String getPrettyVersion() {
     return prettyVersion;
   }
+
+
+  // returns prettyVersion, or "" if null
+  public String getBenignVersion() {
+    return (prettyVersion != null) ? prettyVersion : "";
+  }
+
 
   // 1402805757
   public long getLastUpdated() {
     return lastUpdated;
   }
 
+
   // 0
   public int getMinRevision() {
     return minRevision;
   }
+
 
   // 227
   public int getMaxRevision() {

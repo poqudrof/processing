@@ -51,8 +51,12 @@ public class PShader implements PConstants {
 
   static protected String pointShaderAttrRegexp =
     "attribute *vec2 *offset";
+  static protected String pointShaderInRegexp =
+    "in *vec2 *offset;";
   static protected String lineShaderAttrRegexp =
     "attribute *vec4 *direction";
+  static protected String lineShaderInRegexp =
+    "in *vec4 *direction";
   static protected String pointShaderDefRegexp =
     "#define *PROCESSING_POINT_SHADER";
   static protected String lineShaderDefRegexp =
@@ -122,6 +126,7 @@ public class PShader implements PConstants {
   protected int ppixelsLoc;
   protected int ppixelsUnit;
   protected int viewportLoc;
+  protected int resolutionLoc;
 
   // Uniforms only for lines and points
   protected int perspectiveLoc;
@@ -1015,15 +1020,8 @@ public class PShader implements PConstants {
   static protected int getShaderType(String[] source, int defaultType) {
     for (int i = 0; i < source.length; i++) {
       String line = source[i].trim();
-      if (PApplet.match(line, pointShaderAttrRegexp) != null)
-        return PShader.POINT;
-      else if (PApplet.match(line, lineShaderAttrRegexp) != null)
-        return PShader.LINE;
-      else if (PApplet.match(line, pointShaderDefRegexp) != null)
-        return PShader.POINT;
-      else if (PApplet.match(line, lineShaderDefRegexp) != null)
-        return PShader.LINE;
-      else if (PApplet.match(line, colorShaderDefRegexp) != null)
+
+      if (PApplet.match(line, colorShaderDefRegexp) != null)
         return PShader.COLOR;
       else if (PApplet.match(line, lightShaderDefRegexp) != null)
         return PShader.LIGHT;
@@ -1037,6 +1035,18 @@ public class PShader implements PConstants {
         return PShader.POLY;
       else if (PApplet.match(line, quadShaderAttrRegexp) != null)
         return PShader.POLY;
+      else if (PApplet.match(line, pointShaderDefRegexp) != null)
+        return PShader.POINT;
+      else if (PApplet.match(line, lineShaderDefRegexp) != null)
+        return PShader.LINE;
+      else if (PApplet.match(line, pointShaderAttrRegexp) != null)
+        return PShader.POINT;
+      else if (PApplet.match(line, pointShaderInRegexp) != null)
+        return PShader.POINT;
+      else if (PApplet.match(line, lineShaderAttrRegexp) != null)
+        return PShader.LINE;
+      else if (PApplet.match(line, lineShaderInRegexp) != null)
+        return PShader.LINE;
     }
     return defaultType;
   }
@@ -1148,6 +1158,7 @@ public class PShader implements PConstants {
       projectionMatLoc = getUniformLoc("projectionMatrix");
 
     viewportLoc = getUniformLoc("viewport");
+    resolutionLoc = getUniformLoc("resolution");
     ppixelsLoc = getUniformLoc("ppixels");
 
     normalMatLoc = getUniformLoc("normalMatrix");
@@ -1197,6 +1208,12 @@ public class PShader implements PConstants {
       float w = currentPG.viewport.get(2);
       float h = currentPG.viewport.get(3);
       setUniformValue(viewportLoc, x, y, w, h);
+    }
+
+    if (-1 < resolutionLoc) {
+      float w = currentPG.viewport.get(2);
+      float h = currentPG.viewport.get(3);
+      setUniformValue(resolutionLoc, w, h);
     }
 
     if (-1 < ppixelsLoc) {

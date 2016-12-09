@@ -52,13 +52,14 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 import javax.swing.Action;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
@@ -73,23 +74,15 @@ import processing.app.Messages;
 import processing.app.Platform;
 import processing.app.Preferences;
 import processing.app.Util;
+import processing.data.StringList;
 
 
 /**
  * Utility functions for base that require a java.awt.Toolkit object. These
  * are broken out from Base as we start moving toward the possibility of the
  * code running in headless mode.
- * @author fry
  */
 public class Toolkit {
-  /*
-  static public final String PROMPT_YES     = Language.text("prompt.yes");
-  static public final String PROMPT_NO      = Language.text("prompt.no");
-  static public final String PROMPT_CANCEL  = Language.text("prompt.cancel");
-  static public final String PROMPT_OK      = Language.text("prompt.ok");
-  static public final String PROMPT_BROWSE  = Language.text("prompt.browse");
-  */
-
   static final java.awt.Toolkit awtToolkit =
     java.awt.Toolkit.getDefaultToolkit();
 
@@ -511,6 +504,7 @@ public class Toolkit {
 //      System.err.println("does not exist: " + file);
       return null;
     }
+
     ImageIcon outgoing = new ImageIcon(file.getAbsolutePath()) {
       @Override
       public int getIconWidth() {
@@ -521,6 +515,54 @@ public class Toolkit {
       public int getIconHeight() {
         return super.getIconHeight() / scale;
       }
+
+      /*
+      @Override
+      public Image getImage() {
+        //javax.swing.LookAndFeel -> creates a synthetic disabled icon
+        //com.apple.laf.AquaButtonUI
+        new Exception().printStackTrace();
+        return super.getImage();
+      }
+
+      private Image getImageImpl() {
+        return super.getImage();
+      }
+      */
+
+      /*
+      @Override
+      public Image getImage() {
+        Image actual = super.getImage();
+
+        return new Image() {
+          @Override
+          public int getWidth(ImageObserver observer) {
+            return actual.getWidth(observer) / scale;
+          }
+
+          @Override
+          public int getHeight(ImageObserver observer) {
+            return actual.getHeight(observer) / scale;
+          }
+
+          @Override
+          public ImageProducer getSource() {
+            return actual.getSource();
+          }
+
+          @Override
+          public Graphics getGraphics() {
+            return actual.getGraphics();
+          }
+
+          @Override
+          public Object getProperty(String name, ImageObserver observer) {
+            return actual.getProperty(filename, observer);
+          }
+        };
+      }
+      */
 
       @Override
       public synchronized void paintIcon(Component c, Graphics g, int x, int y) {
@@ -547,6 +589,33 @@ public class Toolkit {
   static public ImageIcon getLibIconX(String base, int size) {
     return getIconX(Platform.getContentFile("lib"), base, size);
   }
+
+
+  /**
+   * Create a JButton with an icon, and set its disabled and pressed images
+   * to be the same image, so that 2x versions of the icon work properly.
+   */
+  static public JButton createIconButton(String title, String base) {
+    ImageIcon icon = Toolkit.getLibIconX(base);
+    return createIconButton(title, icon);
+  }
+
+
+  /** Same as above, but with no text title (follows JButton constructor) */
+  static public JButton createIconButton(String base) {
+    return createIconButton(null, base);
+  }
+
+
+  static public JButton createIconButton(String title, Icon icon) {
+    JButton button = new JButton(title, icon);
+    button.setDisabledIcon(icon);
+    button.setPressedIcon(icon);
+    return button;
+  }
+
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 
   static List<Image> iconImages;
@@ -763,47 +832,6 @@ public class Toolkit {
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 
-//  static Font monoFont;
-//  static Font plainFont;
-//  static Font boldFont;
-//
-//
-//  static public Font getMonoFont(int size) {
-//    if (monoFont == null) {
-//      try {
-//        monoFont = createFont("DroidSansMono.ttf", size);
-//      } catch (Exception e) {
-//        monoFont = new Font("Monospaced", Font.PLAIN, size);
-//      }
-//    }
-//    return monoFont;
-//  }
-//
-//
-//  static public Font getPlainFont(int size) {
-//    if (plainFont == null) {
-//      try {
-//        plainFont = createFont("DroidSans.ttf", size);
-//      } catch (Exception e) {
-//        plainFont = new Font("SansSerif", Font.PLAIN, size);
-//      }
-//    }
-//    return plainFont;
-//  }
-//
-//
-//  static public Font getBoldFont(int size) {
-//    if (boldFont == null) {
-//      try {
-//        boldFont = createFont("DroidSans-Bold.ttf", size);
-//      } catch (Exception e) {
-//        boldFont = new Font("SansSerif", Font.BOLD, size);
-//      }
-//    }
-//    return boldFont;
-//  }
-
-
   static final char GREEK_SMALL_LETTER_ALPHA = '\u03B1';  // α
   static final char GREEK_CAPITAL_LETTER_OMEGA = '\u03A9';  // ω
 
@@ -813,7 +841,7 @@ public class Toolkit {
     GraphicsEnvironment ge =
       GraphicsEnvironment.getLocalGraphicsEnvironment();
     Font[] fonts = ge.getAllFonts();
-    ArrayList<Font> outgoing = new ArrayList<Font>();
+    List<Font> outgoing = new ArrayList<Font>();
     // Using AffineTransform.getScaleInstance(100, 100) doesn't change sizes
     FontRenderContext frc =
       new FontRenderContext(new AffineTransform(),
@@ -855,13 +883,12 @@ public class Toolkit {
 
 
   static public String[] getMonoFontFamilies() {
-    HashSet<String> families = new HashSet<String>();
+    StringList families = new StringList();
     for (Font font : getMonoFontList()) {
-      families.add(font.getFamily());
+      families.appendUnique(font.getFamily());
     }
-    String[] names = families.toArray(new String[0]);
-    Arrays.sort(names);
-    return names;
+    families.sort();
+    return families.array();
   }
 
 
@@ -873,7 +900,8 @@ public class Toolkit {
 
   static public String getMonoFontName() {
     if (monoFont == null) {
-      getMonoFont(12, Font.PLAIN);  // load a dummy version
+      // create a dummy version if the font has never been loaded (rare)
+      getMonoFont(12, Font.PLAIN);
     }
     return monoFont.getName();
   }
@@ -923,6 +951,15 @@ public class Toolkit {
   }
 
 
+  static public String getSansFontName() {
+    if (sansFont == null) {
+      // create a dummy version if the font has never been loaded (rare)
+      getSansFont(12, Font.PLAIN);
+    }
+    return sansFont.getName();
+  }
+
+
   static public Font getSansFont(int size, int style) {
     if (sansFont == null) {
       try {
@@ -969,23 +1006,23 @@ public class Toolkit {
 
 
   /**
-   * Get a font from the JRE lib/fonts folder. Our default fonts are also
+   * Get a font from the lib/fonts folder. Our default fonts are also
    * installed there so that the monospace (and others) can be used by other
    * font listing calls (i.e. it appears in the list of monospace fonts in
    * the Preferences window, and can be used by HTMLEditorKit for WebFrame).
    */
   static private Font createFont(String filename, int size) throws IOException, FontFormatException {
-    // Can't use Base.getJavaHome(), because if we're not using our local JRE,
-    // we likely have bigger problems with how things are running.
+    boolean registerFont = false;
+
+    // try the JRE font directory first
     File fontFile = new File(System.getProperty("java.home"), "lib/fonts/" + filename);
+
+    // else fall back to our own content dir
     if (!fontFile.exists()) {
-      // if we're debugging from Eclipse, grab it from the work folder (user.dir is /app)
-      fontFile = new File(System.getProperty("user.dir"), "../build/shared/lib/fonts/" + filename);
+      fontFile = Platform.getContentFile("lib/fonts/" + filename);
+      registerFont = true;
     }
-    if (!fontFile.exists()) {
-      // if we're debugging the new Java Mode from Eclipse, paths are different
-      fontFile = new File(System.getProperty("user.dir"), "../../shared/lib/fonts/" + filename);
-    }
+
     if (!fontFile.exists()) {
       String msg = "Could not find required fonts. ";
       // This gets the JAVA_HOME for the *local* copy of the JRE installed with
@@ -1000,9 +1037,16 @@ public class Toolkit {
       Messages.showError("Font Sadness", msg, null);
     }
 
+
     BufferedInputStream input = new BufferedInputStream(new FileInputStream(fontFile));
     Font font = Font.createFont(Font.TRUETYPE_FONT, input);
     input.close();
+
+    if (registerFont) {
+      GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+      ge.registerFont(font);
+    }
+
     return font.deriveFont((float) size);
   }
 

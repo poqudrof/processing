@@ -55,9 +55,9 @@ import processing.data.StringList;
 public class Base {
   // Added accessors for 0218 because the UpdateCheck class was not properly
   // updating the values, due to javac inlining the static final values.
-  static private final int REVISION = 253;
+  static private final int REVISION = 255;
   /** This might be replaced by main() if there's a lib/version.txt file. */
-  static private String VERSION_NAME = "0253"; //$NON-NLS-1$
+  static private String VERSION_NAME = "0255"; //$NON-NLS-1$
   /** Set true if this a proper release rather than a numbered revision. */
 
   /** True if heavy debugging error/log messages are enabled */
@@ -823,11 +823,11 @@ public class Base {
       String entry = c.getTypeName() + "=" +
         PApplet.urlEncode(String.format("name=%s\nurl=%s\nrevision=%d\nversion=%s",
                                         c.getName(), c.getUrl(),
-                                        c.getVersion(), c.getPrettyVersion()));
+                                        c.getVersion(), c.getBenignVersion()));
       entries.append(entry);
     }
     String joined =
-      "id=" + Preferences.get("update.id") + "&" + entries.join("&");
+      "id=" + UpdateCheck.getUpdateID() + "&" + entries.join("&");
 //    StringBuilder sb = new StringBuilder();
 //    try {
 //      // Truly ridiculous attempt to shove everything into a GET request.

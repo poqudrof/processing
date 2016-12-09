@@ -57,9 +57,10 @@
   <property name="examples.dir" 
 	    value="../../processing-docs/content/examples" />
 
-  <!-- Switching to 8 because updates for 7 ended April 2015 -->
+  <!-- using 8u111 instead of 8u112 because the latter 
+       has different build numbers for macOS vs others -->
   <property name="jdk.version" value="8" />
-  <property name="jdk.update" value="102" />
+  <property name="jdk.update" value="111" />
   <property name="jdk.build" value="14" />
 
   <property name="jdk.short" value="${jdk.version}u${jdk.update}" />
@@ -611,15 +612,8 @@
     <copy todir="macosx/work/Processing.app/Contents/Java">
       <fileset dir=".." includes="core/library/**" /> <!-- why this? -->
       <!--<fileset dir="shared" includes="launch4j/**" />-->
-      <fileset dir="shared" includes="lib/**" excludes="lib/fonts/**" />
+      <fileset dir="shared" includes="lib/**" />
       <fileset file="shared/revisions.txt" />
-    </copy>
-
-    <!--
-    Processing.app/Contents/PlugIns/jdk1.7.0_40.jdk/Contents/Home/jre/lib/fonts
-    -->
-    <copy todir="macosx/work/Processing.app/Contents/PlugIns/jdk${jdk.esoteric}.jdk/Contents/Home/jre/lib/fonts">
-      <fileset dir="shared/lib/fonts" includes="*" />
     </copy>
 
     <antcall target="assemble">
@@ -756,7 +750,7 @@
     <copy todir="linux/work">
       <fileset dir=".." includes="core/library/**" />
       <fileset dir="shared" includes="launch4j/**" />
-      <fileset dir="shared" includes="lib/**" excludes="lib/fonts/**" />
+      <fileset dir="shared" includes="lib/**"  />
       <fileset dir="shared" includes="modes/**" />
       <fileset file="shared/revisions.txt" />
     </copy>
@@ -857,11 +851,6 @@
       -->
       <fileset refid="jre-optional-linux" />
     </delete>
-
-    <copy todir="linux/work/java/lib/fonts">
-      <fileset dir="shared/lib/fonts" includes="*" />
-    </copy>
-
   </target>
   
   <target name="linux-run" depends="linux-build" 
@@ -1053,7 +1042,7 @@
     <copy todir="windows/work">
       <fileset dir=".." includes="core/library/**" />
       <fileset dir="shared" includes="launch4j/**" />
-      <fileset dir="shared" includes="lib/**" excludes="lib/fonts/**" />
+      <fileset dir="shared" includes="lib/**" />
       <fileset dir="shared" includes="modes/**" />
       <fileset file="shared/revisions.txt" />
     </copy>
@@ -1119,10 +1108,6 @@
       -->
       <fileset refid="jre-optional-windows" />
     </delete>
-
-    <copy todir="windows/work/java/lib/fonts">
-      <fileset dir="shared/lib/fonts" includes="*" />
-    </copy>
   </target>
   
   <target name="windows-run" depends="windows-build" 

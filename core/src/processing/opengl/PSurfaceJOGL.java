@@ -58,6 +58,7 @@ import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import com.jogamp.nativewindow.WindowClosingProtocol;
 import com.jogamp.newt.Display;
 import com.jogamp.newt.Display.PointerIcon;
 import com.jogamp.newt.MonitorDevice;
@@ -67,6 +68,7 @@ import com.jogamp.newt.awt.NewtCanvasAWT;
 import com.jogamp.newt.event.InputEvent;
 import com.jogamp.newt.opengl.GLWindow;
 import com.jogamp.opengl.util.FPSAnimator;
+
 
 import processing.core.PApplet;
 import processing.core.PConstants;
@@ -313,6 +315,12 @@ public class PSurfaceJOGL implements PSurface {
 
   protected void initWindow() {
     window = GLWindow.create(screen, pgl.getCaps());
+
+    // Make sure that we pass the window close through to exit(), otherwise
+    // we're likely to have OpenGL try to shut down halfway through rendering
+    // a frame. Particularly problematic for complex/slow apps.
+    // https://github.com/processing/processing/issues/4690
+    window.setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode.DO_NOTHING_ON_CLOSE);
 
 //    if (displayDevice == null) {
 //
@@ -831,6 +839,10 @@ public class PSurfaceJOGL implements PSurface {
 
 
   public void setFrameRate(float fps) {
+    if (fps < 1) {
+      PGraphics.showWarning("The OpenGL renderers cannot have a frame rate lower than 1.\nYour sketch will run at 1 frame per second.");
+      fps = 1;
+    }
     if (animator != null) {
       animator.stop();
       animator.setFPS((int)fps);
@@ -866,17 +878,19 @@ public class PSurfaceJOGL implements PSurface {
         requestFocus();
       }
 
-      pgl.getGL(drawable);
-      int pframeCount = sketch.frameCount;
-      sketch.handleDraw();
-      if (pframeCount == sketch.frameCount) {
-        // This hack allows the FBO layer to be swapped normally even if
-        // the sketch is no looping, otherwise background artifacts will occur.
-        pgl.beginRender();
-        pgl.endRender(sketch.sketchWindowColor());
+      if (!sketch.finished) {
+        pgl.getGL(drawable);
+        int pframeCount = sketch.frameCount;
+        sketch.handleDraw();
+        if (pframeCount == sketch.frameCount || sketch.finished) {
+          // This hack allows the FBO layer to be swapped normally even if
+          // the sketch is no looping or finished because it does not call draw(),
+          // otherwise background artifacts may occur (depending on the hardware/drivers).
+          pgl.beginRender();
+          pgl.endRender(sketch.sketchWindowColor());
+        }
+        PGraphicsOpenGL.completeFinishedPixelTransfers();
       }
-
-      PGraphicsOpenGL.completeFinishedPixelTransfers();
 
       if (sketch.exitCalled()) {
         PGraphicsOpenGL.completeAllPixelTransfers();
@@ -886,7 +900,7 @@ public class PSurfaceJOGL implements PSurface {
       }
     }
     public void dispose(GLAutoDrawable drawable) {
-      sketch.dispose();
+//      sketch.dispose();
     }
     public void init(GLAutoDrawable drawable) {
       pgl.getGL(drawable);
@@ -955,6 +969,7 @@ public class PSurfaceJOGL implements PSurface {
 
     @Override
     public void windowDestroyed(com.jogamp.newt.event.WindowEvent arg0) {
+      sketch.exit();
     }
 
     @Override

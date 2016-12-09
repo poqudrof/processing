@@ -83,7 +83,12 @@ public class UpdateCheck {
   }
 
 
-  public void updateCheck() throws IOException, InterruptedException {
+  /**
+   * Turned into a separate method so that anyone needed update.id will get
+   * a legit answer. Had a problem with the contribs script where the id
+   * wouldn't be set so a null id would be sent to the contribs server.
+   */
+  static public long getUpdateID() {
     // generate a random id in case none exists yet
     Random r = new Random();
     long id = r.nextLong();
@@ -94,8 +99,12 @@ public class UpdateCheck {
     } else {
       Preferences.set("update.id", String.valueOf(id));
     }
+    return id;
+  }
 
-    String info = PApplet.urlEncode(id + "\t" +
+
+  public void updateCheck() throws IOException, InterruptedException {
+    String info = PApplet.urlEncode(getUpdateID() + "\t" +
                                     PApplet.nf(Base.getRevision(), 4) + "\t" +
                                     System.getProperty("java.version") + "\t" +
                                     System.getProperty("java.vendor") + "\t" +

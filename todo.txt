@@ -1,21 +1,61 @@
-0253 (3.2.1)
-X "Could not replace preferences.old" error message
-X   https://github.com/processing/processing/issues/4626
-X Version 3.2 won't run from paths with spaces on Windows
-X   https://github.com/processing/processing/issues/4623
-X   might be ext.dirs trouble with spaces in path names?
-X   or the backwards slashes?
-X fixes for Python Mode crashing on startup
-X disable ext.dirs on Linux export and set jna.nosys as well
-X Java not included properly with 32-bit Linux export
-X JavaInputHandler not registering
+0255 (3.2.3)
+X ensure that update.id is set before checking for contrib updates
+X if prettyVersion is blank (or null?), just use version (Firmata)
+X clicking "Update" button in contrib manager shows non-retina version of icon
+X   https://github.com/processing/processing/issues/4715
+o   problem is because AquaButtonUI is calling getImage() (not getIcon())
+o   can be debugging from inside the getIconX() code in Toolkit
+X   just needed to use setPressedIcon(), setDisabledIcon()
+X   also found some other issues around the icon handling
+X fix the library reporting scripts on the server
+X missing version number putting 'null' in the ui
+X   https://github.com/processing/processing-docs/issues/478
+X   https://github.com/processing/processing/issues/4696
+X   https://github.com/processing/processing/pull/4712
+o replace appbundler with the Java 8 packager
+o   appbundler is no longer being developed by Oracle, switch to "packager"
+X   https://github.com/processing/processing/issues/3071
+X major clean-ups to the Contribution Manager code
+X warn user to restart browser when it hangs on macOS
+X   https://github.com/fathominfo/processing-p5js-mode/issues/4
 
+contribs
+X Up-to-date status disappears after filter is removed
+X   https://github.com/processing/processing/issues/4084
+X Updates tab blank after adding, removing, updating a contribution
+X   https://github.com/processing/processing/issues/4082
+X   https://github.com/processing/processing/issues/4704
+X Fixes the removal of redundant contribution and update related issues
+X   https://github.com/processing/processing/pull/4086
+
+0256 (3.2.4 or 3.3)
+
+
+_ fix appbundler problems due to rollback
+_   https://github.com/processing/processing/issues/3790
+_   the rollback re-introduces two bugs (serial export and scrolling)
+_   and any other changes later than 16 November 2014:
+_   https://github.com/processing/processing/commits/master/build/macosx/appbundler.jar
+_   https://github.com/processing/processing/commits/master/build/macosx/appbundler/native/main.m
+_   https://github.com/processing/processing/commit/fa27b983e76fdbc5c4c1451a1f0d854c652b1639
+_   https://bitbucket.org/infinitekind/appbundler
+
+_ settings() present and pixelDensity() is in setup(), nothing set/no error
+_   https://github.com/processing/processing/issues/4703
+
+_ 'version' should be x.y or x.y.z, not some extra long string
+_   enforce this by disallowing spaces? on the import script?
+
+_ Application Exports report as "Damaged" on macOS Sierra
+_   https://github.com/processing/processing/issues/4705
+_   could provide script to un-quarrantine
+_   xattr -d -r com.apple.quarantine
+
+_ sharing usage metrics about libraries
+_   https://github.com/processing/processing/issues/4708
 
 _ library compilations handled oddly
 _   https://github.com/processing/processing/issues/4630
-
-_ update launch4j to 3.9
-_   https://sourceforge.net/projects/launch4j/files/launch4j-3/3.9/
 
 _ editor windows always open on display 1
 _   https://github.com/processing/processing/issues/1566
@@ -41,6 +81,14 @@ _ Pasting code from editor to empty editor produces Exception
 _   https://github.com/processing/processing/issues/4522
 _ possible infinite loop on modified externally
 _   https://github.com/processing/processing/issues/3965
+_ PDE and sketches are 2x smaller on high-res Windows machines
+_   https://github.com/processing/processing/issues/2411
+_   System.setProperty("sun.java2d.dpiaware", "false");
+_   though that seems broken in Java 8: http://superuser.com/a/1007783
+_   modi
+_   until we fix it..
+_     call this from JNA? https://msdn.microsoft.com/en-us/library/windows/desktop/dn302122(v=vs.85).aspx
+_     or modify the manifest/app? https://msdn.microsoft.com/en-us/library/windows/desktop/dn469266%28v=vs.85%29.aspx
 
 medium
 _ detect changes in case with libraries
@@ -51,10 +99,6 @@ _ hidpi scaling via font changes?
 _   http://stackoverflow.com/a/34152675
 _ hi-dpi support on Linux
 _   https://github.com/processing/processing/issues/4183
-_ PDE and sketches are 2x smaller on high-res Windows machines
-_   https://github.com/processing/processing/issues/2411
-_   System.setProperty("sun.java2d.dpiaware", "false");
-_   though that seems broken in Java 8: http://superuser.com/a/1007783
 _ did we lose settings.path because it was too buggy?
 _   https://github.com/processing/processing/issues/3948
 _ Library path mismatch between processing-java and export
@@ -658,6 +702,8 @@ _   e.g. ocd is broken in 0125 because of method signature changes
 
 PDE / Manager
 
+_ proper error handling when downloading contribs listing
+_   https://github.com/processing/processing/issues/4732
 _ update CM entries when sketchbook location changes
 _   https://github.com/processing/processing/issues/3927
 _ ugly white gap at the top of scroll bar
@@ -880,8 +926,6 @@ _ p5 assets need to be licensed differently from the source
 
 DIST / Windows
 
-_ PDE and sketches are 2x smaller on high-res Windows 8 machines
-_   https://github.com/processing/processing/issues/2411
 _ does launching p5 from inside the .zip folder cause it to quit immediately?
 _   how can we provide an error message here?
 _ how to handle double-clicked files on windows?
@@ -894,16 +938,6 @@ DIST / Mac OS X
 _ client properties 
 _   https://developer.apple.com/library/mac/technotes/tn2007/tn2196.html
 _ built-in images: http://nadeausoftware.com/articles/2008/12/mac_java_tip_how_access_mac_specific_nsimage_icons
-_ replace appbundler with the Java 8 packager
-_   https://github.com/processing/processing/issues/3071
-_ fix appbundler problems due to rollback
-_   https://github.com/processing/processing/issues/3790
-_   appbundler is no longer being developed by Oracle, switch to "packager"
-_   this re-introduces two bugs (serial export and scrolling)
-_   and any other changes later than 16 November 2014:
-_   https://github.com/processing/processing/commits/master/build/macosx/appbundler.jar
-_   https://github.com/processing/processing/commits/master/build/macosx/appbundler/native/main.m
-_   https://github.com/processing/processing/commit/fa27b983e76fdbc5c4c1451a1f0d854c652b1639
 _ Update QuickLook plugin for Processing 3
 _   https://github.com/processing/processing/issues/3261
 _ Find a long-term solution for OS X bundler to address signing/symlink issues
