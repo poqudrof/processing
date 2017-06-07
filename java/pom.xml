@@ -5,13 +5,13 @@
     <parent>
         <groupId>org.processing</groupId>
         <artifactId>processing-complete</artifactId>
-        <version>3.2.3</version>
+        <version>3.3.4</version>
         <relativePath>../build/pom.xml</relativePath>
     </parent>
 
     <groupId>org.processing</groupId>
     <artifactId>java-mode</artifactId>
-    <version>3.2.3</version>
+    <version>3.3.4</version>
     <packaging>jar</packaging>
 
     <name>Processing Java Mode</name>
@@ -24,12 +24,12 @@
         <dependency>
             <groupId>org.processing</groupId>
             <artifactId>core</artifactId>
-            <version>3.2.3</version>
+            <version>3.3.4</version>
         </dependency>
         <dependency>
             <groupId>org.processing</groupId>
             <artifactId>pde</artifactId>
-            <version>3.2.3</version>
+            <version>3.3.4</version>
         </dependency>
         
                 <!-- version found in app/lib/ant.jar/org/apache/tools/ant/version.txt -->
@@ -120,7 +120,7 @@
         <dependency>
             <groupId>jdimodel</groupId>  
             <artifactId>jdimodel</artifactId>  
-            <version>3.2.3</version>  
+            <version>3.3.4</version>  
             <scope>system</scope>
             <systemPath>${project.basedir}/mode/jdimodel.jar</systemPath>
         </dependency>
@@ -128,7 +128,7 @@
         <dependency>
             <groupId>jdtCompilerAdapter</groupId>  
             <artifactId>jdtCompilerAdapter</artifactId>  
-            <version>3.2.3</version>  
+            <version>3.3.4</version>  
             <scope>system</scope>
             <systemPath>${project.basedir}/mode/jdtCompilerAdapter.jar</systemPath>
         </dependency>
