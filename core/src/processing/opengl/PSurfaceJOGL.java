@@ -41,6 +41,8 @@ import java.util.Map;
 
 import javax.swing.ImageIcon;
 
+import redis.clients.jedis.*;
+
 import com.jogamp.common.util.IOUtil;
 import com.jogamp.common.util.IOUtil.ClassResources;
 import com.jogamp.nativewindow.NativeSurface;
@@ -62,6 +64,7 @@ import com.jogamp.newt.NewtFactory;
 import com.jogamp.newt.Screen;
 import com.jogamp.newt.awt.NewtCanvasAWT;
 import com.jogamp.newt.event.InputEvent;
+import com.jogamp.newt.event.MouseEvent.PointerType;
 import com.jogamp.newt.opengl.GLWindow;
 import com.jogamp.opengl.util.FPSAnimator;
 
@@ -348,6 +351,8 @@ public class PSurfaceJOGL implements PSurface {
 
 
   protected void initListeners() {
+    
+    System.out.println("P5: init NEWT Event listeners");
     NEWTMouseListener mouseListener = new NEWTMouseListener();
     window.addMouseListener(mouseListener);
     NEWTKeyListener keyListener = new NEWTKeyListener();
@@ -942,11 +947,15 @@ public class PSurfaceJOGL implements PSurface {
     }
   }
 
-
+  public Jedis jedis;
+  
   // NEWT mouse listener
   protected class NEWTMouseListener extends com.jogamp.newt.event.MouseAdapter {
     public NEWTMouseListener() {
       super();
+      if(jedis == null){
+//           jedis = new Jedis("127.0.0.1", 6379);
+      }
     }
     @Override
     public void mousePressed(com.jogamp.newt.event.MouseEvent e) {
@@ -1006,6 +1015,15 @@ public class PSurfaceJOGL implements PSurface {
 
   protected void nativeMouseEvent(com.jogamp.newt.event.MouseEvent nativeEvent,
                                   int peAction) {
+    
+//    System.out.println("jedis set: " + nativeEvent.toString());
+//  for(short pointerID : nativeEvent.getAllPointerIDs()){
+//    System.out.println("PointerID: " + pointerID);
+//  }
+//  for(PointerType pointerType : nativeEvent.getAllPointerTypes()){
+//   System.out.println("type: " + pointerType);
+//  }
+//    jedis.sadd("input:mouse", nativeEvent.toString());
     int modifiers = nativeEvent.getModifiers();
     int peModifiers = modifiers &
                       (InputEvent.SHIFT_MASK |

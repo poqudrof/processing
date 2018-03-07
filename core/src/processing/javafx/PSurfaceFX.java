@@ -159,6 +159,8 @@ public class PSurfaceFX implements PSurface {
           fxMouseEvent(e);
         }
       };
+      
+      System.out.println("P5: JavaFX events");
 
       setOnMousePressed(mouseHandler);
       setOnMouseReleased(mouseHandler);

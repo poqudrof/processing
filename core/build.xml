@@ -52,7 +52,8 @@
 	   debug="true"
 	   destdir="bin"
 	   classpath="apple.jar; 
-                      library/jogl-all.jar; 
+                      library/jogl-all.jar;
+		      library/jedis.jar; 
                       library/gluegen-rt.jar"
 	   nowarn="true">
       <!-- kinda gross, but if not using the JDT, this just ignored anyway -->

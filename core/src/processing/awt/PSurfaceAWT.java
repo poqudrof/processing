@@ -141,6 +141,8 @@ public class PSurfaceAWT extends PSurfaceNone {
         }
       }
     });
+
+    System.out.println("P5: Adding AWT listeners");
     addListeners();
   }
 
