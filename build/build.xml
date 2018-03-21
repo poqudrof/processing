@@ -238,7 +238,8 @@
                value="${platform}-x64.tar.gz">
       <equals arg1="${sun.arch.data.model}" arg2="64" />
     </condition>
-
+    
+    
     <downloader version="${jdk.version}"
                 update="${jdk.update}"
                 build="${jdk.build}"
